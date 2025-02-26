@@ -1,38 +1,42 @@
 # Este modulo de la librería pyhdf proporciona funciones para trabajar con archivos hdf en formato SD (Scientific Data)
 from pyhdf.SD import SD, SDC
-import numpy as np
-import matplotlib.pyplot as plt
 import pandas as pd
-# Descarga los datos MOD10A1 o MYD10A1 de la cubierta de nieve del sitio web de la NASA.
-# Utiliza `h5py` para leer los datos HDF y extraer la información relevante.
-# Define tu área de estudio y filtra los datos.
-# Convierte los datos a un formato adecuado para tu modelo NARX (por ejemplo, un DataFrame de pandas).
-# Normaliza los datos utilizando `MinMaxScaler` para mejorar el rendimiento del modelo.
-# Divide los datos en conjuntos de entrenamiento, validación y prueba.
 
-ruta_hdf = "data/MOD10A1F.A2025048.h18v04.061.2025050043304.hdf"
+import cartopy.crs as ccrs
+import cartopy.feature as cfeature
+import matplotlib.pyplot as plt
+import numpy as np
+from pyhdf.SD import SD, SDC
 
+ruta_hdf = "data/Adda-Bormio_basin-2024/MOD10A1F_61-20250226_083107/MOD10A1F.A2024001.h18v04.061.2024005143528.hdf"
 hdf_file = SD(ruta_hdf, SDC.READ)
-datasets = hdf_file.datasets()
-
-# print(f"Datasets: {datasets}")
-# print(type(datasets),"\n", len(datasets))
-
-# for key, value in datasets.items():
-#     print(f"Key: {key} ({len(value)} elements), Value: {value}\n")
-#     print(type(value))
-#     for elemento in value:
-#         print(type(elemento))
 
 
-capa_nieve = hdf_file.select("MOD10A1_NDSI_Snow_Cover")
-data = capa_nieve.get()
+gcf_ndsi_snow_cover = hdf_file.select("CGF_NDSI_Snow_Cover")
+cloud_persistance = hdf_file.select("Cloud_Persistence")
+basic_qa = hdf_file.select("Basic_QA")
+algorithm_flags_qa = hdf_file.select("Algorithm_Flags_QA")
+mod10a1_ndsi_snow_cover = hdf_file.select("MOD10A1_NDSI_Snow_Cover")
 
+# Info del dataset: Returns:
+# 5-element tuple holding:
+#   - dataset name
+#   - dataset rank (number of dimensions)
+#   - dataset shape, that is a list giving the length of each dataset dimension; if the first dimension is unlimited, then
+#       the first value of the list gives the current length of the unlimited dimension
+#   - data type (one of the SDC.xxx values)
+#   - number of attributes defined for the dataset
 
-print(data)
+print(gcf_ndsi_snow_cover.info())
+print(cloud_persistance.info())
+print(basic_qa.info())
+print(algorithm_flags_qa.info())
+print(mod10a1_ndsi_snow_cover.info())
 
-df = pd.DataFrame(data)
-print(df.head())
+# print(data)
+
+# df = pd.DataFrame(data)
+# print(df.head())
 
 # -------------------------------------------------------------------------------------------#
 
