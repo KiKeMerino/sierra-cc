@@ -4,7 +4,7 @@
 
 Este proyecto tiene como objetivo crear conciencia sobre cómo va a ir disminuyendo la capa de nieve en fechas futuras utilizando un modelo NARX (Non-linear Autoregressive with Exogenous Inputs).
 
-El proyecto es más grande pero yo me centraré en el uso de la inteligencia artificial para evaluar el impacto del cambio climático en la cobertura de nieve.
+Ésta es solo una parte del proyecto, yo me centraré en el uso de la inteligencia artificial para evaluar el impacto del cambio climático en la cobertura de nieve.
 
 ## Estructura de los datos
 
@@ -78,6 +78,7 @@ Los datos utilizados en este proyecto provienen de los siguientes datasets de la
         - 255=fill
 
 Cada dataset es una matriz de 2400x2400 que contiene información sobre la cobertura de nieve y otras variables relevantes.
+![Estructura de datos de cada dataset]("img/estructura_datos.drawio.png")
 
 ## Proceso
 
