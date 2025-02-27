@@ -29,3 +29,6 @@ def obtener_datos(ruta_hdf):
     }
 
     return datos
+
+datos = obtener_datos("data/Adda-Bormio_basin-2024/MOD10A1F_61-20250226_083107/MOD10A1F.A2024001.h18v04.061.2024005143528.hdf")
+

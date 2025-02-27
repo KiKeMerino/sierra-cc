@@ -78,7 +78,7 @@ Los datos utilizados en este proyecto provienen de los siguientes datasets de la
         - 255=fill
 
 Cada dataset es una matriz de 2400x2400 que contiene información sobre la cobertura de nieve y otras variables relevantes.
-![Estructura de datos de cada dataset]("img/estructura_datos.drawio.png")
+![Estructura de datos de cada dataset]("/img/estructura_datos.drawio.png")
 
 ## Proceso
 
