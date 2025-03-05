@@ -15,6 +15,8 @@ Los datos utilizados en este proyecto provienen de los siguientes datasets de la
     - valid_range: [0, 100],
     - FillValue: 255,
     - Key:
+        - **40 - 100 = NIEVE (1)**
+
         - 0-100 = NDSI snow,
         - 200 = missing data,
         - 201 = no decision,
