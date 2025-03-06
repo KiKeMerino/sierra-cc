@@ -80,7 +80,21 @@ Los datos utilizados en este proyecto provienen de los siguientes datasets de la
         - 255=fill
 
 Cada dataset es una matriz de 2400x2400 que contiene información sobre la cobertura de nieve y otras variables relevantes.
-![Estructura de datos de cada dataset]("/img/estructura_datos.drawio.png")
+![Estructura de datos de cada dataset]("img/estructura_datos.drawio.png")
+
+## Obtención de los datos
+Para la obtención de los datos usaremos la aplicación de [EarthData Search](https://search.earthdata.nasa.gov/search) filtrando por fecha, y eligiendo el área de trabajo que me interesa.
+Una vez que tenemos los datos, antes de descargarlos seleccionaremos las siguientes opciones para facilitar su manipulación:
+    - Primero indicamos una descarga personalizada
+    ![Primera opción]("img/option1.png")
+    - Y lo segundo, pedimos que nos lo reproyecte en el sistema que mejor nos venga, en este caso Geofráfico (latitud y longitud), ya que por defecto viene en sinusoidal.
+    ![Segunda opción]("img/option2.png")
+
+## Carga de datos
+Para la carga de datos usaré la librería **rioxarray** mediante la siguiente función
+    `modis = rxr.open_rasterio(modis_path, masked=True)`
+Esta función devuelve un *\< class \'xarray.core.dataset.Dataset\'\>*
+
 
 ## Proceso
 
