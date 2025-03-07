@@ -95,10 +95,10 @@ Los datos MODIS se obtuvieron de [EarthData Search](https://search.earthdata.nas
 
 2.  **Descarga Personalizada:**
     * Se seleccionó la opción de descarga personalizada para tener control sobre el formato y la proyección de los datos.
-        * ![Primera opción]("img/option1.png")
+        * ![Primera opción](img/option1.png)
 3.  **Re proyección a WGS 84 (Latitud/Longitud):**
     * Se solicitó que los datos fueran re proyectados al sistema de coordenadas geográficas WGS 84 (latitud/longitud). Por defecto, los datos MODIS se proporcionan en proyección sinusoidal, que no es adecuada para muchos análisis comunes.
-        * ![Segunda opción]("img/option2.png")
+        * ![Segunda opción](img/option2.png)
     * Es importante re proyectar los datos antes de la descarga para simplificar el procesamiento posterior.
 
 ## 2. Dependencias
