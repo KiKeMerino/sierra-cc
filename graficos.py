@@ -3,7 +3,8 @@ import seaborn as sns
 from obtencion_datos import obtener_datos
 
 # Obtener los datos
-datos = obtener_datos("data/Adda-Bormio_basin-2024/MOD10A1F_61-20250226_083107/MOD10A1F.A2024001.h18v04.061.2024005143528.hdf")
+datos = obtener_datos("data/cuencas/machopo-almendros/231750394/MOD10A1F_A2015001_h12v12_061_2021316063557_HEGOUT.hdf")
+datos = obtener_datos("data/ejemplo.hdf")
 
 # Crear un histograma de los datos de la variable "CGF_NDSI_Snow_Cover"
 plt.hist(datos["CGF_NDSI_Snow_Cover"].values.flatten(), bins=50)

@@ -15,6 +15,8 @@ Los datos utilizados en este proyecto provienen de los siguientes datasets de la
     - valid_range: [0, 100],
     - FillValue: 255,
     - Key:
+        - **40 - 100 = NIEVE (1)**
+
         - 0-100 = NDSI snow,
         - 200 = missing data,
         - 201 = no decision,
@@ -79,6 +81,41 @@ Los datos utilizados en este proyecto provienen de los siguientes datasets de la
 
 Cada dataset es una matriz de 2400x2400 que contiene información sobre la cobertura de nieve y otras variables relevantes.
 ![Estructura de datos de cada dataset](img/estructura_datos.drawio.png)
+
+# Análisis de Datos MODIS para la Cuenca Adda-Bormio
+
+Este repositorio contiene el código y los datos necesarios para analizar datos MODIS (Moderate Resolution Imaging Spectroradiometer) en la cuenca Adda-Bormio.
+
+## 1. Obtención de Datos
+
+Los datos MODIS se obtuvieron de [EarthData Search](https://search.earthdata.nasa.gov/search), la plataforma de NASA para la búsqueda de datos geoespaciales. Los pasos para la descarga personalizada fueron los siguientes:
+
+1.  **Filtrado por Fecha y Área de Interés:**
+    * Se filtraron los datos por el rango de fechas deseado y se definió el área de interés correspondiente a la cuenca Adda-Bormio.
+
+2.  **Descarga Personalizada:**
+    * Se seleccionó la opción de descarga personalizada para tener control sobre el formato y la proyección de los datos.
+        * ![Primera opción]("img/option1.png")
+3.  **Re proyección a WGS 84 (Latitud/Longitud):**
+    * Se solicitó que los datos fueran re proyectados al sistema de coordenadas geográficas WGS 84 (latitud/longitud). Por defecto, los datos MODIS se proporcionan en proyección sinusoidal, que no es adecuada para muchos análisis comunes.
+        * ![Segunda opción]("img/option2.png")
+    * Es importante re proyectar los datos antes de la descarga para simplificar el procesamiento posterior.
+
+## 2. Dependencias
+
+Para ejecutar el código en este repositorio, necesitarás las siguientes bibliotecas de Python:
+
+* `rioxarray`: Para leer y manipular datos raster georreferenciados.
+* `xarray`: Para trabajar con datos multidimensionales.
+* `geopandas`: Para manipular datos vectoriales (shapefiles).
+* `shapely`: Para operaciones geométricas.
+* `matplotlib`: Para visualización de datos.
+
+## Carga de datos
+Para la carga de datos usaré la librería **rioxarray** mediante la siguiente función
+    `modis = rxr.open_rasterio(modis_path, masked=True)`
+Esta función devuelve un *\< class \'xarray.core.dataset.Dataset\'\>*
+
 
 ## Proceso
 
