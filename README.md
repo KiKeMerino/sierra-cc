@@ -90,7 +90,7 @@ Este es el Dataset con el que trabajaremos, se trata de un xarray que contiene d
     Se puede acceder a las coordenadas de latitud con `snow_cover.y.values` y a las de longitud con `snow_cover.x.values`.
 * **Variable principal:**
     * `CGF_NDSI_Snow_Cover`: Representa el Índice de Nieve de Diferencia Normalizada (NDSI), indicando la fracción de cubierta de nieve en cada píxel.
-    Los valores de cubierta de nieve se acceden directamente a través de `snow_cover.to_array().values[0]`.
+    Los valores de cubierta de nieve se acceden directamente a través de `snow_cover["CGF_NDSI_Snow_Cover"]`.
 
 
 ## 1. Obtención de Datos

@@ -15,7 +15,6 @@ warnings.simplefilter('ignore')
 
 modis_path = "./data/ejemplo_adda.hdf"
 area_path = "data/cuencas/adda-bornio/Adda-Bormio_basin.shp"
-area = gpd.read_file(area_path)
 
 # modis = rxr.open_rasterio(modis_path, masked=True)
 
@@ -33,7 +32,7 @@ area = gpd.read_file(area_path)
 # # plt.show()
 
 
-def open_bands_boundary(modis_path, area, variable="CGF_NDSI_Snow_Cover"):
+def open_bands_boundary(modis_path, area_path, variable="CGF_NDSI_Snow_Cover"):
     """Open, subset and crop a MODIS h4 file.
 
     Parametros
@@ -53,6 +52,7 @@ def open_bands_boundary(modis_path, area, variable="CGF_NDSI_Snow_Cover"):
 
     # area.total_bounds contiene una tupla con las coordenadas del bounding box (minx, miny, maxx, maxy)
     # El operador * se utiliza para desempaquetar esta tupla, pasando las 4 coordenadas separados a la función box()
+    area = gpd.read_file(area_path)
     crop_bound_box = [box(*area.total_bounds)]
 
     # rio.clip se usa para recortar el raster a una extensión geográfica específica
@@ -62,19 +62,21 @@ def open_bands_boundary(modis_path, area, variable="CGF_NDSI_Snow_Cover"):
     return band
 
 
-snow_cover = open_bands_boundary(modis_path, area)
+# snow_cover = open_bands_boundary(modis_path, area_path)
 
-# Obtener latitud y longitud del DataArray
-latitudes = snow_cover.y.values
-longitudes = snow_cover.x.values
+# # Obtener latitud y longitud del DataArray
+# latitudes = snow_cover.y.values
+# longitudes = snow_cover.x.values
 
-modis_ext = plotting_extent(snow_cover.to_array().values[0],
-                            snow_cover.rio.transform())
-f, ax = plt.subplots()
-ep.plot_bands(  snow_cover.to_array(),
-                extent=modis_ext,
-                title="Cubierta de nieve")
-area.plot( ax=ax,
-          color=(1, 0, 0, 0.2)) # RGB - transparencia
+# modis_ext = plotting_extent(snow_cover.to_array().values[0],
+#                             snow_cover.rio.transform())
+# f, ax = plt.subplots()
+# ep.plot_bands(  snow_cover.to_array().values[0],
+#                 ax=ax,
+#                 extent=modis_ext,
+#                 title="Cubierta de nieve")
+# area = gpd.read_file(area_path)
+# area.plot( ax=ax,
+#           color=(1, 0, 0, 0.2)) # RGB - transparencia
 
-plt.show()
+# plt.show()
