@@ -8,9 +8,9 @@ Este proyecto tiene como objetivo crear conciencia sobre cómo va a ir disminuye
 
 ## Estructura de los datos
 
-Los datos utilizados en este proyecto provienen de los siguientes datasets de la NASA:
+Los datos utilizados en este proyecto contienen los siguientes datasets de la NASA:
 
-* CGF_NDSI_Snow_Cover:
+* CGF_NDSI_Snow_Cover: **Este será el que nos interesa**
     - long_name: 'cloud-gap-filled NDSI snow cover',
     - valid_range: [0, 100],
     - FillValue: 255,
@@ -82,9 +82,16 @@ Los datos utilizados en este proyecto provienen de los siguientes datasets de la
 Cada dataset es una matriz de 2400x2400 que contiene información sobre la cobertura de nieve y otras variables relevantes.
 ![Estructura de datos de cada dataset]("img/estructura_datos.drawio.png")
 
-# Análisis de Datos MODIS para la Cuenca Adda-Bormio
+# Estructura del Dataset CGF_NDSI_Snow_Cover _(snow_cover)_
+Este es el Dataset con el que trabajaremos, se trata de un xarray que contiene datos de cubierta de nieve derivados de imagenes MODIS, su estructura principal es la siguiente:
+* **Dimensiones:**
+    * `y`: Coordenadas de latitud
+    * `x`: Coordenadas de longitud
+    Se puede acceder a las coordenadas de latitud con `snow_cover.y.values` y a las de longitud con `snow_cover.x.values`.
+* **Variable principal:**
+    * `CGF_NDSI_Snow_Cover`: Representa el Índice de Nieve de Diferencia Normalizada (NDSI), indicando la fracción de cubierta de nieve en cada píxel.
+    Los valores de cubierta de nieve se acceden directamente a través de `snow_cover.to_array().values[0]`.
 
-Este repositorio contiene el código y los datos necesarios para analizar datos MODIS (Moderate Resolution Imaging Spectroradiometer) en la cuenca Adda-Bormio.
 
 ## 1. Obtención de Datos
 
