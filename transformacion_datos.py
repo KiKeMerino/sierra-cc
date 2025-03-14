@@ -33,26 +33,28 @@ df_nenskra_Enguri = pd.DataFrame()
 df_uncompahgre_ridgway = pd.DataFrame()
 
 # Lectura de datos
-for cuenca in ["genil-dilar"]:
+for cuenca in cuencas:
     try:
         archivos_hdf = [str(archivo) for archivo in Path(data_path + "/" + cuenca).rglob("*.hdf")]
-        archivos_hdf = archivos_hdf[0:50]
         archivos_shp = [str(archivo) for archivo in Path(data_path + "/" + cuenca).glob("*.shp")]
         area_path = archivos_shp[0]
         fechas = []
 
         resultados = []
         for archivo in archivos_hdf:
+            # Se busca la fecha en el nombre del fichero hdf
             coincidencia = re.search(r"_A(\d{4})(\d{3})_", archivo)
             if coincidencia:
+                # Cambio de formato de fecha
                 fecha = datetime.datetime.strptime(f"{coincidencia.group(1)}-{coincidencia.group(2)}", "%Y-%j").date()
                 fecha = fecha.strftime("%d/%m/%Y")
 
                 snow_cover = open_bands_boundary(archivo, area_path)
                 dataset = pd.DataFrame(snow_cover["CGF_NDSI_Snow_Cover"])
+                n_ceros = ((snow_mapping(dataset) == 0).sum())
+                n_unos = ((snow_mapping(dataset) == 1).sum())
 
-                n_ceros, n_unos = ((snow_mapping(dataset) == 0).sum(), (snow_mapping(dataset) == 1).sum())
-                resultados.append({'fecha': fecha, 'n_ceros': n_ceros, 'n_unos': n_unos})
+                resultados.append({'Fecha': fecha, 'n_ceros': n_ceros, 'n_unos': n_unos})
 
         if cuenca == "adda-bornio":
             df_adda_bornio[fecha] = snow_mapping(dataset)
@@ -71,4 +73,3 @@ for cuenca in ["genil-dilar"]:
     except FileNotFoundError:
         print(f"El directorio '{data_path}/{cuenca}' no fue encontrado.")
 
-print(df_genil_dilar)
