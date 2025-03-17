@@ -1,86 +1,83 @@
-import warnings
-
-import matplotlib.pyplot as plt
-
-import rioxarray as rxr
-from shapely.geometry import mapping, box
+import os
+import numpy as np
+import pandas as pd
 import geopandas as gpd
+from pathlib import Path
+import re
+import datetime
+import rioxarray as rxr
+import time
+from multiprocessing import Pool, cpu_count
 
-import earthpy.plot as ep
+external_disk = "D:/"
+data_path = os.path.join(external_disk, "data/", "cuencas/")
 
-from rasterio.plot import plotting_extent
+def snow_mapping(array):
+    nieve = (array >= 40) & (array <= 100)
+    return np.where(nieve, 1, 0)
 
-warnings.simplefilter('ignore')
+def procesar_archivo(archivo, area, cuenca):
+    coincidencia = re.search(r"_A(\d{4})(\d{3})_", archivo)
+    if coincidencia:
+        fecha = datetime.datetime.strptime(f"{coincidencia.group(1)}-{coincidencia.group(2)}", "%Y-%j").date().strftime("%d/%m/%Y")
+        snow_cover = rxr.open_rasterio(archivo, masked=True, chunks='auto').rio.clip(
+            area.geometry.to_list(), crs=area.crs, all_touched=True).squeeze()
+        snow_mapped = snow_mapping(snow_cover["CGF_NDSI_Snow_Cover"].values)
+        n_ceros = np.sum(snow_mapped == 0)
+        n_unos = np.sum(snow_mapped == 1)
+        return {'fecha': fecha, cuenca: (n_ceros, n_unos)}
+    return None
 
+def procesar_cuenca(cuenca, archivos_hdf, area):
+    try:
+        resultados = []
+        for archivo in archivos_hdf:
+            res = procesar_archivo(archivo, area, cuenca)
+            if res:
+                resultados.append(res)
+        if resultados: # Añadido esta comprobación.
+            df_cuenca = pd.DataFrame(resultados)
+            df_cuenca.set_index('fecha', inplace=True)
+            return cuenca, df_cuenca
+        else:
+            print(f"No se encontraron datos de fecha para {cuenca}")
+            return cuenca, pd.DataFrame() # devuelve un dataframe vacio.
 
-modis_path = "./data/ejemplo_adda.hdf"
-area_path = "data/cuencas/adda-bornio/Adda-Bormio_basin.shp"
+    except FileNotFoundError:
+        print(f"El directorio '{data_path}/{cuenca}' no fue encontrado.")
+        return cuenca, pd.DataFrame()
 
-# modis = rxr.open_rasterio(modis_path, masked=True)
+def procesar_cuenca_wrapper(args):
+    return procesar_cuenca(*args)
 
-# # Imprimir informacion completa sobre el hdf
-# # modis.info()
+if __name__ == '__main__':
+    tic_global = time.time()
+    cuencas = os.listdir(data_path)
+    resultados_cuencas = {}
+    areas = {}
+    archivos_hdf_cuencas = {}
 
-# # Imprimir el nombre de los datasets
-# with rio.open(modis_path) as groups:
-#     for name in groups.subdatasets:
-#         pass #print(name)
+    for cuenca in cuencas:
+        archivos_hdf_cuencas[cuenca] = [str(archivo) for archivo in Path(data_path + "/" + cuenca).rglob("*.hdf")]
+        archivos_shp = [str(archivo) for archivo in Path(data_path + "/" + cuenca).glob("*.shp")]
+        area_path = archivos_shp[0]
+        areas[cuenca] = gpd.read_file(area_path)
 
-# # Imprimir los datos de la "banda"
-# modis_bands = modis["CGF_NDSI_Snow_Cover"].squeeze()
-# # ep.plot_bands(modis_bands)
-# # plt.show()
+    args_list = [(cuenca, archivos_hdf_cuencas[cuenca], areas[cuenca]) for cuenca in cuencas]
 
+    with Pool(cpu_count()) as pool:
+        resultados = pool.map(procesar_cuenca_wrapper, args_list)
+        for res in resultados:
+            if res:
+                cuenca, df_cuenca = res
+                resultados_cuencas[cuenca] = df_cuenca
 
-def open_bands_boundary(modis_path, area_path, variable="CGF_NDSI_Snow_Cover"):
-    """Open, subset and crop a MODIS h4 file.
+    df_adda_bornio = resultados_cuencas.get("adda-bornio", pd.DataFrame())
+    df_genil_dilar = resultados_cuencas.get("genil-dilar", pd.DataFrame())
+    df_indrawati_almendros = resultados_cuencas.get("indrawati-melamchi", pd.DataFrame())
+    df_machopo_almendros = resultados_cuencas.get("machopo-almendros", pd.DataFrame())
+    df_nenskra_Enguri = resultados_cuencas.get("nenskra-Enguri", pd.DataFrame())
+    df_uncompahgre_ridgway = resultados_cuencas.get("uncompahgre-ridgway", pd.DataFrame())
 
-    Parametros
-    -----------
-    modis_path : string 
-        La ruta con los datos.
-    area : geopandas GeoDataFrame con el shp de la cuenca
-        Utilizado para recortar los datos del ráster mediante rioxarray.clip
-    variable : List
-        La banda que deseamos abrir, en este caso CGF_NDSI_Snow_Cover
-
-    Returns
-    -----------
-    band : xarray DataArray
-        Retorna el xarray recortado de la cuenca
-    """
-
-    # area.total_bounds contiene una tupla con las coordenadas del bounding box (minx, miny, maxx, maxy)
-    # El operador * se utiliza para desempaquetar esta tupla, pasando las 4 coordenadas separados a la función box()
-    area = gpd.read_file(area_path)
-    diss_area = area.dissolve()
-    crop_bound_box = [box(*area.total_bounds)]
-
-    # rio.clip se usa para recortar el raster a una extensión geográfica específica
-    # band = rxr.open_rasterio(modis_path, masked=True, variable=variable).rio.clip(
-    #     crop_bound_box,  crs=area.crs, all_touched=True, from_disk=True).squeeze()
-    
-    band = rxr.open_rasterio(modis_path, masked=True, variable=variable).rio.clip(
-        area.geometry.to_list(), crs=area.crs, all_touched=True, from_disk=True).squeeze()
-
-    return band
-
-
-# snow_cover = open_bands_boundary(modis_path, area_path)
-
-# # Obtener latitud y longitud del DataArray
-# latitudes = snow_cover.y.values
-# longitudes = snow_cover.x.values
-
-# modis_ext = plotting_extent(snow_cover.to_array().values[0],
-#                             snow_cover.rio.transform())
-# f, ax = plt.subplots()
-# ep.plot_bands(  snow_cover.to_array().values[0],
-#                 ax=ax,
-#                 extent=modis_ext,
-#                 title="Cubierta de nieve")
-# # area = gpd.read_file(area_path)
-# # area.plot( ax=ax,
-# #           color=(1, 0, 0, 0.2)) # RGB - transparencia
-
-# plt.show()
+    tac_global = time.time()
+    print(f"Tiempo total {tac_global-tic_global :.4f} segundos.")
