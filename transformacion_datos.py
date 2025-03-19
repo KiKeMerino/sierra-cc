@@ -6,6 +6,7 @@ from pathlib import Path
 import re
 import datetime
 import rioxarray as rxr
+import time
 
 external_disk = "D:/"
 data_path = os.path.join(external_disk, "data/", "cuencas/")
@@ -28,15 +29,24 @@ df_uncompahgre_ridgway = pd.DataFrame()
 
 df_datos = pd.DataFrame()
 
+tic_global = time.time()
 # Lectura de datos
 for cuenca in cuencas:
     try:
+        tic_cuenca = time.time()
+        tic = time.time()
 
         archivos_hdf = [str(archivo) for archivo in Path(data_path + "/" + cuenca).rglob("*.hdf")]
-
+        tac = time.time()
+        print(f"Primer bloque {tac-tic :.4f} segundos.")
+        archivos_hdf = archivos_hdf[:50]
+        tic = time.time()
         archivos_shp = [str(archivo) for archivo in Path(data_path + "/" + cuenca).glob("*.shp")]
         area_path = archivos_shp[0]
         area = gpd.read_file(area_path)
+
+        tac = time.time()
+        print(f"Segundo bloque {tac-tic :.4f} segundos.")
 
         if len(archivos_hdf) < 1:
             print("No se han encontrado archivos hdf en el directorio ", data_path + "/" + cuenca)
@@ -55,13 +65,17 @@ for cuenca in cuencas:
                 # Cambio de formato de fecha
                 fecha = datetime.datetime.strptime(f"{coincidencia.group(1)}-{coincidencia.group(2)}", "%Y-%j").date().strftime("%d/%m/%Y")
 
+                tic = time.time()
                 # snow_cover = open_bands_boundary(archivo, area)
                 snow_cover = rxr.open_rasterio(archivo, masked=True, variable="CGF_NDSI_Snow_Cover").rio.clip(
                     area.geometry.to_list(), crs=area.crs, all_touched=True).squeeze()
+                tac = time.time()
+                print(f"Funcion open_bands_boundary {tac-tic :.4f} segundos.")
 
                 snow_mapped = snow_mapping(snow_cover["CGF_NDSI_Snow_Cover"].values)
                 n_ceros = np.sum(snow_mapped == 0)
                 n_unos = np.sum(snow_mapped == 1)
+                # print(f"Cuenca: {cuenca} - {fecha} - {len(resultados)}")
                 resultados.append({'fecha': fecha, cuenca: (n_ceros, n_unos)})
 
         df_datos = pd.DataFrame(resultados)
@@ -83,6 +97,11 @@ for cuenca in cuencas:
     except FileNotFoundError:
         print(f"El directorio '{data_path}/{cuenca}' no fue encontrado.")
 
+    tac_cuenca = time.time()
+    print(f"Tiempo {cuenca}: {tac_cuenca-tic_cuenca :.4f} segundos.")
+
+tac_global = time.time()
+print(f"Tiempo total {tac_global-tic_global :.4f} segundos.")
 
 # print(df_adda_bornio.to_string())
 # print(df_genil_dilar.to_string())
