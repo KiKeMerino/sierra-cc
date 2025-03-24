@@ -57,6 +57,9 @@ for cuenca in cuencas:
                 # snow_cover = open_bands_boundary(archivo, area)
                 snow_cover = rxr.open_rasterio(archivo, masked=True, variable="CGF_NDSI_Snow_Cover").rio.clip(
                     area.geometry.to_list(), crs=area.crs, all_touched=True).squeeze()
+                
+                # Reproyecto a WGS84
+                snow_cover = snow_cover.rio.reproject("EPSG:4326")
 
                 snow_mapped = snow_mapping(snow_cover["CGF_NDSI_Snow_Cover"].values)
                 n_ceros = np.sum(snow_mapped == 0)

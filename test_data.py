@@ -17,19 +17,11 @@ def snow_mapping(array):
     nieve = (array >= 40) & (array <= 100)
     return np.where(nieve, 1, 0)
 
-cuencas = os.listdir(data_path)
-
-df_adda_bornio = pd.DataFrame()
-df_genil_dilar = pd.DataFrame()
-df_indrawati_almendros = pd.DataFrame()
-df_machopo_almendros = pd.DataFrame()
-df_nenskra_Enguri = pd.DataFrame()
-df_uncompahgre_ridgway = pd.DataFrame()
 
 df_datos = pd.DataFrame()
 
 # Lectura de datos
-for cuenca in cuencas:
+for cuenca in ['machopo-almendros']:
     try:
 
         archivos_hdf = [str(archivo) for archivo in Path(data_path + "/" + cuenca).rglob("*.hdf")]
@@ -58,6 +50,13 @@ for cuenca in cuencas:
                 # snow_cover = open_bands_boundary(archivo, area)
                 snow_cover = rxr.open_rasterio(archivo, masked=True, variable="CGF_NDSI_Snow_Cover").rio.clip(
                     area.geometry.to_list(), crs=area.crs, all_touched=True).squeeze()
+                snow_cover = snow_cover.rio.reproject("EPSG:4326")
+
+                # Imprimo la resolución espacial desde los metadatos del dataarray
+                resolution = snow_cover.rio.resolution()
+                print(f"Resolución X: {resolution[0]}")
+                print(f"Resolución Y: {resolution[1]}")
+                print(f"CRS: {snow_cover.rio.crs}")
 
                 snow_mapped = snow_mapping(snow_cover["CGF_NDSI_Snow_Cover"].values)
                 n_ceros = np.sum(snow_mapped == 0)
@@ -73,26 +72,8 @@ for cuenca in cuencas:
         df_datos.sort_index(inplace=True)
         df_datos.index = df_datos.index.strftime('%d/%m/%Y')
 
-        if cuenca == "adda-bornio":
-            df_adda_bornio = df_datos
-        elif cuenca == "genil-dilar":
-            df_genil_dilar = df_datos
-        elif cuenca == "indrawati-melamchi":
-            df_indrawati_almendros = df_datos
-        elif cuenca == "machopo-almendros":
-            df_machopo_almendros = df_datos
-        elif cuenca == "nenskra-Enguri":
-            df_nenskra_Enguri = df_datos
-        elif cuenca == "uncompahgre-ridgway":
-            df_uncompahgre_ridgway = df_datos
-
     except FileNotFoundError:
         print(f"El directorio '{data_path}/{cuenca}' no fue encontrado.")
 
 
-print(df_adda_bornio.to_string())
-print(df_genil_dilar.to_string())
-print(df_indrawati_almendros.to_string())
-print(df_machopo_almendros.to_string())
-print(df_nenskra_Enguri.to_string())
-print(df_uncompahgre_ridgway.to_string())
+print(df_datos.to_string())
