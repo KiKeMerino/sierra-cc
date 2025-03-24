@@ -33,6 +33,7 @@ for cuenca in cuencas:
     try:
 
         archivos_hdf = [str(archivo) for archivo in Path(data_path + "/" + cuenca).rglob("*.hdf")]
+        archivos_hdf = archivos_hdf[:5]
         archivos_shp = [str(archivo) for archivo in Path(data_path + "/" + cuenca).glob("*.shp")]
         area_path = archivos_shp[0]
         area = gpd.read_file(area_path)
@@ -63,11 +64,12 @@ for cuenca in cuencas:
                 n_unos = np.sum(snow_mapped == 1)
                 resultados.append({'fecha': fecha, cuenca: (n_ceros, n_unos)})
 
+
         df_datos = pd.DataFrame(resultados)
 
         # Ordenar por fecha y cambiar formato
         df_datos.set_index('fecha', inplace=True)
-        df_datos.index = pd.to_datetime(df_datos.index)
+        df_datos.index = pd.to_datetime(df_datos.index, format='%d/%m/%Y')
         df_datos.sort_index(inplace=True)
         df_datos.index = df_datos.index.strftime('%d/%m/%Y')
 
@@ -88,9 +90,9 @@ for cuenca in cuencas:
         print(f"El directorio '{data_path}/{cuenca}' no fue encontrado.")
 
 
-# print(df_adda_bornio.to_string())
-# print(df_genil_dilar.to_string())
-# print(df_indrawati_almendros.to_string())
-# print(df_machopo_almendros.to_string())
-# print(df_nenskra_Enguri.to_string())
-# print(df_uncompahgre_ridgway.to_string())
+print(df_adda_bornio.to_string())
+print(df_genil_dilar.to_string())
+print(df_indrawati_almendros.to_string())
+print(df_machopo_almendros.to_string())
+print(df_nenskra_Enguri.to_string())
+print(df_uncompahgre_ridgway.to_string())
