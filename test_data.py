@@ -19,9 +19,9 @@ def snow_mapping(array):
 
 
 df_datos = pd.DataFrame()
-
+cuencas = os.listdir(data_path)
 # Lectura de datos
-for cuenca in ['machopo-almendros']:
+for cuenca in cuencas:
     try:
 
         archivos_hdf = [str(archivo) for archivo in Path(data_path + "/" + cuenca).rglob("*.hdf")]
@@ -54,14 +54,17 @@ for cuenca in ['machopo-almendros']:
 
                 # Imprimo la resolución espacial desde los metadatos del dataarray
                 resolution = snow_cover.rio.resolution()
-                print(f"Resolución X: {resolution[0]}")
-                print(f"Resolución Y: {resolution[1]}")
-                print(f"CRS: {snow_cover.rio.crs}")
+                # print(f"Resolución X: {resolution[0]}")
+                # print(f"Resolución Y: {resolution[1]}")
+                # print(f"CRS: {snow_cover.rio.crs}")
 
-                snow_mapped = snow_mapping(snow_cover["CGF_NDSI_Snow_Cover"].values)
+                snow_mapped = snow_mapping(snow_cover["CGF_NDSI_Snow_Cover"])
                 n_ceros = np.sum(snow_mapped == 0)
                 n_unos = np.sum(snow_mapped == 1)
                 resultados.append({'fecha': fecha, cuenca: (n_ceros, n_unos)})
+
+        df = pd.DataFrame(snow_cover["CGF_NDSI_Snow_Cover"])
+        print("Numero de valores no null(255) de ", cuenca, ": ", df.count().sum())
 
 
         df_datos = pd.DataFrame(resultados)
@@ -76,4 +79,4 @@ for cuenca in ['machopo-almendros']:
         print(f"El directorio '{data_path}/{cuenca}' no fue encontrado.")
 
 
-print(df_datos.to_string())
+# print(df_datos.to_string())
