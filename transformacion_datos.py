@@ -64,7 +64,7 @@ for cuenca in cuencas:
                 snow_mapped = snow_mapping(snow_cover["CGF_NDSI_Snow_Cover"].values)
                 n_ceros = np.sum(snow_mapped == 0)
                 n_unos = np.sum(snow_mapped == 1)
-                resultados.append({'fecha': fecha, cuenca: (n_ceros, n_unos)})
+                resultados.append({'fecha': fecha, 'no_nieve': n_ceros, 'nieve (40-100)': n_unos})
 
         df_datos = pd.DataFrame(resultados)
 

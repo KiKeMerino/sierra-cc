@@ -1,3 +1,4 @@
+#%%
 import os
 import numpy as np
 import pandas as pd
@@ -7,6 +8,7 @@ import re
 import datetime
 import rioxarray as rxr
 
+#%%
 external_disk = "D:/"
 data_path = os.path.join(external_disk, "data/", "cuencas/")
 
@@ -20,12 +22,14 @@ def snow_mapping(array):
 
 df_datos = pd.DataFrame()
 cuencas = os.listdir(data_path)
+
+#%%
 # Lectura de datos
-for cuenca in cuencas:
+for cuenca in ['adda-bornio']:
     try:
 
         archivos_hdf = [str(archivo) for archivo in Path(data_path + "/" + cuenca).rglob("*.hdf")]
-        archivos_hdf = archivos_hdf[:5]
+        archivos_hdf = archivos_hdf[:50]
         archivos_shp = [str(archivo) for archivo in Path(data_path + "/" + cuenca).glob("*.shp")]
         area_path = archivos_shp[0]
         area = gpd.read_file(area_path)
@@ -61,7 +65,7 @@ for cuenca in cuencas:
                 snow_mapped = snow_mapping(snow_cover["CGF_NDSI_Snow_Cover"])
                 n_ceros = np.sum(snow_mapped == 0)
                 n_unos = np.sum(snow_mapped == 1)
-                resultados.append({'fecha': fecha, cuenca: (n_ceros, n_unos)})
+                resultados.append({'fecha': fecha, 'no_nieve': n_ceros, 'nieve (40-100)': n_unos})
 
         df = pd.DataFrame(snow_cover["CGF_NDSI_Snow_Cover"])
         print("Numero de valores no null(255) de ", cuenca, ": ", df.count().sum())
@@ -78,5 +82,8 @@ for cuenca in cuencas:
     except FileNotFoundError:
         print(f"El directorio '{data_path}/{cuenca}' no fue encontrado.")
 
+#%%
+df_datos.index
 
-# print(df_datos.to_string())
+#%%
+df_datos.to_csv("adda-bornio50.csv")
