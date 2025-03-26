@@ -53,14 +53,14 @@ for cuenca in ['adda-bornio']:
 
                 # snow_cover = open_bands_boundary(archivo, area)
                 snow_cover = rxr.open_rasterio(archivo, masked=True, variable="CGF_NDSI_Snow_Cover").rio.clip(
-                    area.geometry.to_list(), crs=area.crs, all_touched=True).squeeze()
+                    area.geometry.to_list(), crs=area.crs, all_touched=False).squeeze()
                 snow_cover = snow_cover.rio.reproject("EPSG:4326")
 
                 # Imprimo la resolución espacial desde los metadatos del dataarray
                 resolution = snow_cover.rio.resolution()
-                # print(f"Resolución X: {resolution[0]}")
-                # print(f"Resolución Y: {resolution[1]}")
-                # print(f"CRS: {snow_cover.rio.crs}")
+                print(f"Resolución X: {resolution[0]}")
+                print(f"Resolución Y: {resolution[1]}")
+                print(f"CRS: {snow_cover.rio.crs}")
 
                 snow_mapped = snow_mapping(snow_cover["CGF_NDSI_Snow_Cover"])
                 n_ceros = np.sum(snow_mapped == 0)
@@ -82,8 +82,6 @@ for cuenca in ['adda-bornio']:
     except FileNotFoundError:
         print(f"El directorio '{data_path}/{cuenca}' no fue encontrado.")
 
-#%%
-df_datos.index
 
 #%%
 df_datos.to_csv("adda-bornio50.csv")

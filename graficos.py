@@ -21,23 +21,21 @@ snow_cover = snow_cover.rio.reproject("EPSG:4326")
 
 
 #%%
-data = snow_cover["CGF_NDSI_Snow_Cover"]
+data = pd.DataFrame(snow_cover["CGF_NDSI_Snow_Cover"])
 datos = pd.read_csv("adda-bornio50.csv", index_col='fecha')
 
-#%%
-# Ordenar por fecha y cambiar formato
-datos.set_index('fecha', inplace=True)
-datos.index = pd.to_datetime(datos.index)
-datos.sort_index(inplace=True)
-datos.index = datos.index.strftime('%d/%m/%Y')
 
 #%%
+datos.index = pd.to_datetime(datos.index, format="%d/%m/%Y")
+datos_agrupados = datos.groupby(pd.Grouper(freq='M'))['nieve (40-100)'].sum().reset_index()
 datos
 
+#%%
+data.count().sum()
 
 #%%
 # Crear un histograma de los datos de la variable "CGF_NDSI_Snow_Cover"
-plt.hist(datos, bins=5)
+plt.hist(data, bins=5)
 plt.xlabel("Valor")
 plt.ylabel("Frecuencia")
 plt.title("Histograma de CGF_NDSI_Snow_Cover")
@@ -46,7 +44,7 @@ plt.show()
 
 #%%
 # # Crear un mapa de calor de los datos de la variable "CGF_NDSI_Snow_Cover"
-heatmap = sns.histplot(datos)
+heatmap = sns.lineplot(datos, x='fecha', y="nieve (40-100)")
 
 # plt.savefig("img/heatmap-CGF_NDSI_Snow_Cover")
 

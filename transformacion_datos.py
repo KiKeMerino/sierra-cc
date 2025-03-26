@@ -32,11 +32,11 @@ df_datos = pd.DataFrame()
 for cuenca in cuencas:
     try:
 
+        # Lectura de archivos
         archivos_hdf = [str(archivo) for archivo in Path(data_path + "/" + cuenca).rglob("*.hdf")]
         archivos_shp = [str(archivo) for archivo in Path(data_path + "/" + cuenca).glob("*.shp")]
         area_path = archivos_shp[0]
         area = gpd.read_file(area_path)
-
         if len(archivos_hdf) < 1:
             print("No se han encontrado archivos hdf en el directorio ", data_path + "/" + cuenca)
             continue
@@ -52,19 +52,18 @@ for cuenca in cuencas:
             coincidencia = re.search(r"_A(\d{4})(\d{3})_", archivo)
             if coincidencia:
                 # Cambio de formato de fecha
-                fecha = datetime.datetime.strptime(f"{coincidencia.group(1)}-{coincidencia.group(2)}", "%Y-%j").date().strftime("%d/%m/%Y")
+                fecha = datetime.datetime.strptime(f"{coincidencia.group(1)}-{coincidencia.group(2)}", "%Y-%j").date()
 
-                # snow_cover = open_bands_boundary(archivo, area)
-                snow_cover = rxr.open_rasterio(archivo, masked=True, variable="CGF_NDSI_Snow_Cover").rio.clip(
-                    area.geometry.to_list(), crs=area.crs, all_touched=True).squeeze()
-                
-                # Reproyecto a WGS84
-                snow_cover = snow_cover.rio.reproject("EPSG:4326")
+            # snow_cover = open_bands_boundary(archivo, area)
+            snow_cover = rxr.open_rasterio(archivo, masked=True, variable="CGF_NDSI_Snow_Cover").rio.clip(
+                area.geometry.to_list(), crs=area.crs, all_touched=True).squeeze()
+            # Reproyecto a WGS84
+            snow_cover = snow_cover.rio.reproject("EPSG:4326")
 
-                snow_mapped = snow_mapping(snow_cover["CGF_NDSI_Snow_Cover"].values)
-                n_ceros = np.sum(snow_mapped == 0)
-                n_unos = np.sum(snow_mapped == 1)
-                resultados.append({'fecha': fecha, 'no_nieve': n_ceros, 'nieve (40-100)': n_unos})
+            snow_mapped = snow_mapping(snow_cover["CGF_NDSI_Snow_Cover"].values)
+            n_ceros = np.sum(snow_mapped == 0)
+            n_unos = np.sum(snow_mapped == 1)
+            resultados.append({'fecha': fecha, 'no_nieve': n_ceros, 'nieve (40-100)': n_unos})
 
         df_datos = pd.DataFrame(resultados)
 
@@ -97,3 +96,10 @@ for cuenca in cuencas:
 # print(df_machopo_almendros.to_string())
 # print(df_nenskra_Enguri.to_string())
 # print(df_uncompahgre_ridgway.to_string())
+
+# 25832
+# 25830
+# 32645
+# 32719
+# 32639
+# 32613
