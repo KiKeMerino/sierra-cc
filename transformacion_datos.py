@@ -7,7 +7,7 @@ import re
 import datetime
 import rioxarray as rxr
 
-external_disk = "E:/"
+external_disk = "D:/"
 data_path = os.path.join(external_disk, "data/", "cuencas/")
 
 def calcular_area_nieve(snow_cover, cuenca):
@@ -49,7 +49,7 @@ for cuenca in cuencas:
     fechas = []
     resultados = []
     for archivo in archivos_hdf:
-
+        print(f"\r{cuenca}: {len(resultados)/len(archivos_hdf)*100:.0f}%", end="")
         # Se busca la fecha en el nombre del fichero hdf
         coincidencia = re.search(r"_A(\d{4})(\d{3})_", archivo)
         if coincidencia:
