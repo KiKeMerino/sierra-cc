@@ -1,13 +1,13 @@
 import os
-import numpy as np
 import pandas as pd
 import geopandas as gpd
 from pathlib import Path
 import re
 import datetime
 import rioxarray as rxr
+import concurrent.futures
 
-external_disk = "D:/"
+external_disk = "E:/"
 data_path = os.path.join(external_disk, "data/", "cuencas/")
 
 def calcular_area_nieve(snow_cover, cuenca):
@@ -31,40 +31,35 @@ def calcular_area_nieve(snow_cover, cuenca):
 
     return (area_pixel_nieve * n_pixeles_nieve)/1e6
 
-# Lectura de datos
-cuencas = os.listdir(data_path)
-for cuenca in cuencas:
-    # Lectura de archivos
+def procesar_archivo(cuenca, area, archivo):
+    print(f"\r{cuenca}: procesando {archivo}...", end="")
+    coincidencia = re.search(r"_A(\d{4})(\d{3})_", archivo)
+    if coincidencia:
+        fecha = datetime.datetime.strptime(f"{coincidencia.group(1)}-{coincidencia.group(2)}", "%Y-%j").date()
+
+    snow_cover = rxr.open_rasterio(archivo, masked=True, variable="CGF_NDSI_Snow_Cover").rio.clip(
+        area.geometry.to_list(), crs=area.crs, all_touched=False).squeeze()
+
+    return {'fecha': fecha, 'area_nieve': calcular_area_nieve(snow_cover, cuenca)}
+
+def procesar_cuenca(cuenca):
     archivos_hdf = [str(archivo) for archivo in Path(data_path + "/" + cuenca).rglob("*.hdf")]
     archivos_shp = [str(archivo) for archivo in Path(data_path + "/" + cuenca).glob("*.shp")]
     area_path = archivos_shp[0]
     area = gpd.read_file(area_path)
-    if len(archivos_hdf) < 1:
-        print("No se han encontrado archivos hdf en el directorio ", data_path + "/" + cuenca)
-        continue
-    if len(archivos_shp) < 1:
-        print("No se han encontrado archivos shp en el directorio ", data_path + "/" + cuenca)
-        continue
 
-    fechas = []
     resultados = []
-    for archivo in archivos_hdf:
-        print(f"\r{cuenca}: {len(resultados)/len(archivos_hdf)*100:.0f}%", end="")
-        # Se busca la fecha en el nombre del fichero hdf
-        coincidencia = re.search(r"_A(\d{4})(\d{3})_", archivo)
-        if coincidencia:
-            # Cambio de formato de fecha
-            fecha = datetime.datetime.strptime(f"{coincidencia.group(1)}-{coincidencia.group(2)}", "%Y-%j").date()
-
-        # snow_cover = open_bands_boundary(archivo, area)
-        snow_cover = rxr.open_rasterio(archivo, masked=True, variable="CGF_NDSI_Snow_Cover").rio.clip(
-            area.geometry.to_list(), crs=area.crs, all_touched=True).squeeze()
-
-        resultados.append({'fecha': fecha, 'area_nieve': calcular_area_nieve(snow_cover, cuenca)})
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        futures = [executor.submit(procesar_archivo, cuenca, area, archivo) for archivo in archivos_hdf]
+        for future in concurrent.futures.as_completed(futures):
+            resultados.append(future.result())
 
     df_datos = pd.DataFrame(resultados)
-
-    # Ordenar por fecha
     df_datos.set_index('fecha', inplace=True)
     df_datos.sort_index(inplace=True)
-    df_datos.to_csv(cuenca + ".csv")
+    df_datos.to_csv(f"csv/{cuenca}.csv")
+    print(f"\nCuenca {cuenca} procesada.")
+
+cuencas = os.listdir(data_path)
+for cuenca in cuencas:
+    procesar_cuenca(cuenca)
