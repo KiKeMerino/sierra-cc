@@ -2,13 +2,13 @@
 
 ## Descripción
 
-Este proyecto tiene como objetivo crear conciencia sobre cómo va a ir disminuyendo la capa de nieve en fechas futuras utilizando un modelo NARX (Non-linear Autoregressive with Exogenous Inputs).
+Este proyecto tiene como objetivo crear conciencia sobre cómo va a ir cambiando el nivel de la capa de nieve en fechas futuras utilizando un modelo NARX (Non-linear Autoregressive with Exogenous Inputs).
 
-Ésta es solo una parte del proyecto, yo me centraré en el uso de la inteligencia artificial para evaluar el impacto del cambio climático en la cobertura de nieve.
+Ésta es solo una parte del proyecto, yo me centraré en el uso de la inteligencia artificial con redes neuronales autoregresivas para evaluar el impacto del cambio climático en la cobertura de nieve.
 
 ## Estructura de los datos
 
-Los datos utilizados en este proyecto contienen los siguientes datasets de la NASA:
+Los datos utilizados que usaré en este proyecto contienen los siguientes datasets de la NASA:
 
 * CGF_NDSI_Snow_Cover: **Este será el que nos interesa**
     - long_name: 'cloud-gap-filled NDSI snow cover',
@@ -35,52 +35,7 @@ Los datos utilizados en este proyecto contienen los siguientes datasets de la NA
     - Key:
         - count of consecutive preceding days of cloud cover
 
-* Basic_QA
-    - long_name: CGF snow cover general quality value,
-    - valid_range: [0, 4],
-    - FillValue: 255,
-    - Key:
-        - 0=best,
-        - 1=good,
-        - 2=ok,
-        - 3=poor-not used,
-        - 4=other-not used,
-        - 211=night,
-        - 239=ocean,
-        - 255=unusable L1B data or no data
-
-* Algorithm_Flags_QA
-    - long_name: 'CGF algorithm bit flags',
-    - format: 'bit flag',
-    - Key: 'bit on means:
-        - bit 0: inland water flag
-        - bit 1: low visible screen failed, reversed snow detection\n    
-        - bit 2: low NDSI screen failed, reversed snow detection\n
-        - bit 3: combined temperature and height screen failed, snow reversed because too warm and too low
-            This screen is also used to flag a high elevation too warm snow detection,
-                in this case the snow detection is not changed but this bit is set.
-        - bit 4: too high swir screen and applied at two thresholds: QA bit flag set if band6 TOA > 25% & band6 TOA <= 45%, indicative of unusual snow conditon, or snow commission error; now detection reversed if band6 TOA > 45%
-        - bit 5: MOD35_L2 probably cloudy\n
-        - bit 6: MOD35_L2 probably clear\n
-        - bit 7: solar zenith screen, indicates increased uncertainty in results'
-
-* MOD10A1_NDSI_Snow_Cover
-    - long_name: 'NDSI snow cover from current day MOD10A1',
-    - valid_range: [0, 100],
-    - FillValue: 255,
-    - Key:
-        - 0-100 = NDSI snow
-        - 200=missing data
-        - 201=no decision
-        - 211=night
-        - 237=inland water
-        - 239=ocean
-        - 250=cloud
-        - 254=detector saturated
-        - 255=fill
-
-Cada dataset es una matriz de 2400x2400 que contiene información sobre la cobertura de nieve y otras variables relevantes.
-![Estructura de datos de cada dataset](img/estructura_datos.drawio.png)
+Cada dataset es un raster de datos diviendo la cuenca en píxeles con los valores arriba mencionados, yo consideraré  los valores entre 40 y 100 como nieve, y los demás como no nieve para simplificar el modelo
 
 # Estructura del Dataset CGF_NDSI_Snow_Cover _(snow_cover)_
 Este es el Dataset con el que trabajaremos, se trata de un xarray que contiene datos de cubierta de nieve derivados de imagenes MODIS, su estructura principal es la siguiente:
@@ -103,57 +58,55 @@ Los datos MODIS se obtuvieron de [EarthData Search](https://search.earthdata.nas
 2.  **Descarga Personalizada:**
     * Se seleccionó la opción de descarga personalizada para tener control sobre el formato y la proyección de los datos.
         * ![Primera opción](img/option1.png)
-3.  **Re proyección a WGS 84 (Latitud/Longitud):**
-    * Se solicitó que los datos fueran re proyectados al sistema de coordenadas geográficas WGS 84 (latitud/longitud). Por defecto, los datos MODIS se proporcionan en proyección sinusoidal, que no es adecuada para muchos análisis comunes.
+3.  **Reproyección geoespacial (Latitud/Longitud):**
+    * Se solicitó que los datos fueran re proyectados al sistema de coordenadas geográficas (latitud/longitud). Por defecto, los datos MODIS se proporcionan en proyección sinusoidal, que no es adecuada para muchos análisis comunes.
         * ![Segunda opción](img/option2.png)
-    * Es importante re proyectar los datos antes de la descarga para simplificar el procesamiento posterior.
+    * Es importante reproyectar los datos antes de la descarga para simplificar el procesamiento posterior.
 
-## 2. Dependencias
+## 2. Limpieza de datos
 
-Para ejecutar el código en este repositorio, necesitarás las siguientes bibliotecas de Python:
+Este apartado se centrará en leer tanto los archivos hdf descargados previamente como las series históricas agregadas y guardarlos en csv para su posterior procesamiento
 
-* `rioxarray`: Para leer y manipular datos raster georreferenciados.
-* `xarray`: Para trabajar con datos multidimensionales.
-* `geopandas`: Para manipular datos vectoriales (shapefiles).
-* `shapely`: Para operaciones geométricas.
-* `matplotlib`: Para visualización de datos.
-
-## Carga de datos
-Para la carga de datos usaré la librería **rioxarray** mediante la siguiente función
-    `modis = rxr.open_rasterio(modis_path, masked=True)`
-Esta función devuelve un *\< class \'xarray.core.dataset.Dataset\'\>*
+1. Lectura de datos necesarios de archivos hdf
+2. Cálculo del área de nieve para cada día y guardarlo en un csv con estas 2 columnas (fecha y area_nieve)
+3. Lectura las series históricas agregadas: variables de temperatura y precipitación
+4. Limpiar y normalizar los datos sobre las series agregadas: correción de formato, eliminación de columnas innecesarias, agregas columnas faltantes, etc...
+5. Separar estas series agregadas en 6 csv (uno por cada cuenca)
 
 
-## Proceso
+## 3. Preprocesamiento de los datos
 
-El proceso de predicción de la cobertura de nieve se divide en los siguientes pasos:
+En este apartado se juntarán todas las variables que nos intesan para nuestro modelo del apartado anterior y se analizará el dataset resultante, haremos lo siguiente:
 
-1. Carga de datos
-2. Preprocesamiento de datos
-3. Creación del modelo NARX
-4. Entrenamiento del modelo
-5. Evaluación del modelo
+1. EDA: exploracion de los datos
+Lo primero será juntar los 2 csv creados anteriormente haciendo coincidir las fechas, el resultado será un dataframe de este estilo:
+![Ejemplo genil-dilar](img/genil-dilar(head).png)
 
-## Resultados
+Este es el resultado de juntar los dos dataframes creados anteriormente, sin embargo añadiré una columna más para mejorar el modelo "dias_sin_precip" que contará los dias transcurridos desde la última precipitación
+![Días sin precipitación](img/dias_sin_precip.png)
 
-Los resultados del proyecto se presentarán en un informe que incluirá:
+Ahora exploraremos cada variable para ver como se comporta:
+# adda-bornio
+![Estadisticas sobre Adda Bornio](img/addabornio-describe.png)
 
-* Métricas de evaluación del modelo
-* Visualizaciones de la cobertura de nieve predicha
-* Análisis de la importancia de las variables
+# genil-dilar
+![Estadisticas sobre Genil Dilar](img/genildilar-describe.png)
 
-## Herramientas utilizadas
+# indrawati-melamchi
+![Estadisticas sobre Indrawati Melamchi](img/indrawatimelamchi-describe.png)
 
-* Python
-* PyHDF
-* Pandas
-* Scikit-learn
-* TensorFlow
+# machopo-almendros
+![Estadisticas sobre Machopo Almendros](img/machopoalmendros-describe.png)
 
-## Próximos pasos
+# nenskra-enguri
+![Estadisticas sobre Nenskra Enguri](img/nenskraenguri-describe.png)
 
-* Descargar datos adicionales (temperatura, precipitación, etc.)
-* Combinar los datos en un solo DataFrame
-* Implementar el modelo NARX
-* Entrenar y evaluar el modelo
-* Generar el informe final
+# uncompahgre-ridgway
+![Estadisticas sobre Uncompahgre Ridgway](img/uncompahgreridgway-describe.png)
+
+
+
+2. Data cleaning: Limpiar datos en blanco, así como detectar outliers y errores lógicos de información
+3. Visualización
+4. Pre-procesing
+
