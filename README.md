@@ -88,6 +88,12 @@ Este es el resultado de juntar los dos dataframes creados anteriormente, sin emb
 Ahora exploraremos cada variable para ver como se comporta:
 # adda-bornio
 ![Estadisticas sobre Adda Bornio](img/addabornio-describe.png)
+* **dia_normalizado:** Esta columna, ya normalizada entre 0 y 1, tiene una media cercana a 0.5, lo que sugiere una distribución uniforme de los días a lo largo del periodo analizado para el modelo autoregresivo.
+* **temperatura:** La temperatura media diaria en la cuenca se sitúa en torno a los 12.34 grados Celsius, con un rango que va desde valores bajo cero (-6.33 °C) hasta máximos de casi 30 °C. La desviación estándar de 7.49 °C indica una variabilidad considerable en la temperatura diaria.
+* **precipitacion:** La precipitación media diaria es de aproximadamente 1.60 litros por metro cuadrado, con días sin lluvia (mínimo de 0) y días de lluvia intensa (máximo de 54.79 l/m²). La desviación estándar de 3.99 l/m² señala una alta variabilidad en la cantidad de precipitación.
+* **precipitacion_bool:** Esta variable binaria indica que llovió en aproximadamente el 44.13% de los días (media de 0.4413).
+* **area_nieve:** La superficie media cubierta por nieve es de unos 262.36 km², con una gran variabilidad (desviación estándar de 173.30 km²). Hay días sin nieve (mínimo de 0) y días con una extensa cobertura (máximo de 477.57 km²). El percentil 25% muestra una cobertura relativamente baja, mientras que el 75% indica una cobertura más significativa.
+* **dias_sin_precip:** De media, han transcurrido alrededor de 2.37 días desde la última precipitación. El valor máximo de 33 días sugiere periodos secos prolongados, mientras que el percentil 25% indica que en muchos casos no ha pasado ningún día desde la última lluvia.
 
 # genil-dilar
 ![Estadisticas sobre Genil Dilar](img/genildilar-describe.png)

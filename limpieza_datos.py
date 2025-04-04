@@ -9,7 +9,7 @@ import rioxarray as rxr
 import concurrent.futures
 import numpy as np
 
-external_disk = "D:/"
+external_disk = "E:/"
 data_path = os.path.join(external_disk, "data/")
 #%%
 # Leo datos sobre variables exogenas: temperatura y precipitacion
@@ -31,8 +31,9 @@ dia_juliano = series_agregadas['Fecha'].dt.strftime("%j")
 año = series_agregadas['Year']
 dias_año = año.apply(lambda x: 366 if x % 4 == 0 and x % 100 != 0 or x % 400 == 0 else 365)
 dia_normalizado = dia_juliano.astype(int) / dias_año
+dia_sen = np.sin(2 * np.pi * dia_normalizado)
 
-series_agregadas['dia_normalizado'] = dia_normalizado
+series_agregadas['dia_sen'] = dia_sen
 series_agregadas.rename(columns={'Fecha':'fecha'}, inplace=True)
 
 
@@ -44,12 +45,12 @@ for col in columnas_innecesarias:
 
 #
 # Dividir columnas por cuencas
-series_agregadas[['fecha','dia_normalizado','T','P','P_bool']].to_csv(f"{data_path}csv/series_agregadas/adda-bornio.csv", index=False)
-series_agregadas[['fecha','dia_normalizado','T.1','P.1','P_bool.1']].to_csv(f"{data_path}csv/series_agregadas/genil-dilar.csv", index=False)
-series_agregadas[['fecha','dia_normalizado','T.2','P.2','P_bool.2']].to_csv(f"{data_path}csv/series_agregadas/indrawati-melamchi.csv", index=False)
-series_agregadas[['fecha','dia_normalizado','T.3','P.3','P_bool.3']].to_csv(f"{data_path}csv/series_agregadas/machopo-almendros.csv", index=False)
-series_agregadas[['fecha','dia_normalizado','T.4','P.4','P_bool.4']].to_csv(f"{data_path}csv/series_agregadas/nenskra-enguri.csv", index=False)
-series_agregadas[['fecha','dia_normalizado','T.5','P.5','P_bool.5']].to_csv(f"{data_path}csv/series_agregadas/uncompahgre-ridgway.csv", index=False)
+series_agregadas[['fecha','dia_sen','T','P','P_bool']].to_csv(f"{data_path}csv/series_agregadas/adda-bornio.csv", index=False)
+series_agregadas[['fecha','dia_sen','T.1','P.1','P_bool.1']].to_csv(f"{data_path}csv/series_agregadas/genil-dilar.csv", index=False)
+series_agregadas[['fecha','dia_sen','T.2','P.2','P_bool.2']].to_csv(f"{data_path}csv/series_agregadas/indrawati-melamchi.csv", index=False)
+series_agregadas[['fecha','dia_sen','T.3','P.3','P_bool.3']].to_csv(f"{data_path}csv/series_agregadas/machopo-almendros.csv", index=False)
+series_agregadas[['fecha','dia_sen','T.4','P.4','P_bool.4']].to_csv(f"{data_path}csv/series_agregadas/nenskra-enguri.csv", index=False)
+series_agregadas[['fecha','dia_sen','T.5','P.5','P_bool.5']].to_csv(f"{data_path}csv/series_agregadas/uncompahgre-ridgway.csv", index=False)
 
 #%%
 def calcular_area_nieve(snow_cover, cuenca):
