@@ -78,5 +78,25 @@ corr = adda.corr(numeric_only=True)
 corr.style.background_gradient(cmap="coolwarm")
 
 #%%
+corr = genil.corr(numeric_only=True)
+corr.style.background_gradient(cmap="coolwarm")
+
+#%%
+corr = indrawati.corr(numeric_only=True)
+corr.style.background_gradient(cmap="coolwarm")
+
+#%%
+corr = machopo.corr(numeric_only=True)
+corr.style.background_gradient(cmap="coolwarm")
+
+#%%
+corr = nenskra.corr(numeric_only=True)
+corr.style.background_gradient(cmap="coolwarm")
+
+#%%
+corr = uncompahgre.corr(numeric_only=True)
+corr.style.background_gradient(cmap="coolwarm")
+
+#%%
 # Se define el target como la variable a predecir con el modelo
 target = ["area_nieve"]
