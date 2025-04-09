@@ -4,7 +4,7 @@ import numpy as np
 from sklearn.preprocessing import MinMaxScaler
 #%%
 csv_path = "D:/data/csv/"
-cuencas = ['adda-bornio','genil-dilar','indrawati-melamchi','machopo-almendros','nenskra-Enguri','uncompahgre-ridgway']
+cuencas = ['genil-dilar','adda-bornio','indrawati-melamchi','machopo-almendros','nenskra-Enguri','uncompahgre-ridgway']
 
 area_ab = pd.read_csv(csv_path + "areas/" + cuencas[0] + ".csv")
 variable_ab = pd.read_csv(csv_path + "series_agregadas/" + cuencas[0] + ".csv")
