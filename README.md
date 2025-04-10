@@ -87,8 +87,8 @@ Este es el resultado de juntar los dos dataframes creados anteriormente, sin emb
 
 Ahora exploraremos cada variable para ver como se comporta:
 # adda-bornio
-![Estadisticas sobre Adda Bornio](img/addabornio-describe.png)
-Este DataFrame contiene datos diarios para la cuenca "adda-bornio" a lo largo de varios años.
+![Estadisticas sobre Adda Bornio](img/genildilar-describe.png)
+Este DataFrame contiene datos diarios para la cuenca "genil-dilar" a lo largo de varios años.
 
 - **dia_sen:** Variable temporal normalizada utilizando la función seno. El valor medio es cercano a cero (-0.0026), con un rango que abarca desde -0.9999 hasta 0.9999, indicando la representación cíclica del año. La desviación estándar (0.7082) sugiere una dispersión considerable a lo largo del ciclo anual.
 
@@ -103,8 +103,8 @@ Este DataFrame contiene datos diarios para la cuenca "adda-bornio" a lo largo de
 - **dias_sin_precip:** El número de días transcurridos desde la última precipitación tiene una media de 2.37 días, con un máximo de 33 días sin lluvia registrada. La desviación estándar de 3.67 días indica una variabilidad en la frecuencia de las precipitaciones.
 
 # genil-dilar
-![Estadisticas sobre Genil Dilar](img/genildilar-describe.png)
-Este DataFrame contiene datos diarios para la cuenca "genil-dilar" a lo largo de varios años.
+![Estadisticas sobre Genil Dilar](img/addabornio-describe.png)
+Este DataFrame contiene datos diarios para la cuenca "adda-bornio" a lo largo de varios años.
 
 - **dia_sen:** Similar a otras cuencas, esta variable temporal normalizada con la función seno tiene una media cercana a cero (-0.0088) y un rango completo de -0.9999 a 0.9999. La desviación estándar es de 0.7076.
 
