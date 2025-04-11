@@ -2,6 +2,8 @@
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler
+import seaborn as sns
+import matplotlib.pyplot as plt
 #%%
 csv_path = "D:/data/csv/"
 cuencas = ['genil-dilar','adda-bornio','indrawati-melamchi','machopo-almendros','nenskra-Enguri','uncompahgre-ridgway']
@@ -109,6 +111,11 @@ adda_norm.to_csv(".")
 #%%
 corr = genil.corr(numeric_only=True)
 corr.style.background_gradient(cmap="coolwarm")
+#%%
+corr = genil.corr(numeric_only=True)
+sns.heatmap(corr, annot=True, cmap='coolwarm', fmt='.2f')
+plt.title = "Correlacion de la cuenca genil-dilar"
+plt.show()
 
 #%%
 corr = indrawati.corr(numeric_only=True)

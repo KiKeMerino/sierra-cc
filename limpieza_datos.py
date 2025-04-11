@@ -9,7 +9,7 @@ import rioxarray as rxr
 import concurrent.futures
 import numpy as np
 
-external_disk = "E:/"
+external_disk = "D:/"
 data_path = os.path.join(external_disk, "data/")
 #%%
 # Leo datos sobre variables exogenas: temperatura y precipitacion
@@ -87,7 +87,6 @@ def procesar_archivo(cuenca, area, archivo):
 
 def procesar_cuenca(cuenca):
     archivos_hdf = [str(archivo) for archivo in Path(data_path + "cuencas" +"/" + cuenca).rglob("*.hdf")]
-    archivos_hdf = archivos_hdf[:1000]
     archivos_shp = [str(archivo) for archivo in Path(data_path + "cuencas" +"/" + cuenca).glob("*.shp")]
     area_path = archivos_shp[0]
     area = gpd.read_file(area_path)

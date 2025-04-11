@@ -1,4 +1,3 @@
-#%%
 import rioxarray as rxr
 from pathlib import Path
 import geopandas as gpd
@@ -6,50 +5,52 @@ import os
 import xarray as xr
 import seaborn as sns
 import matplotlib.pyplot as plt
+import pandas as pd
 
 
-external_disk = "D:/"
-data_path = os.path.join(external_disk, "data/")
+data_path = os.path.join("D:/data/")
+
 cuencas = ['genil-dilar','adda-bornio','indrawati-melamchi','machopo-almendros','nenskra-Enguri','uncompahgre-ridgway']
-for cuenca in cuencas:
-    archivos_hdf = [str(archivo) for archivo in Path(data_path + "cuencas" + "/" + cuenca).rglob("*.hdf")]
-    archivos_shp = [str(archivo) for archivo in Path(data_path + "cuencas" + "/" + cuenca).glob("*.shp")]
-    area_path = archivos_shp[0]
-    area = gpd.read_file(area_path)
+# for cuenca in cuencas:
+cuenca = "adda-bornio"
+archivos_hdf = [str(archivo) for archivo in Path(data_path + "cuencas" + "/" + cuenca).rglob("*.hdf")]
+archivos_hdf = archivos_hdf[:1000]
+archivos_shp = [str(archivo) for archivo in Path(data_path + "cuencas" + "/" + cuenca).glob("*.shp")]
+area_path = archivos_shp[0]
+area = gpd.read_file(area_path)
 
-    # Lista para almacenar los arrays booleanos de cobertura de nieve
-    snow_presence_list = []
+# Lista para almacenar los arrays booleanos de cobertura de nieve
+snow_presence_list = []
 
-    for archivo in archivos_hdf:
-        try:
-            snow_cover = rxr.open_rasterio(archivo, masked=True, variable="CGF_NDSI_Snow_Cover").rio.clip(
-                area.geometry.to_list(), crs=area.crs, all_touched=False).squeeze()
+for archivo in archivos_hdf:
+    snow_cover = rxr.open_rasterio(archivo, masked=True, variable="CGF_NDSI_Snow_Cover").rio.clip(
+        area.geometry.to_list(), crs=area.crs, all_touched=False).squeeze()
 
-            snow_presence = (snow_cover > 40) and (snow_cover < 100).astype(int)
-            snow_presence_list.append(snow_presence)
 
-        except Exception as e:
-            print(f"Error al procesar el archivo {archivo}: {e}")
+    snow_cover = snow_cover.to_dataframe().dropna().reset_index()
+    snow_cover['nieve'] = ( (snow_cover.CGF_NDSI_Snow_Cover > 40) & (snow_cover.CGF_NDSI_Snow_Cover < 100) ).astype(int)
+    snow_cover.drop(columns=['band', 'spatial_ref', 'CGF_NDSI_Snow_Cover'], inplace = True)
 
-    if snow_presence_list:
-        snow_presence_stacked = xr.concat(snow_presence_list, dim='time')
-        probability_snow = snow_presence_stacked.mean(dim='time')
+    snow_presence_list.append(snow_cover)
 
-        # Convertir a DataFrame especificando el nombre de la variable en .to_dataframe()
-        probability_df = probability_snow.to_dataframe().reset_index().rename(columns={'CGF_NDSI_Snow_Cover': 'probability'})
+if snow_presence_list:
 
-        probability_pivot = probability_df.pivot(index='y', columns='x', values='probability')
+    df_media = pd.concat(snow_presence_list, ignore_index=True)
+    df_media = df_media.groupby(['x', 'y'])['nieve'].mean().reset_index()
 
-        plt.figure(figsize=(10, 8))
-        sns.heatmap(probability_pivot, cmap='mako', cbar_kws={'label': 'Probabilidad de Nieve'})
-        plt.title(f'Probabilidad de Nieve por Píxel - {cuenca}')
-        plt.xlabel('Longitud (x)')
-        plt.ylabel('Latitud (y)')
-        plt.xticks([])  # Eliminar marcas del eje x
-        plt.yticks([])  # Eliminar marcas del eje y
-        plt.gca().invert_yaxis()
-        plt.savefig(f"img/heatmaps/{cuenca}-probability.png")
-        plt.close()
+    probability_pivot = df_media.pivot(index='y', columns='x', values='nieve')
 
-    else:
-        print("No se encontraron datos de cobertura de nieve para procesar.")
+    plt.figure(figsize=(10, 8))
+    sns.heatmap(probability_pivot, cmap='mako', cbar_kws={'label': 'Probabilidad de Nieve'})
+    plt.title(f'Probabilidad de Nieve por Píxel - {cuenca}')
+    plt.xlabel('Longitud (x)')
+    plt.ylabel('Latitud (y)')
+    plt.xticks([])  # Eliminar marcas del eje x
+    plt.yticks([])  # Eliminar marcas del eje y
+    plt.gca().invert_yaxis()
+    plt.savefig(f"img/heatmaps/{cuenca}-probability.png")
+    plt.show()
+    plt.close()
+
+else:
+    print("No se encontraron datos de cobertura de nieve para procesar.")
