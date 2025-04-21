@@ -5,7 +5,7 @@ from sklearn.preprocessing import MinMaxScaler
 import seaborn as sns
 import matplotlib.pyplot as plt
 #%%
-csv_path = "D:/data/csv/"
+csv_path = "E:/data/csv/"
 cuencas = ['genil-dilar','adda-bornio','indrawati-melamchi','machopo-almendros','nenskra-Enguri','uncompahgre-ridgway']
 
 area_ab = pd.read_csv(csv_path + "areas/" + cuencas[0] + ".csv")
@@ -100,13 +100,15 @@ uncompahgre.describe()
 #%%
 # MixMax Scaler y correlacion de adda-bornio
 adda_norm = adda.copy()
+lista_numericas = ['dia_sen', 'temperatura', 'precipitacion', 'dias_sin_precip']
 MinMax = MinMaxScaler()
-adda_norm[['dia_sen', 'temperatura', 'precipitacion', 'dias_sin_precip']] = MinMax.fit_transform(adda[['dia_sen', 'temperatura', 'precipitacion', 'dias_sin_precip']])
+adda_norm[lista_numericas] = MinMax.fit_transform(adda_norm[lista_numericas]) # Transformamos las variables numéricas del dataset con MinMaxScaler
 corr_adda = adda_norm.corr(numeric_only=True)
 corr_adda.style.background_gradient(cmap="coolwarm")
 
 #%%
-adda_norm.to_csv(".")
+adda_norm.to_csv("./adda_norm.csv", index=False)
+adda_norm
 
 #%%
 corr = genil.corr(numeric_only=True)
