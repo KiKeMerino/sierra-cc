@@ -10,7 +10,7 @@ import pandas as pd
 
 data_path = os.path.join("E:/data/")
 
-cuencas = ['genil-dilar','indrawati-melamchi','machopo-almendros','nenskra-Enguri','uncompahgre-ridgway']
+cuencas = ['adda-bornio']#genil-dilar','indrawati-melamchi','machopo-almendros','nenskra-Enguri','uncompahgre-ridgway']
 for cuenca in cuencas:
 
     archivos_hdf = [str(archivo) for archivo in Path(data_path + "cuencas" + "/" + cuenca).rglob("*.hdf")]
