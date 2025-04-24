@@ -40,11 +40,11 @@ for cuenca in cuencas:
 
         probability_pivot = df_media.pivot(index='y', columns='x', values='nieve')
 
-        # plt.figure(figsize=(10, 8))
-        sns.heatmap(probability_pivot, cmap='mako', cbar_kws={'label': 'Probabilidad de Nieve'})
-        plt.title(f'Probabilidad de Nieve por Píxel - {cuenca}')
-        plt.xlabel('Longitud (x)')
-        plt.ylabel('Latitud (y)')
+        plt.figure(figsize=(10, 6))
+        sns.heatmap(probability_pivot, cmap='Spectral', cbar_kws={'label': 'Snow probability'})
+        plt.title(f'Snow probability by pixel - {cuenca}')
+        plt.xlabel('Longitude (x)')
+        plt.ylabel('Latitude (y)')
         plt.xticks([])  # Eliminar marcas del eje x
         plt.yticks([])  # Eliminar marcas del eje y
         plt.gca().invert_yaxis()
@@ -53,4 +53,4 @@ for cuenca in cuencas:
         plt.close()
 
     else:
-        print("No se encontraron datos de cobertura de nieve para procesar.")
+        print("No snow cover data was.")
