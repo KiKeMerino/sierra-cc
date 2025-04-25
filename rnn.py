@@ -1,7 +1,8 @@
+# SIMPLE RECURRENT NEURAL NETWORK
 #%%
 import numpy as np
 from tensorflow import keras
-from tensorflow.keras.layers import Input, Dense
+from keras.layers import Input, Dense, SimpleRNN
 from sklearn.preprocessing import MinMaxScaler # Para escalar los datos
 import pandas as pd
 
@@ -64,4 +65,17 @@ n_features = X_train_nn.shape[1]
 X_train_nn = X_train_nn.reshape((X_train_nn.shape[0], 1, n_features))
 X_test_nn = X_test_nn.reshape((X_test_nn.shape[0], 1, n_features))
 
-y_train_nn
+#%%
+# Defino la arquitectura de la red neuronal
+# En este caso una Red Neuronal Recurrente Simple (RNN)
+n_timesteps = X_train_nn.shape[1]
+n_features = X_train_nn.shape[2]
+
+model_rnn = keras.Sequential([
+    Input(shape=(n_timesteps, n_features)),
+    SimpleRNN(units=32, activation='relu'), # 32 unidades en la capa RNN
+    Dense(units=1) # Capa de salida con una única neurona para la predicción
+])
+
+#%%
+# Compilo el modelo
