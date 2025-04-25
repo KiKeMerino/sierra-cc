@@ -5,6 +5,8 @@ from tensorflow import keras
 from keras.layers import Input, Dense, SimpleRNN
 from sklearn.preprocessing import MinMaxScaler # Para escalar los datos
 import pandas as pd
+from sklearn import metrics
+
 
 def create_lagged_data(data, n_lags_area, n_lags_exog):
     n_vars = data.shape[1]
@@ -79,3 +81,34 @@ model_rnn = keras.Sequential([
 
 #%%
 # Compilo el modelo
+model_rnn.compile(optimizer='adam', # optimizador comun y eficiente
+                loss='mean_squared_error', # Funcion de perdida adecuada para regresión
+                metrics=['mae']) # Error absoluto medio com ométrica adicional
+
+# Entreno el modelo
+history = model_rnn.fit(X_train_nn, y_train_nn,
+                        epochs=100, # Numero de veces que el modelo recorre el conjunto de entrenamiento
+                        batch_size=32, # Numero de muestras por lote durante el entrenamiento
+                        validation_split=0.2, # Fracción de los datos de entrenamiento a usar como conjunto de validación
+                        verbose=1)
+
+# Evaluo el modelo
+loss, mae = model_rnn.evaluate(X_test_nn, y_test_nn)
+# print(f'Perdida (MSE) en el conjunto de prueba: {loss:.4f}')
+# print(f'Error medio absoluto (MAE) en el conjunto de prueba: {mae:.4f}')
+
+# Realizo predicciones
+y_pred_scaled = model_rnn.predict(X_test_nn)
+y_pred_nn = scaler_y.inverse_transform(y_pred_scaled)
+
+# También necesitas invertir la escala de los valores reales del conjunto de prueba
+y_test_nn_original = scaler_y.inverse_transform(y_test_nn)
+
+# Comparo y_pred_nn con y_test_nn_original
+df_resultados_nn = pd.DataFrame({'Actual': y_test_nn_original.flatten(), 'Predicted': y_pred_nn.flatten()})
+print("\nResultados de la Red Neuronal:")
+print(df_resultados_nn.head())
+
+from sklearn import metrics
+print("R2:", metrics.r2_score(y_test_nn_original, y_pred_nn))
+print ("MAE:", metrics.mean_absolute_error(y_test_nn_original, y_pred_nn))
