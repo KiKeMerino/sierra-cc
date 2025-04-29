@@ -6,8 +6,9 @@ from keras.layers import Input, Dense, SimpleRNN
 from sklearn.preprocessing import MinMaxScaler # Para escalar los datos
 import pandas as pd
 from sklearn import metrics
+import matplotlib as plt
 
-
+#%%
 def create_lagged_data(data, n_lags_area, n_lags_exog):
     n_vars = data.shape[1]
     df_shifted = pd.DataFrame(data)
@@ -16,24 +17,23 @@ def create_lagged_data(data, n_lags_area, n_lags_exog):
     # Lags de la variable objetivo
     for i in range(1, n_lags_area + 1):
         cols.append(df_shifted['area_nieve'].shift(i))
-        names += [('area_nieve(t-%d)' % (i))]
+        names += [f'area_nieve(t-d{i}']
 
     # Lags de las variables exógenas (incluyendo t-0)
     exog_cols = [col for col in data.columns if col != 'area_nieve']
     for col in exog_cols:
         for i in range(n_lags_exog + 1):
             cols.append(df_shifted[col].shift(i))
-            names += [(f'{col}(t-{i})')]
+            names += [f'{col}(t-{i})']
 
     # Juntamos todo
     agg = pd.concat(cols, axis=1)
     agg.columns = names
     agg.dropna(inplace=True)
     return agg
-#%%
 
-df = pd.read_csv("adda_norm.csv")
-del df['fecha']
+#%%
+df = pd.read_csv("csv_normalizados/adda-bornio_norm.csv")
 
 n_lags_area = 3
 n_lags_exog = 2
@@ -109,6 +109,46 @@ df_resultados_nn = pd.DataFrame({'Actual': y_test_nn_original.flatten(), 'Predic
 print("\nResultados de la Red Neuronal:")
 print(df_resultados_nn.head())
 
-from sklearn import metrics
-print("R2:", metrics.r2_score(y_test_nn_original, y_pred_nn))
-print ("MAE:", metrics.mean_absolute_error(y_test_nn_original, y_pred_nn))
+# Calculo las métricas adicionales
+r2 = metrics.r2_score(y_test_nn_original, y_pred_nn)
+mae = metrics.mean_absolute_error(y_test_nn_original, y_pred_nn)
+
+
+def nash_sutcliffe_efficiency(observaciones, simulaciones):
+    """Calcula el Nash-Sutcliffe Efficiency (NSE)."""
+    numerador = np.sum((observaciones - simulaciones)**2)
+    denominador = np.sum((observaciones - np.mean(observaciones))**2)
+    nse = 1 - (numerador / denominador)
+    return nse
+
+
+def kling_gupta_efficiency(observaciones, simulaciones):
+    """Calcula el Kling-Gupta Efficiency (KGE)."""
+    # Correlación de Pearson
+    r = np.corrcoef(observaciones, simulaciones)[0, 1]
+    # Desviación estándar
+    sigma_sim = np.std(simulaciones)
+    sigma_obs = np.std(observaciones)
+    # Media
+    mu_sim = np.mean(simulaciones)
+    mu_obs = np.mean(observaciones)
+
+    # Componentes de KGE
+    r_component = r
+    beta_component = mu_sim / mu_obs
+    gamma_component = sigma_sim / sigma_obs
+
+    # KGE formula
+    kge = 1 - np.sqrt((r_component - 1)**2 + (beta_component - 1)**2 + (gamma_component - 1)**2)
+    return kge
+
+
+nse = nash_sutcliffe_efficiency(y_test_nn_original.flatten(), y_pred_nn.flatten())
+kge = kling_gupta_efficiency(y_test_nn_original.flatten(), y_pred_nn.flatten())
+
+print(f"R2: {r2:.4f}")
+print(f"MAE: {mae:.4f}")
+print(f"NSE: {nse:.4f}")
+print(f"KGE: {kge:.4f}")
+
+df_resultados_nn.hist()
