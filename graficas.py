@@ -13,39 +13,33 @@ cuencas = ['genil-dilar','adda-bornio','indrawati-melamchi','mapocho-almendros',
 
 def plot_area_perday(cuencas, save=False, path = './img/lineplots/per_day'):
     """!
-    @brief Plots the average snow cover area throughout the year for specified basins.
+    @brief Genera y muestra (o guarda) un gráfico de la superficie de nieve promedio por día del año para las cuencas especificadas.
 
-    This function takes a basin name or a list of basin names, reads corresponding
-    CSV files containing snow cover data, calculates the average snow cover area
-    for each day of the year, and generates a line plot for each basin.
+    Esta función toma un nombre de cuenca o una lista de nombres de cuencas, lee los archivos CSV correspondientes que contienen datos de superficie de nieve,
+    calcula la superficie de nieve promedio para cada día del año y genera un gráfico de líneas para cada cuenca.
 
-    @param cuencas A string representing a single basin name or a list of strings
-                   where each string is a basin name. The function expects CSV files
-                   named `<basin_name>.csv` to be present in the `data_path` directory
-                   (which should be defined globally).
-    @param save (optional) A boolean indicating whether to save the plot as a PNG file
-                in the 'img/' subdirectory (True) or display it (False). Defaults to False.
+    @param cuencas Una cadena que representa el nombre de una única cuenca o una lista de cadenas donde cada cadena es el nombre de una cuenca.
+                   La función espera que los archivos CSV nombrados `<nombre_de_cuenca>.csv` estén presentes en el directorio especificado por la variable global `data_path`.
+    @param save (opcional) Un booleano que indica si guardar el gráfico como un archivo PNG en el subdirectorio especificado por `path` (True) o mostrarlo (False). El valor predeterminado es False.
+    @param path (opcional) Una cadena que especifica la ruta al directorio donde se guardarán los gráficos si `save` es True. El valor predeterminado es './img/lineplots/per_day'.
 
     @details
-    The function performs the following steps for each specified basin:
-    - Ensures the `cuencas` parameter is a list.
-    - Constructs the file path for the basin's CSV file.
-    - Reads the CSV file into a pandas DataFrame, expecting a 'fecha' column (YYYY-MM-DD)
-      and an 'area_nieve' column (snow cover area in km2).
-    - Converts the 'fecha' column to datetime objects and extracts the day of the year.
-    - Groups the DataFrame by the day of the year and calculates the mean snow cover area.
-    - Generates a line plot showing the average snow cover area against the day of the year.
-    - Sets the x-axis limits to start from day 0.
-    - Labels the x and y axes and sets the plot title.
-    - If `save` is True, saves the plot as a PNG file in the 'img/' directory.
-    - Otherwise, displays the plot.
-    - Closes the plot to free up resources.
+    La función realiza los siguientes pasos para cada cuenca especificada:
+    - Asegura que el parámetro `cuencas` sea una lista.
+    - Construye la ruta del archivo CSV para la cuenca.
+    - Lee el archivo CSV en un DataFrame de pandas, esperando una columna 'fecha' (AAAA-MM-DD) y una columna 'area_nieve' (superficie de nieve en km2).
+    - Convierte la columna 'fecha' a objetos datetime y extrae el día del año.
+    - Agrupa el DataFrame por el día del año y calcula la superficie de nieve promedio.
+    - Genera un gráfico de líneas que muestra la superficie de nieve promedio en función del día del año.
+    - Establece el límite inferior del eje x en 0.
+    - Etiqueta los ejes x e y y establece el título del gráfico.
+    - Si `save` es True, guarda el gráfico como un archivo PNG en la ruta especificada, con el nombre de archivo incluyendo el nombre de la cuenca.
+    - De lo contrario, muestra el gráfico.
+    - Cierra el gráfico para liberar recursos.
 
-    @note The global variable `data_path` is expected to be defined and point to the
-          directory containing the basin CSV files.
+    @note Se espera que la variable global `data_path` esté definida y apunte al directorio que contiene los archivos CSV de las cuencas.
 
-    @exception FileNotFoundError If the CSV file for a specified basin is not found
-                                 in the expected location.
+    @exception FileNotFoundError Si no se encuentra el archivo CSV para una cuenca especificada en la ubicación esperada.
     """
     if not isinstance(cuencas, list):
         cuencas = [cuencas]
@@ -75,7 +69,35 @@ def plot_area_perday(cuencas, save=False, path = './img/lineplots/per_day'):
         plt.close()
 
 def plot_area_permonth(cuencas, save=False, path = './img/lineplots/per_month'):
-    
+    """!
+    @brief Genera y muestra (o guarda) un gráfico de la superficie de nieve promedio por mes para las cuencas especificadas.
+
+    Esta función toma un nombre de cuenca o una lista de nombres de cuencas, lee los archivos CSV correspondientes que contienen datos de superficie de nieve,
+    calcula la superficie de nieve promedio para cada mes del año y genera un gráfico de líneas para cada cuenca.
+
+    @param cuencas Una cadena que representa el nombre de una única cuenca o una lista de cadenas donde cada cadena es el nombre de una cuenca.
+                   La función espera que los archivos CSV nombrados `<nombre_de_cuenca>.csv` estén presentes en el directorio especificado por la variable global `data_path`.
+    @param save (opcional) Un booleano que indica si guardar el gráfico como un archivo PNG en el subdirectorio especificado por `path` (True) o mostrarlo (False). El valor predeterminado es False.
+    @param path (opcional) Una cadena que especifica la ruta al directorio donde se guardarán los gráficos si `save` es True. El valor predeterminado es './img/lineplots/per_month'.
+
+    @details
+    La función realiza los siguientes pasos para cada cuenca especificada:
+    - Asegura que el parámetro `cuencas` sea una lista.
+    - Construye la ruta del archivo CSV para la cuenca.
+    - Lee el archivo CSV en un DataFrame de pandas, esperando una columna 'fecha' (AAAA-MM-DD) y una columna 'area_nieve' (superficie de nieve en km2).
+    - Convierte la columna 'fecha' a objetos datetime y extrae el mes del año.
+    - Agrupa el DataFrame por el mes del año y calcula la superficie de nieve promedio.
+    - Genera un gráfico de líneas que muestra la superficie de nieve promedio en función del mes del año.
+    - Establece el límite inferior del eje x en 0.
+    - Etiqueta los ejes x e y y establece el título del gráfico.
+    - Si `save` es True, guarda el gráfico como un archivo PNG en la ruta especificada, con el nombre de archivo incluyendo el nombre de la cuenca.
+    - De lo contrario, muestra el gráfico.
+    - Cierra el gráfico para liberar recursos.
+
+    @note Se espera que la variable global `data_path` esté definida y apunte al directorio que contiene los archivos CSV de las cuencas.
+
+    @exception FileNotFoundError Si no se encuentra el archivo CSV para una cuenca especificada en la ubicación esperada.
+    """
     if not isinstance(cuencas, list):
         cuencas = [cuencas]
     cuencas_path = [data_path + elemento + '.csv' for elemento in cuencas]

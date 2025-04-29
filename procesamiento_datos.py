@@ -4,137 +4,86 @@ import numpy as np
 from sklearn.preprocessing import MinMaxScaler
 import seaborn as sns
 import matplotlib.pyplot as plt
+
 #%%
 csv_path = "E:/data/csv/"
-cuencas = ['genil-dilar','adda-bornio','indrawati-melamchi','machopo-almendros','nenskra-Enguri','uncompahgre-ridgway']
-
-area_ab = pd.read_csv(csv_path + "areas/" + cuencas[0] + ".csv")
-variable_ab = pd.read_csv(csv_path + "series_agregadas/" + cuencas[0] + ".csv")
-
-area_gd = pd.read_csv(csv_path + "areas/" + cuencas[1] + ".csv")
-variable_gd = pd.read_csv(csv_path + "series_agregadas/" + cuencas[1] + ".csv")
-
-area_im = pd.read_csv(csv_path + "areas/" + cuencas[2] + ".csv")
-variable_im = pd.read_csv(csv_path + "series_agregadas/" + cuencas[2] + ".csv")
-
-area_ma = pd.read_csv(csv_path + "areas/" + cuencas[3] + ".csv")
-variable_ma = pd.read_csv(csv_path + "series_agregadas/" + cuencas[3] + ".csv")
-
-area_ne = pd.read_csv(csv_path + "areas/" + cuencas[4] + ".csv")
-variable_ne = pd.read_csv(csv_path + "series_agregadas/" + cuencas[4] + ".csv")
-
-area_ur = pd.read_csv(csv_path + "areas/" + cuencas[5] + ".csv")
-variable_ur = pd.read_csv(csv_path + "series_agregadas/" + cuencas[5] + ".csv")
+cuencas = ['genil-dilar','adda-bornio','indrawati-melamchi','mapocho-almendros','nenskra-Enguri','uncompahgre-ridgway']
 
 
 #%%
-def procesar_cuenca(areas, series):
+def normalizar_cuenca(cuencas, area_path = 'E:/data/csv/areas/', series_path = 'E:/data/csv/series_agregadas/'):
+    """!
+    @brief Calcula las anomalías acumuladas de una columna específica en un DataFrame.
+
+    Esta función toma un DataFrame, el nombre de una columna numérica y un tamaño de
+    ventana, y calcula las anomalías acumuladas de los valores en esa columna con
+    respecto a la media móvil de la ventana especificada.
+
+    @param df Un pandas DataFrame que contiene la columna para la cual se calcularán
+              las anomalías. Debe tener un índice temporal ordenado.
+    @param columna Un string que especifica el nombre de la columna en `df` para la
+                   cual se calcularán las anomalías. Esta columna debe contener datos numéricos.
+    @param ventana Un entero que define el tamaño de la ventana móvil utilizada para
+                   calcular la media móvil.
+
+    @details
+    La función realiza los siguientes pasos:
+    - Calcula la media móvil de la columna especificada utilizando una ventana móvil centrada.
+    - Calcula las anomalías restando la media móvil de los valores originales de la columna.
+    - Calcula las anomalías acumuladas sumando secuencialmente las anomalías. Los valores
+      NaN resultantes de la media móvil en los bordes del DataFrame se mantienen como NaN
+      en las anomalías acumuladas.
+
+    @return Un pandas Series que contiene las anomalías acumuladas de la columna especificada.
+            El índice de la Serie coincidirá con el índice del DataFrame de entrada.
+
+    @exception KeyError Si la `columna` especificada no existe en el DataFrame `df`.
+    @exception TypeError Si la `columna` especificada no contiene datos numéricos.
+    @exception ValueError Si el tamaño de la `ventana` no es un entero positivo.
+
+    @note Se espera que el DataFrame de entrada tenga un índice temporal ordenado para que
+          el cálculo de la media móvil y las anomalías acumuladas tenga sentido temporalmente.
     """
-    Combina datos de áreas y series temporales de una cuenca hidrográfica,
-    calcula los días transcurridos desde la última precipitación y devuelve
-    un DataFrame con la información procesada.
+    if not isinstance(cuencas, list):
+        cuencas = [cuencas]
 
-    Args:
-        areas (pd.DataFrame): DataFrame con información de áreas,
-                                 debe contener una columna 'fecha' para la unión.
-        series (pd.DataFrame): DataFrame con series temporales (temperatura,
-                                  precipitación, etc.), debe contener una columna
-                                  'fecha' para la unión.
+    for cuenca in cuencas:
+        try:
+            area_file_path = area_path + cuenca + '.csv'
+            serie_file_path = series_path + cuenca + '.csv'
+            area = pd.read_csv(area_file_path)
+            serie = pd.read_csv(serie_file_path)
+        except FileNotFoundError:
+            print(f"Error: files not found for basin {cuenca}")
+            continue  # Move to the next basin if the file is not found
 
-    Returns:
-        pd.DataFrame: DataFrame resultante de la combinación y el cálculo,
-                      con las siguientes columnas:
-                      - 'fecha': Fecha de la observación (tipo datetime).
-                      - 'dia_sen': Dia normalizado con la función seno.
-                      - 'temperatura': Temperatura registrada.
-                      - 'precipitacion': Cantidad de precipitación registrada.
-                      - 'precipitacion_bool': Variable booleana indicando si hubo
-                                              precipitación (1 para sí,
-                                              0 para no).
-                      - 'area_nieve': Área cubierta por nieve.
-                      - 'dias_sin_precip': Número de días consecutivos sin
-                                           precipitación hasta la fecha actual.
-    """
-    df = pd.merge(series, areas, how='inner', left_on='fecha', right_on='fecha')
-    columns = ['fecha','dia_sen','temperatura','precipitacion','precipitacion_bool','area_nieve']
-    df.columns = columns
-    df['fecha'] = pd.to_datetime(df["fecha"])
-    # Calculo de dias transcurridos desde la última precipitacion
-    df['dias_sin_precip'] = 0
-    dias_transcurridos = 0
+        df = pd.merge(serie, area, how='inner', left_on='fecha', right_on='fecha')
+        columns = ['fecha','dia_sen','temperatura','precipitacion','precipitacion_bool','area_nieve']
+        df.columns = columns
+        df['fecha'] = pd.to_datetime(df["fecha"])
+        # Calculo de dias transcurridos desde la última precipitacion
+        df['dias_sin_precip'] = 0
+        dias_transcurridos = 0
 
-    for index, row in df.iterrows():
-        if row['precipitacion_bool'] == 1:
-            dias_transcurridos = 0  # reinicia el contador si ha llovido
-        else:
-            dias_transcurridos += 1
+        del df['fecha']
 
-        df.loc[index, 'dias_sin_precip'] = dias_transcurridos
+        for index, row in df.iterrows():
+            if row['precipitacion_bool'] == 1:
+                dias_transcurridos = 0  # reinicia el contador si ha llovido
+            else:
+                dias_transcurridos += 1
 
-    return df
-#%%
-#adda-bornio
-adda = procesar_cuenca(area_ab, variable_ab)
-adda.describe()
-#%%
-#genil-dilar
-genil = procesar_cuenca(area_gd, variable_gd)
-genil.describe()
-#%%
-#indrawati-melamchi
-indrawati = procesar_cuenca(area_im, variable_im)
-indrawati.describe()
-#%%
-# machopo-almendros
-machopo = procesar_cuenca(area_ma, variable_ma)
-machopo.describe()
-#%%
-#nenskra-enguri
-nenskra = procesar_cuenca(area_ne, variable_ne)
-nenskra.describe()
-#%%
-#uncompahgre-ridgway
-uncompahgre = procesar_cuenca(area_ur, variable_ur)
-uncompahgre.describe()
+            df.loc[index, 'dias_sin_precip'] = dias_transcurridos
+
+        # MixMax Scaler y correlacion de adda-bornio
+        lista_numericas = ['dia_sen', 'temperatura', 'precipitacion', 'dias_sin_precip']
+        MinMax = MinMaxScaler()
+        df[lista_numericas] = MinMax.fit_transform(df[lista_numericas]) # Transformamos las variables numéricas del dataset con MinMaxScaler
+
+        df.to_csv(f'./csv_normalizados/{cuenca}_norm.csv', index=False)
 
 #%%
-# MixMax Scaler y correlacion de adda-bornio
-adda_norm = adda.copy()
-lista_numericas = ['dia_sen', 'temperatura', 'precipitacion', 'dias_sin_precip']
-MinMax = MinMaxScaler()
-adda_norm[lista_numericas] = MinMax.fit_transform(adda_norm[lista_numericas]) # Transformamos las variables numéricas del dataset con MinMaxScaler
-corr_adda = adda_norm.corr(numeric_only=True)
-corr_adda.style.background_gradient(cmap="coolwarm")
-
+normalizar_cuenca(cuencas)
 #%%
-adda_norm.to_csv("./adda_norm.csv", index=False)
-adda_norm
-
-#%%
-corr = genil.corr(numeric_only=True)
-corr.style.background_gradient(cmap="coolwarm")
-#%%
-corr = genil.corr(numeric_only=True)
-sns.heatmap(corr, annot=True, cmap='coolwarm', fmt='.2f')
-plt.title = "Correlacion de la cuenca genil-dilar"
-plt.show()
-
-#%%
-corr = indrawati.corr(numeric_only=True)
-corr.style.background_gradient(cmap="coolwarm")
-
-#%%
-corr = machopo.corr(numeric_only=True)
-corr.style.background_gradient(cmap="coolwarm")
-
-#%%
-corr = nenskra.corr(numeric_only=True)
-corr.style.background_gradient(cmap="coolwarm")
-
-#%%
-corr = uncompahgre.corr(numeric_only=True)
-corr.style.background_gradient(cmap="coolwarm")
-
-#%%
-# Se define el target como la variable a predecir con el modelo
-target = ["area_nieve"]
+df = pd.read_csv('csv_normalizados/adda-bornio_norm.csv')
+df
