@@ -4,45 +4,48 @@ import numpy as np
 from sklearn.preprocessing import MinMaxScaler
 import seaborn as sns
 import matplotlib.pyplot as plt
+import os
 
 #%%
 csv_path = "E:/data/csv/"
 cuencas = ['genil-dilar','adda-bornio','indrawati-melamchi','mapocho-almendros','nenskra-Enguri','uncompahgre-ridgway']
 
-
 #%%
-def normalizar_cuenca(cuencas, area_path = 'E:/data/csv/areas/', series_path = 'E:/data/csv/series_agregadas/'):
-    """!
-    @brief Calcula las anomalías acumuladas de una columna específica en un DataFrame.
+def normalize_basin(cuencas, area_path='E:/data/csv/areas/', series_path='E:/data/csv/series_agregadas/'):
+    """
+    Normalizes numerical features (day of the year, temperature, precipitation,
+    days since last precipitation) for specified basins by applying Min-Max scaling
+    and saves the normalized data to a new CSV file.
 
-    Esta función toma un DataFrame, el nombre de una columna numérica y un tamaño de
-    ventana, y calcula las anomalías acumuladas de los valores en esa columna con
-    respecto a la media móvil de la ventana especificada.
+    The function reads area and time series data from CSV files for each basin,
+    merges them based on the 'fecha' column, calculates the number of days
+    since the last precipitation event, applies Min-Max scaling to the specified
+    numerical columns, and saves the resulting normalized DataFrame to a new
+    CSV file named '{basin_name}_norm.csv' in the './csv_normalizados/' directory.
 
-    @param df Un pandas DataFrame que contiene la columna para la cual se calcularán
-              las anomalías. Debe tener un índice temporal ordenado.
-    @param columna Un string que especifica el nombre de la columna en `df` para la
-                   cual se calcularán las anomalías. Esta columna debe contener datos numéricos.
-    @param ventana Un entero que define el tamaño de la ventana móvil utilizada para
-                   calcular la media móvil.
+    Args:
+        cuencas (str or list): A single basin name (string) or a list of
+            basin names (strings). The function will look for area data in
+            CSV files named '{basin_name}.csv' in the directory specified by
+            the 'area_path' argument, and time series data in CSV files
+            named '{basin_name}.csv' in the directory specified by the
+            'series_path' argument.
+        area_path (str, optional): The directory path where the area data CSV
+            files are located. Defaults to 'E:/data/csv/areas/'.
+        series_path (str, optional): The directory path where the time series
+            data CSV files are located. Defaults to 'E:/data/csv/series_agregadas/'.
 
-    @details
-    La función realiza los siguientes pasos:
-    - Calcula la media móvil de la columna especificada utilizando una ventana móvil centrada.
-    - Calcula las anomalías restando la media móvil de los valores originales de la columna.
-    - Calcula las anomalías acumuladas sumando secuencialmente las anomalías. Los valores
-      NaN resultantes de la media móvil en los bordes del DataFrame se mantienen como NaN
-      en las anomalías acumuladas.
+    Returns:
+        None
 
-    @return Un pandas Series que contiene las anomalías acumuladas de la columna especificada.
-            El índice de la Serie coincidirá con el índice del DataFrame de entrada.
+    Raises:
+        FileNotFoundError: If the area or time series CSV file for a specified
+            basin is not found in the specified paths (though this is handled
+            within the function, a message is printed to the console).
 
-    @exception KeyError Si la `columna` especificada no existe en el DataFrame `df`.
-    @exception TypeError Si la `columna` especificada no contiene datos numéricos.
-    @exception ValueError Si el tamaño de la `ventana` no es un entero positivo.
-
-    @note Se espera que el DataFrame de entrada tenga un índice temporal ordenado para que
-          el cálculo de la media móvil y las anomalías acumuladas tenga sentido temporalmente.
+    Example:
+        >>> normalize_basin('Guadalquivir')
+        >>> normalize_basin(['Guadalquivir', 'Ebro'], area_path='/path/to/areas/', series_path='/path/to/series/')
     """
     if not isinstance(cuencas, list):
         cuencas = [cuencas]
@@ -58,7 +61,7 @@ def normalizar_cuenca(cuencas, area_path = 'E:/data/csv/areas/', series_path = '
             continue  # Move to the next basin if the file is not found
 
         df = pd.merge(serie, area, how='inner', left_on='fecha', right_on='fecha')
-        columns = ['fecha','dia_sen','temperatura','precipitacion','precipitacion_bool','area_nieve']
+        columns = ['fecha', 'dia_sen', 'temperatura', 'precipitacion', 'precipitacion_bool', 'area_nieve']
         df.columns = columns
         df['fecha'] = pd.to_datetime(df["fecha"])
         # Calculo de dias transcurridos desde la última precipitacion
@@ -78,12 +81,18 @@ def normalizar_cuenca(cuencas, area_path = 'E:/data/csv/areas/', series_path = '
         # MixMax Scaler y correlacion de adda-bornio
         lista_numericas = ['dia_sen', 'temperatura', 'precipitacion', 'dias_sin_precip']
         MinMax = MinMaxScaler()
-        df[lista_numericas] = MinMax.fit_transform(df[lista_numericas]) # Transformamos las variables numéricas del dataset con MinMaxScaler
+        df[lista_numericas] = MinMax.fit_transform(df[lista_numericas])  # Transformamos las variables numéricas del dataset con MinMaxScaler
 
-        df.to_csv(f'./csv_normalizados/{cuenca}_norm.csv', index=False)
+        output_path = f'./csv_normalizados/{cuenca}_norm.csv'
+        if os.path.exists(output_path):
+            overwrite = input(f"Warning: File '{output_path}' already exists. Overwrite? (y/N): ".lower())
+            if overwrite != 'y':
+                print(f"Overwrite cancelled for basin '{cuenca}'")
+                continue # Move to the next basin
+        
+        df.to_csv(output_path, index=False)
+        print(f"Data for basin '{cuenca}' normalized and saved to '{output_path}'.")
+            
 
 #%%
-normalizar_cuenca(cuencas)
-#%%
-df = pd.read_csv('csv_normalizados/adda-bornio_norm.csv')
-df
+# normalize_basin(cuencas)

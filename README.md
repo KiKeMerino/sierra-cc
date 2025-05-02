@@ -135,9 +135,9 @@ Este DataFrame contiene datos diarios para la cuenca "indrawati-melamchi" a lo l
 
 - **dias_sin_precip:** El número de días sin precipitación es muy bajo, con una media de 0.31 días y un máximo de 20 días consecutivos sin lluvia. La desviación estándar de 1.28 días sugiere precipitaciones muy frecuentes.
 
-# machopo-almendros
-![Estadisticas sobre Machopo Almendros](img/machopoalmendros-describe.png)
-Este DataFrame contiene datos diarios para la cuenca "machopo-almendros" a lo largo de varios años.
+# mapocho-almendros
+![Estadisticas sobre mapocho Almendros](img/mapochoalmendros-describe.png)
+Este DataFrame contiene datos diarios para la cuenca "mapocho-almendros" a lo largo de varios años.
 
 - **dia_sen:** La variable temporal normalizada con la función seno presenta una media cercana a cero (-0.0027) y un rango completo de -0.9999 a 0.9999. La desviación estándar es de 0.7084.
 
@@ -157,7 +157,7 @@ Este DataFrame contiene datos diarios para la cuenca "nenskra-enguri" a lo largo
 
 - **dia_sen:** La variable temporal normalizada con la función seno tiene una media cercana a cero (-0.0030) y un rango completo de -0.9999 a 0.9999. La desviación estándar es de 0.7082.
 
-- **temperatura:** La temperatura media diaria es de 2.45 °C, similar a la cuenca "machopo-almendros". Los valores oscilan entre un mínimo de -21.34 °C y un máximo de 22.05 °C. La desviación estándar de 8.90 °C indica una variabilidad térmica considerable.
+- **temperatura:** La temperatura media diaria es de 2.45 °C, similar a la cuenca "mapocho-almendros". Los valores oscilan entre un mínimo de -21.34 °C y un máximo de 22.05 °C. La desviación estándar de 8.90 °C indica una variabilidad térmica considerable.
 
 - **precipitacion:** La precipitación diaria presenta una media de 4.45 litros/m², con un máximo registrado de 63.71 litros/m². La desviación estándar es de 6.91 litros/m², mostrando una alta variabilidad.
 

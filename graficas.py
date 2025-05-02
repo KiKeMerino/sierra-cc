@@ -11,35 +11,35 @@ data_path ='E:/data/csv/areas/'
 cuencas = ['genil-dilar','adda-bornio','indrawati-melamchi','mapocho-almendros','nenskra-Enguri','uncompahgre-ridgway']
 
 
-def plot_area_perday(cuencas, save=False, path = './img/lineplots/per_day'):
-    """!
-    @brief Genera y muestra (o guarda) un gráfico de la superficie de nieve promedio por día del año para las cuencas especificadas.
+def plot_area_perday(cuencas, save=False, path='./img/lineplots/per_day'):
+    """
+    Generates and displays (or saves) a line plot of the average snow cover area
+    per day of the year for specified basins.
 
-    Esta función toma un nombre de cuenca o una lista de nombres de cuencas, lee los archivos CSV correspondientes que contienen datos de superficie de nieve,
-    calcula la superficie de nieve promedio para cada día del año y genera un gráfico de líneas para cada cuenca.
+    Args:
+        cuencas (str or list): A single basin name (string) or a list of
+            basin names (strings). The function will look for CSV files
+            named '{basin_name}.csv' in the directory specified by
+            the global variable 'data_path'.
+        save (bool, optional): If True, the plot will be saved as a PNG file
+            to the directory specified by the 'path' argument. If False,
+            the plot will be displayed using matplotlib's `plt.show()`.
+            Defaults to False.
+        path (str, optional): The directory path where the generated plot
+            will be saved if `save` is True. Defaults to './img/lineplots/per_day'.
 
-    @param cuencas Una cadena que representa el nombre de una única cuenca o una lista de cadenas donde cada cadena es el nombre de una cuenca.
-                   La función espera que los archivos CSV nombrados `<nombre_de_cuenca>.csv` estén presentes en el directorio especificado por la variable global `data_path`.
-    @param save (opcional) Un booleano que indica si guardar el gráfico como un archivo PNG en el subdirectorio especificado por `path` (True) o mostrarlo (False). El valor predeterminado es False.
-    @param path (opcional) Una cadena que especifica la ruta al directorio donde se guardarán los gráficos si `save` es True. El valor predeterminado es './img/lineplots/per_day'.
+    Returns:
+        None
 
-    @details
-    La función realiza los siguientes pasos para cada cuenca especificada:
-    - Asegura que el parámetro `cuencas` sea una lista.
-    - Construye la ruta del archivo CSV para la cuenca.
-    - Lee el archivo CSV en un DataFrame de pandas, esperando una columna 'fecha' (AAAA-MM-DD) y una columna 'area_nieve' (superficie de nieve en km2).
-    - Convierte la columna 'fecha' a objetos datetime y extrae el día del año.
-    - Agrupa el DataFrame por el día del año y calcula la superficie de nieve promedio.
-    - Genera un gráfico de líneas que muestra la superficie de nieve promedio en función del día del año.
-    - Establece el límite inferior del eje x en 0.
-    - Etiqueta los ejes x e y y establece el título del gráfico.
-    - Si `save` es True, guarda el gráfico como un archivo PNG en la ruta especificada, con el nombre de archivo incluyendo el nombre de la cuenca.
-    - De lo contrario, muestra el gráfico.
-    - Cierra el gráfico para liberar recursos.
+    Raises:
+        FileNotFoundError: If a CSV file for a specified basin is not found
+            in the expected location (though this is handled within the
+            function, a message is printed to the console).
 
-    @note Se espera que la variable global `data_path` esté definida y apunte al directorio que contiene los archivos CSV de las cuencas.
-
-    @exception FileNotFoundError Si no se encuentra el archivo CSV para una cuenca especificada en la ubicación esperada.
+    Example:
+        >>> data_path = '/path/to/your/data/'
+        >>> plot_area_perday('Guadalquivir')
+        >>> plot_area_perday(['Guadalquivir', 'Ebro'], save=True, path='./output_plots')
     """
     if not isinstance(cuencas, list):
         cuencas = [cuencas]
@@ -68,35 +68,35 @@ def plot_area_perday(cuencas, save=False, path = './img/lineplots/per_day'):
             plt.show()
         plt.close()
 
-def plot_area_permonth(cuencas, save=False, path = './img/lineplots/per_month'):
-    """!
-    @brief Genera y muestra (o guarda) un gráfico de la superficie de nieve promedio por mes para las cuencas especificadas.
+def plot_area_permonth(cuencas, save=False, path='./img/lineplots/per_month'):
+    """
+    Generates and displays (or saves) a line plot of the average snow cover area
+    per month of the year for specified basins.
 
-    Esta función toma un nombre de cuenca o una lista de nombres de cuencas, lee los archivos CSV correspondientes que contienen datos de superficie de nieve,
-    calcula la superficie de nieve promedio para cada mes del año y genera un gráfico de líneas para cada cuenca.
+    Args:
+        cuencas (str or list): A single basin name (string) or a list of
+            basin names (strings). The function will look for CSV files
+            named '{basin_name}.csv' in the directory specified by
+            the global variable 'data_path'.
+        save (bool, optional): If True, the plot will be saved as a PNG file
+            to the directory specified by the 'path' argument. If False,
+            the plot will be displayed using matplotlib's `plt.show()`.
+            Defaults to False.
+        path (str, optional): The directory path where the generated plot
+            will be saved if `save` is True. Defaults to './img/lineplots/per_month'.
 
-    @param cuencas Una cadena que representa el nombre de una única cuenca o una lista de cadenas donde cada cadena es el nombre de una cuenca.
-                   La función espera que los archivos CSV nombrados `<nombre_de_cuenca>.csv` estén presentes en el directorio especificado por la variable global `data_path`.
-    @param save (opcional) Un booleano que indica si guardar el gráfico como un archivo PNG en el subdirectorio especificado por `path` (True) o mostrarlo (False). El valor predeterminado es False.
-    @param path (opcional) Una cadena que especifica la ruta al directorio donde se guardarán los gráficos si `save` es True. El valor predeterminado es './img/lineplots/per_month'.
+    Returns:
+        None
 
-    @details
-    La función realiza los siguientes pasos para cada cuenca especificada:
-    - Asegura que el parámetro `cuencas` sea una lista.
-    - Construye la ruta del archivo CSV para la cuenca.
-    - Lee el archivo CSV en un DataFrame de pandas, esperando una columna 'fecha' (AAAA-MM-DD) y una columna 'area_nieve' (superficie de nieve en km2).
-    - Convierte la columna 'fecha' a objetos datetime y extrae el mes del año.
-    - Agrupa el DataFrame por el mes del año y calcula la superficie de nieve promedio.
-    - Genera un gráfico de líneas que muestra la superficie de nieve promedio en función del mes del año.
-    - Establece el límite inferior del eje x en 0.
-    - Etiqueta los ejes x e y y establece el título del gráfico.
-    - Si `save` es True, guarda el gráfico como un archivo PNG en la ruta especificada, con el nombre de archivo incluyendo el nombre de la cuenca.
-    - De lo contrario, muestra el gráfico.
-    - Cierra el gráfico para liberar recursos.
+    Raises:
+        FileNotFoundError: If a CSV file for a specified basin is not found
+            in the expected location (though this is handled within the
+            function, a message is printed to the console).
 
-    @note Se espera que la variable global `data_path` esté definida y apunte al directorio que contiene los archivos CSV de las cuencas.
-
-    @exception FileNotFoundError Si no se encuentra el archivo CSV para una cuenca especificada en la ubicación esperada.
+    Example:
+        >>> data_path = '/path/to/your/data/'
+        >>> plot_area_permonth('Guadalquivir')
+        >>> plot_area_permonth(['Guadalquivir', 'Ebro'], save=True, path='./output_plots')
     """
     if not isinstance(cuencas, list):
         cuencas = [cuencas]
@@ -125,30 +125,40 @@ def plot_area_permonth(cuencas, save=False, path = './img/lineplots/per_month'):
             plt.show()
         plt.close()
 
-def plot_heatmap_prob(cuencas, save = False, path = './img/heatmaps' ):
-    """!
-    @brief Generates and displays (or saves) a heatmap of snow probability for specified basins.
+def plot_heatmap_prob(cuencas, save=False, path='./img/heatmaps'):
+    """
+    Generates and displays (or saves) a heatmap showing the probability of snow
+    presence per pixel for specified basins.
 
-    This function iterates through a list of basins, reads snow cover data from HDF files
-    and area boundaries from SHP files within each basin's directory, calculates the
-    snow probability per pixel, and visualizes it as a heatmap.
+    The function reads HDF files containing NDSI snow cover data within each
+    basin's shapefile boundary and calculates the frequency of snow presence
+    (NDSI between 40 and 100) for each pixel across all available HDF files.
 
-    @param cuencas A list of strings, where each string is the name of a basin directory.
-    @param path The base path where the 'cuencas' subdirectory containing basin data is located.
-    @param save (optional) A boolean indicating whether to save the plot as a PNG file (True)
-                or display it (False). Defaults to False.
+    Args:
+        cuencas (str or list): A single basin name (string) or a list of
+            basin names (strings). The function will look for HDF files
+            within subdirectories named after each basin inside the
+            'data_path/cuencas/' directory, and shapefiles named
+            '{basin_name}.shp' in the 'data_path/cuencas/' directory.
+        save (bool, optional): If True, the generated heatmap will be saved
+            as a PNG file to the directory specified by the 'path' argument.
+            If False, the heatmap will be displayed using matplotlib's
+            `plt.show()`. Defaults to False.
+        path (str, optional): The directory path where the generated heatmap
+            will be saved if `save` is True. Defaults to './img/heatmaps'.
 
-    @details
-    The function performs the following steps for each basin:
-    - Reads all HDF files containing snow cover data.
-    - Reads the area boundary SHP file.
-    - Clips the snow cover data to the basin's area.
-    - Determines snow presence based on NDSI values (between 40 and 100).
-    - Calculates the average snow presence probability for each pixel across all HDF files.
-    - Generates a heatmap visualizing the snow probability.
-    - Optionally saves the heatmap as a PNG file.
+    Returns:
+        None
 
-    @exception FileNotFoundError If the basin directory or required HDF/SHP files are not found.
+    Raises:
+        FileNotFoundError: If the subdirectory for a basin or the basin's
+            shapefile is not found in the expected locations (though this is
+            handled within the function, a message is printed to the console).
+
+    Example:
+        >>> data_path = '/path/to/your/data/'
+        >>> plot_heatmap_prob(['Guadalquivir'])
+        >>> plot_heatmap_prob(['Guadalquivir', 'Ebro'], save=True, path='./output_heatmaps')
     """
     for cuenca in cuencas:
 
@@ -157,12 +167,14 @@ def plot_heatmap_prob(cuencas, save = False, path = './img/heatmaps' ):
             archivos_hdf = [str(archivo) for archivo in Path(data_path + "cuencas/" + cuenca).rglob("*.hdf")]
         except FileNotFoundError:
             print(f"Error: file not found '{data_path + 'cuencas/' + cuenca}'")
+            continue
 
         try:
             archivos_shp = [str(archivo) for archivo in Path(data_path + "cuencas" + "/" + cuenca).glob("*.shp")]
             area_path = archivos_shp[0]
         except FileNotFoundError:
             print(f"Error: file not found '{data_path} cuencas/ {cuenca}'")
+            continue
 
         area = gpd.read_file(area_path)
         # Lista para almacenar los arrays booleanos de cobertura de nieve
@@ -175,8 +187,8 @@ def plot_heatmap_prob(cuencas, save = False, path = './img/heatmaps' ):
 
 
             snow_cover = snow_cover.to_dataframe().dropna().reset_index()
-            snow_cover['nieve'] = ( (snow_cover.CGF_NDSI_Snow_Cover > 40) & (snow_cover.CGF_NDSI_Snow_Cover < 100) ).astype(int)
-            snow_cover.drop(columns=['band', 'spatial_ref', 'CGF_NDSI_Snow_Cover'], inplace = True)
+            snow_cover['nieve'] = ((snow_cover.CGF_NDSI_Snow_Cover > 40) & (snow_cover.CGF_NDSI_Snow_Cover < 100)).astype(int)
+            snow_cover.drop(columns=['band', 'spatial_ref', 'CGF_NDSI_Snow_Cover'], inplace=True)
 
             snow_presence_list.append(snow_cover)
 
