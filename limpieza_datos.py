@@ -78,7 +78,7 @@ def process_split_series(input_file, output_path):
         del(series_agregadas[col])
 
     try:
-        # Dividir columnas por cuencas
+        # Dividir columnas por basins
         series_agregadas[['fecha','dia_sen','T','P','P_bool']].to_csv(f"{output_path}/adda-bornio.csv", index=False)
         series_agregadas[['fecha','dia_sen','T.1','P.1','P_bool.1']].to_csv(f"{output_path}/genil-dilar.csv", index=False)
         series_agregadas[['fecha','dia_sen','T.2','P.2','P_bool.2']].to_csv(f"{output_path}/indrawati-melamchi.csv", index=False)
@@ -89,7 +89,7 @@ def process_split_series(input_file, output_path):
     except FileNotFoundError:
         print(f"Error: Output directory not found at '{output_path}'")
 
-def calculate_area(snow_cover, cuenca):
+def calculate_area(snow_cover, basin):
     """
     Calculates the total snow cover area (in km²) for a given basin based on
     the provided snow cover raster data.
@@ -104,7 +104,7 @@ def calculate_area(snow_cover, cuenca):
         snow_cover (rasterio.io.DatasetReader or xarray.Dataset): A raster dataset
             containing snow cover data, typically with an 'CGF_NDSI_Snow_Cover'
             variable. It should be readable by rasterio or xarray.
-        cuenca (str): The name of the basin ('adda-bornio', 'genil-dilar',
+        basin (str): The name of the basin ('adda-bornio', 'genil-dilar',
             'indrawati-melamchi', 'machopo-almendros', 'nenskra-Enguri', or
             'uncompahgre-ridgway'). This determines the UTM projection to which
             the snow cover data will be reprojected.
@@ -113,7 +113,7 @@ def calculate_area(snow_cover, cuenca):
         float: The total snow cover area in square kilometers (km²).
 
     Raises:
-        ValueError: If the provided 'cuenca' name is not one of the supported basins.
+        ValueError: If the provided 'basin' name is not one of the supported basins.
 
     Example:
         >>> import rasterio
@@ -121,20 +121,20 @@ def calculate_area(snow_cover, cuenca):
         >>>     area = calculate_area(src, 'adda-bornio')
         >>>     print(f"Snow cover area for adda-bornio: {area:.2f} km²")
     """
-    if cuenca == "adda-bornio":
+    if basin == "adda-bornio":
         snow_cover = snow_cover.rio.reproject("EPSG:25832")
-    elif cuenca == "genil-dilar":
+    elif basin == "genil-dilar":
         snow_cover = snow_cover.rio.reproject("EPSG:25830")
-    elif cuenca == "indrawati-melamchi":
+    elif basin == "indrawati-melamchi":
         snow_cover = snow_cover.rio.reproject("EPSG:32645")
-    elif cuenca == "machopo-almendros":
+    elif basin == "machopo-almendros":
         snow_cover = snow_cover.rio.reproject("EPSG:32719")
-    elif cuenca == "nenskra-Enguri":
+    elif basin == "nenskra-Enguri":
         snow_cover = snow_cover.rio.reproject("EPSG:32638")
-    elif cuenca == "uncompahgre-ridgway":
+    elif basin == "uncompahgre-ridgway":
         snow_cover = snow_cover.rio.reproject("EPSG:32613")
     else:
-        raise ValueError(f"Unsupported basin: {cuenca}. Supported basins are: "
+        raise ValueError(f"Unsupported basin: {basin}. Supported basins are: "
                          "'adda-bornio', 'genil-dilar', 'indrawati-melamchi', "
                          "'machopo-almendros', 'nenskra-Enguri', 'uncompahgre-ridgway'")
 
@@ -145,7 +145,7 @@ def calculate_area(snow_cover, cuenca):
 
     return (area_pixel_nieve * n_pixeles_nieve) / 1e6
 
-def process_hdf(cuenca, area, archivo):
+def process_hdf(basin, area, archivo):
     """
     Processes a single HDF file to extract snow cover area for a specific basin.
 
@@ -155,7 +155,7 @@ def process_hdf(cuenca, area, archivo):
     from the filename.
 
     Args:
-        cuenca (str): The name of the basin. This is used to pass to the
+        basin (str): The name of the basin. This is used to pass to the
             `calculate_area` function for correct reprojection.
         area (geopandas.GeoDataFrame): A GeoDataFrame containing the geometry
             of the basin, used for clipping the raster data.
@@ -178,7 +178,7 @@ def process_hdf(cuenca, area, archivo):
         >>> if result:
         >>>     print(f"Date: {result['fecha']}, Snow Area: {result['area_nieve']:.2f} km²")
     """
-    print(f"\r{cuenca}: procesando {archivo}...", end="")
+    print(f"\r{basin}: procesando {archivo}...", end="")
     coincidencia = re.search(r"_A(\d{4})(\d{3})_", archivo)
     fecha = None
     if coincidencia:
@@ -191,17 +191,17 @@ def process_hdf(cuenca, area, archivo):
         area.geometry.to_list(), crs=area.crs, all_touched=False).squeeze()
 
     if fecha:
-        return {'fecha': fecha, 'area_nieve': calculate_area(snow_cover, cuenca)}
+        return {'fecha': fecha, 'area_nieve': calculate_area(snow_cover, basin)}
     else:
         return None
 
-def process_basin(cuenca):
+def process_basin(basin):
     """
     Processes all HDF files within a specified basin's directory to calculate
     daily snow cover area and saves the results to a CSV file.
 
     The function searches for all '.hdf' files within the subdirectory named
-    after the basin inside the 'data_path/cuencas/' directory. It also locates
+    after the basin inside the 'data_path/basins/' directory. It also locates
     the basin's shapefile ('.shp') in the same directory to define the spatial
     extent for processing. Each HDF file is processed using a thread pool
     to parallelize the calculation of snow cover area using the `process_hdf`
@@ -210,8 +210,8 @@ def process_basin(cuenca):
     '{basin_name}.csv' in the 'data_path/csv/areas/' directory.
 
     Args:
-        cuenca (str): The name of the basin to process. The function expects
-            a subdirectory with this name to exist within 'data_path/cuencas/'
+        basin (str): The name of the basin to process. The function expects
+            a subdirectory with this name to exist within 'data_path/basins/'
             containing the HDF and SHP files.
 
     Returns:
@@ -228,25 +228,25 @@ def process_basin(cuenca):
         >>> process_basin('Guadalquivir')
         >>> process_basin('Ebro')
     """
-    
-    print(f"**Warning:** Processing basin '{cuenca}' can take more than 2 hours to execute.")
+
+    print(f"**Warning:** Processing basin '{basin}' can take more than 2 hours to execute.")
     confirmation = input("Are you sure you want to continue? (y/N): ").lower()
     if confirmation != 'y':
-        print(f"Processing of basin '{cuenca}' cancelled by user.")
+        print(f"Processing of basin '{basin}' cancelled by user.")
         return
     
-    archivos_hdf = [str(archivo) for archivo in Path(data_path + "cuencas" + "/" + cuenca).rglob("*.hdf")]
+    archivos_hdf = [str(archivo) for archivo in Path(data_path + "basins" + "/" + basin).rglob("*.hdf")]
     try:
-        archivos_shp = [str(archivo) for archivo in Path(data_path + "cuencas" + "/" + cuenca).glob("*.shp")]
+        archivos_shp = [str(archivo) for archivo in Path(data_path + "basins" + "/" + basin).glob("*.shp")]
         area_path = archivos_shp[0]
         area = gpd.read_file(area_path)
     except FileNotFoundError as e:
-        print(f"Error: Could not find basin directory or shapefile for '{cuenca}'. {e}")
+        print(f"Error: Could not find basin directory or shapefile for '{basin}'. {e}")
         return
 
     resultados = []
     with concurrent.futures.ThreadPoolExecutor() as executor:
-        futures = [executor.submit(process_hdf, cuenca, area, archivo) for archivo in archivos_hdf]
+        futures = [executor.submit(process_hdf, basin, area, archivo) for archivo in archivos_hdf]
         for future in concurrent.futures.as_completed(futures):
             result = future.result()
             if result:
@@ -256,15 +256,15 @@ def process_basin(cuenca):
     if not df_datos.empty:
         df_datos.set_index('fecha', inplace=True)
         df_datos.sort_index(inplace=True)
-        output_filepath = f"{data_path}csv/areas/{cuenca}.csv"
+        output_filepath = f"{data_path}csv/areas/{basin}.csv"
         try:
             df_datos.to_csv(output_filepath, mode='x')
-            print(f"\nCuenca {cuenca} procesada. Results saved to '{output_filepath}'.")
+            print(f"\nbasin {basin} procesada. Results saved to '{output_filepath}'.")
         except FileExistsError:
-            print(f"\nError: Output file '{output_filepath}' already exists for basin {cuenca}. Skipping save.")
+            print(f"\nError: Output file '{output_filepath}' already exists for basin {basin}. Skipping save.")
     else:
-        print(f"\nNo valid snow cover data found for basin {cuenca}.")
+        print(f"\nNo valid snow cover data found for basin {basin}.")
 
-cuencas = os.listdir(data_path + "cuencas/")
-for cuenca in cuencas:
-    process_basin(cuenca)
+basins = os.listdir(data_path + "basins/")
+for basin in basins:
+    process_basin(basin)

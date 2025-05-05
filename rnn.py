@@ -6,7 +6,6 @@ from keras.layers import Input, Dense, SimpleRNN
 from sklearn.preprocessing import MinMaxScaler # Para escalar los datos
 import pandas as pd
 from sklearn import metrics
-import matplotlib as plt
 
 #%%
 def create_lagged_data(data, n_lags_area, n_lags_exog):
@@ -17,7 +16,7 @@ def create_lagged_data(data, n_lags_area, n_lags_exog):
     # Lags de la variable objetivo
     for i in range(1, n_lags_area + 1):
         cols.append(df_shifted['area_nieve'].shift(i))
-        names += [f'area_nieve(t-d{i}']
+        names += [f'area_nieve(t-{i}']
 
     # Lags de las variables exógenas (incluyendo t-0)
     exog_cols = [col for col in data.columns if col != 'area_nieve']
@@ -34,14 +33,15 @@ def create_lagged_data(data, n_lags_area, n_lags_exog):
 
 #%%
 df = pd.read_csv("csv_normalizados/adda-bornio_norm.csv")
-
+df
+#%%
 n_lags_area = 3
 n_lags_exog = 2
 
 df_lagged = create_lagged_data(df, n_lags_area, n_lags_exog)
 df_lagged
 #%%
-# La variable dependiente es la 'area_nieve' en el tiempo t, alineada con los lags
+# Contiene el area de nieve "real" de cada fila. En el indice 5 por ejemplo, que area hay sin laguear
 y_lagged = df_lagged.index.map(df['area_nieve']).astype(float)
 y_lagged
 
@@ -51,9 +51,8 @@ X_lagged = df_lagged.values.astype(float)
 X_lagged
 
 #%%
-# Escalar los datos
-scaler_x = MinMaxScaler()
-X_scaled = scaler_x.fit_transform(X_lagged)
+np.mean(X_lagged)
+#%%
 scaler_y = MinMaxScaler()
 y_scaled = scaler_y.fit_transform(y_lagged.values.reshape(-1, 1))
 

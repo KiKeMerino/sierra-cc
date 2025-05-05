@@ -8,68 +8,68 @@ import os
 
 #%%
 csv_path = "E:/data/csv/"
-cuencas = ['genil-dilar','adda-bornio','indrawati-melamchi','mapocho-almendros','nenskra-Enguri','uncompahgre-ridgway']
+basins = ['genil-dilar','adda-bornio','indrawati-melamchi','mapocho-almendros','nenskra-Enguri','uncompahgre-ridgway']
 
 #%%
-def normalize_basin(cuencas, area_path='E:/data/csv/areas/', series_path='E:/data/csv/series_agregadas/'):
+def normalize_basin(basins, area_path='E:/data/csv/areas/', series_path='E:/data/csv/series_agregadas/', output_dir='./csv_merged/'):
     """
-    Normalizes numerical features (day of the year, temperature, precipitation,
-    days since last precipitation) for specified basins by applying Min-Max scaling
-    and saves the normalized data to a new CSV file.
+    Merges area and time series data for specified basins based on the 'fecha' column
+    and saves the merged data to a new CSV file.
 
-    The function reads area and time series data from CSV files for each basin,
-    merges them based on the 'fecha' column, calculates the number of days
-    since the last precipitation event, applies Min-Max scaling to the specified
-    numerical columns, and saves the resulting normalized DataFrame to a new
-    CSV file named '{basin_name}_norm.csv' in the './csv_normalizados/' directory.
+    The function reads area data from CSV files named '{basin_name}.csv' in the
+    directory specified by 'area_path', and time series data from CSV files
+    named '{basin_name}.csv' in the directory specified by 'series_path'.
+    It then performs an inner merge of these two DataFrames based on the 'fecha'
+    column. After merging, the 'fecha' column is removed, and the resulting
+    DataFrame is saved to a new CSV file named '{basin_name}_merged.csv' in the
+    './csv_merged/' directory.
 
     Args:
-        cuencas (str or list): A single basin name (string) or a list of
-            basin names (strings). The function will look for area data in
-            CSV files named '{basin_name}.csv' in the directory specified by
-            the 'area_path' argument, and time series data in CSV files
-            named '{basin_name}.csv' in the directory specified by the
-            'series_path' argument.
+        basins (str or list): A single basin name (string) or a list of
+            basin names (strings).
         area_path (str, optional): The directory path where the area data CSV
             files are located. Defaults to 'E:/data/csv/areas/'.
         series_path (str, optional): The directory path where the time series
             data CSV files are located. Defaults to 'E:/data/csv/series_agregadas/'.
+        output_dir (str, optional): The directory where the merged CSV files
+            will be saved. Defaults to './csv_merged/'.
 
     Returns:
         None
 
     Raises:
         FileNotFoundError: If the area or time series CSV file for a specified
-            basin is not found in the specified paths (though this is handled
-            within the function, a message is printed to the console).
+            basin is not found in the specified paths (a message is printed).
+        OSError: If there are issues creating the output directory.
 
     Example:
-        >>> normalize_basin('Guadalquivir')
-        >>> normalize_basin(['Guadalquivir', 'Ebro'], area_path='/path/to/areas/', series_path='/path/to/series/')
+        >>> merge_area_series('Guadalquivir')
+        >>> merge_area_series(['Guadalquivir', 'Ebro'], area_path='/path/to/areas/', series_path='/path/to/series/', output_dir='/path/to/merged/')
     """
-    if not isinstance(cuencas, list):
-        cuencas = [cuencas]
+    if not isinstance(basins, list):
+        basins = [basins]
 
-    for cuenca in cuencas:
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    for basin in basins:
         try:
-            area_file_path = area_path + cuenca + '.csv'
-            serie_file_path = series_path + cuenca + '.csv'
+            area_file_path = os.path.join(area_path, f"{basin}.csv")
+            serie_file_path = os.path.join(series_path, f"{basin}.csv")
             area = pd.read_csv(area_file_path)
             serie = pd.read_csv(serie_file_path)
         except FileNotFoundError:
-            print(f"Error: files not found for basin {cuenca}")
+            print(f"Error: files not found for basin {basin}")
             continue  # Move to the next basin if the file is not found
 
-        df = pd.merge(serie, area, how='inner', left_on='fecha', right_on='fecha')
-        columns = ['fecha', 'dia_sen', 'temperatura', 'precipitacion', 'precipitacion_bool', 'area_nieve']
+        df = pd.merge(serie, area, how='inner', on='fecha')
+        del df['fecha']
+        columns = ['dia_sen', 'temperatura', 'precipitacion', 'precipitacion_bool', 'area_nieve']
         df.columns = columns
-        df['fecha'] = pd.to_datetime(df["fecha"])
+
         # Calculo de dias transcurridos desde la última precipitacion
         df['dias_sin_precip'] = 0
         dias_transcurridos = 0
-
-        del df['fecha']
-
         for index, row in df.iterrows():
             if row['precipitacion_bool'] == 1:
                 dias_transcurridos = 0  # reinicia el contador si ha llovido
@@ -78,21 +78,16 @@ def normalize_basin(cuencas, area_path='E:/data/csv/areas/', series_path='E:/dat
 
             df.loc[index, 'dias_sin_precip'] = dias_transcurridos
 
-        # MixMax Scaler y correlacion de adda-bornio
-        lista_numericas = ['dia_sen', 'temperatura', 'precipitacion', 'dias_sin_precip']
-        MinMax = MinMaxScaler()
-        df[lista_numericas] = MinMax.fit_transform(df[lista_numericas])  # Transformamos las variables numéricas del dataset con MinMaxScaler
-
-        output_path = f'./csv_normalizados/{cuenca}_norm.csv'
+        output_path = os.path.join(output_dir, f'{basin}_merged.csv')
         if os.path.exists(output_path):
             overwrite = input(f"Warning: File '{output_path}' already exists. Overwrite? (y/N): ".lower())
             if overwrite != 'y':
-                print(f"Overwrite cancelled for basin '{cuenca}'")
+                print(f"Overwrite cancelled for basin '{basin}'")
                 continue # Move to the next basin
         
         df.to_csv(output_path, index=False)
-        print(f"Data for basin '{cuenca}' normalized and saved to '{output_path}'.")
+        print(f"Data for basin '{basin}' normalized and saved to '{output_path}'.")
             
 
 #%%
-# normalize_basin(cuencas)
+normalize_basin(basins)
