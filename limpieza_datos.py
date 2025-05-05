@@ -9,10 +9,10 @@ import rioxarray as rxr
 import concurrent.futures
 import numpy as np
 
-external_disk = "D:/"
+external_disk = "E:/"
 data_path = os.path.join(external_disk, "data/")
 
-
+#%%
 def process_split_series(input_file, output_path):
     """
     Reads, processes, and splits the aggregated historical ERA5-Land time series
@@ -127,7 +127,7 @@ def calculate_area(snow_cover, basin):
         snow_cover = snow_cover.rio.reproject("EPSG:25830")
     elif basin == "indrawati-melamchi":
         snow_cover = snow_cover.rio.reproject("EPSG:32645")
-    elif basin == "machopo-almendros":
+    elif basin == "mapocho-almendros":
         snow_cover = snow_cover.rio.reproject("EPSG:32719")
     elif basin == "nenskra-Enguri":
         snow_cover = snow_cover.rio.reproject("EPSG:32638")
@@ -136,7 +136,7 @@ def calculate_area(snow_cover, basin):
     else:
         raise ValueError(f"Unsupported basin: {basin}. Supported basins are: "
                          "'adda-bornio', 'genil-dilar', 'indrawati-melamchi', "
-                         "'machopo-almendros', 'nenskra-Enguri', 'uncompahgre-ridgway'")
+                         "'mapocho-almendros', 'nenskra-Enguri', 'uncompahgre-ridgway'")
 
     df = pd.DataFrame(snow_cover["CGF_NDSI_Snow_Cover"])
 
@@ -228,17 +228,24 @@ def process_basin(basin):
         >>> process_basin('Guadalquivir')
         >>> process_basin('Ebro')
     """
-
-    print(f"**Warning:** Processing basin '{basin}' can take more than 2 hours to execute.")
+    if basin not in ['adda-bornio', 'genil-dilar', 'indrawati-melamchi', 'mapocho-almendros', 'nenskra-Enguri', 'uncompahgre-ridgway']:
+        raise ValueError(f"Unsupported basin: {basin}. Supported basins are: "
+                         "'adda-bornio', 'genil-dilar', 'indrawati-melamchi', "
+                         "'mapocho-almendros', 'nenskra-Enguri', 'uncompahgre-ridgway'")
+    
+    print(f"**Warning:** Processing basin '{basin}' can take more than 1 hour to execute.")
     confirmation = input("Are you sure you want to continue? (y/N): ").lower()
     if confirmation != 'y':
         print(f"Processing of basin '{basin}' cancelled by user.")
         return
     
-    archivos_hdf = [str(archivo) for archivo in Path(data_path + "basins" + "/" + basin).rglob("*.hdf")]
+    basin_path = Path(data_path, "basins", basin)
+    archivos_hdf = [str(archivo) for archivo in basin_path.rglob("*.hdf")]
+    archivos_shp = list(basin_path.glob("*.shp"))
     try:
-        archivos_shp = [str(archivo) for archivo in Path(data_path + "basins" + "/" + basin).glob("*.shp")]
-        area_path = archivos_shp[0]
+        if not archivos_shp:
+            raise FileNotFoundError(f"No shapefile (.shp) found in '{basin_path}'. ")
+        area_path = str(archivos_shp[0])
         area = gpd.read_file(area_path)
     except FileNotFoundError as e:
         print(f"Error: Could not find basin directory or shapefile for '{basin}'. {e}")
@@ -257,14 +264,50 @@ def process_basin(basin):
         df_datos.set_index('fecha', inplace=True)
         df_datos.sort_index(inplace=True)
         output_filepath = f"{data_path}csv/areas/{basin}.csv"
-        try:
-            df_datos.to_csv(output_filepath, mode='x')
-            print(f"\nbasin {basin} procesada. Results saved to '{output_filepath}'.")
-        except FileExistsError:
-            print(f"\nError: Output file '{output_filepath}' already exists for basin {basin}. Skipping save.")
+        if os.path.exists(output_filepath):
+            overwrite = input(f"Warning: File '{output_filepath}' already exists. Overwrite? (y/N): ".lower())
+            if overwrite != 'y':
+                print(f"Overwrite cancelled for basin '{basin}'")
+        df_datos.to_csv(output_filepath, index=False)
+
     else:
         print(f"\nNo valid snow cover data found for basin {basin}.")
+#%%
+def arreglar_mapocho(df):
+    """
+    Reemplaza los valores de 'area_nieve' que son 0 para el 1 de julio
+    con la media del día anterior y el día posterior.
 
-basins = os.listdir(data_path + "basins/")
-for basin in basins:
-    process_basin(basin)
+    Args:
+        df (pd.DataFrame): El DataFrame con las columnas 'fecha' (datetime)
+                           y 'area_nieve' (numérica).
+
+    Returns:
+        pd.DataFrame: El DataFrame con los valores reemplazados.
+    """
+
+    df2 = df.copy()
+    df2['fecha'] = pd.to_datetime(df2['fecha'])
+    condicion = (df2['fecha'].dt.month == 7) & (df2['fecha'].dt.day < 3) & (df2['area_nieve'] < 20)
+
+    for i in df2.index[condicion]:
+        indice_actual = df2.index.get_loc(i)
+        indices_vecinos = list(range(indice_actual-5, indice_actual)) + list(range(indice_actual +1, indice_actual +5))
+        valores_vecinos = []
+
+        for indice in indices_vecinos:
+            if 0 <= indice < len(df2):
+                valores_vecinos.append((df2.iloc[indice]['area_nieve']))
+        
+        df2.loc[i, 'area_nieve'] = np.mean(valores_vecinos)
+
+    return df2
+
+# basins = os.listdir(data_path + "basins/")
+# for basin in basins:
+# process_basin('mapocho-almendros')
+#%%
+mapocho = pd.read_csv(os.path.join(data_path, 'csv', 'areas', 'mapocho-almendros.csv'))
+mapocho = mapocho.drop(columns=['Unnamed: 0'])
+mapocho_arreglado = arreglar_mapocho(mapocho)
+mapocho_arreglado.to_csv(os.path.join(data_path, 'csv', 'areas', 'mapocho-almendros.csv'), index=False)

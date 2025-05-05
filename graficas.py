@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import rioxarray as rxr
 from pathlib import Path
 import geopandas as gpd
+import os
 
 data_path ='E:/data/csv/areas/'
 
@@ -43,6 +44,9 @@ def plot_area_perday(basins, save=False, path='./img/lineplots/per_day'):
     """
     if not isinstance(basins, list):
         basins = [basins]
+
+    data_path = os.path.join('E:','data', 'csv', 'areas/')
+
     basins_path = [data_path + elemento + '.csv' for elemento in basins]
 
     for i, basin_file in enumerate(basins_path):
@@ -59,6 +63,7 @@ def plot_area_perday(basins, save=False, path='./img/lineplots/per_day'):
 
         sns.lineplot(df_grouped)
         plt.xlim(left=0)
+        plt.xlim(right=365)
         plt.xlabel('Day')
         plt.ylabel('km2')
         plt.title(f"Snow cover area - {basins[i]}")
@@ -116,6 +121,7 @@ def plot_area_permonth(basins, save=False, path='./img/lineplots/per_month'):
 
         sns.lineplot(df_grouped)
         plt.xlim(left=0)
+        plt.xlim(right=12)
         plt.xlabel('Month')
         plt.ylabel('km2')
         plt.title(f"Snow cover area - {basins[i]}")
