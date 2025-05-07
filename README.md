@@ -4,7 +4,7 @@
 
 Este proyecto tiene como objetivo crear conciencia sobre cómo va a ir cambiando el nivel de la capa de nieve en fechas futuras utilizando un modelo NARX (Non-linear Autoregressive with Exogenous Inputs).
 
-Ésta es solo una parte del proyecto, yo me centraré en el uso de la inteligencia artificial con redes neuronales autoregresivas para evaluar el impacto del cambio climático en la cobertura de nieve.
+La funcionalidad de este código es tomar un modelo de red neuronal recurrente (RNN) que has entrenado para predecir 'area_nieve' basándose en valores pasados de sí misma y de otras variables (exógenas), y utilizar ese modelo para predecir valores futuros de 'area_nieve' más allá de los datos que se utilizaron para entrenar y evaluar el modelo
 
 ## Estructura de los datos
 

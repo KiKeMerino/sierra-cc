@@ -9,11 +9,12 @@ df
 df = df.set_index('fecha')
 df.index = pd.to_datetime(df.index)
 #%%
-df['fecha'] = pd.to_datetime(df['fecha'])
-df.info()
-
+df = pd.read_csv('E:/data/csv/areas/mapocho-almendros.csv')
+df = df.set_index('fecha')
+df.index = pd.to_datetime(df.index)
+df
 #%%
-condicion = (df.index.month == 7) & (df.index.day < 5) & (df['area_nieve'] < 50)
+condicion = (df.index.month == 6) & (df.index.day > 26) #& (df['area_nieve'] < 50)
 df[condicion]
 #%%
 # Reemplazo los valores incorrectos (0) de 'area_nieve' para el 1 de julio con la media de los valores del día anterior y posterior.
@@ -37,5 +38,10 @@ pd.set_option('display.max_rows', None)
 
 df2 = df[condicion]
 df2
+
+#%%
+pd.set_option('display.max_rows', None)
 #%%
 pd.reset_option('display.max_rows')
+#%%
+np.set_printoptions(threshold=np.inf)

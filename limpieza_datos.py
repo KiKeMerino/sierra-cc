@@ -288,18 +288,30 @@ def arreglar_mapocho(df):
 
     df2 = df.copy()
     df2['fecha'] = pd.to_datetime(df2['fecha'])
-    condicion = (df2['fecha'].dt.month == 7) & (df2['fecha'].dt.day < 3) & (df2['area_nieve'] < 20)
+    condicion = (df2['fecha'].dt.month == 7) & (df2['fecha'].dt.day <= 3) & (df2['area_nieve'] < 20)
+
+    print(df2.index[condicion])
 
     for i in df2.index[condicion]:
-        indice_actual = df2.index.get_loc(i)
-        indices_vecinos = list(range(indice_actual-5, indice_actual)) + list(range(indice_actual +1, indice_actual +5))
-        valores_vecinos = []
+        indice_anterior = df2.index.get_loc(i) - 1
+        print(f'Procesando índice: {i}, fecha: {df2.loc[i, "fecha"]}')
+        if indice_anterior >= 0:
+            fecha_anterior = df2.iloc[indice_anterior]['fecha']
+            valor_anterior = df2.iloc[indice_anterior]['area_nieve']
+            valor_actual = df2.loc[i, 'area_nieve']
+            print(f'  Índice anterior: {indice_anterior}, fecha anterior: {fecha_anterior}, valor anterior: {valor_anterior}')
+            print(f"  Valor actual ({valor_actual}) cambiado por {valor_anterior}")
+            df2.loc[i, 'area_nieve'] = valor_anterior
 
-        for indice in indices_vecinos:
-            if 0 <= indice < len(df2):
-                valores_vecinos.append((df2.iloc[indice]['area_nieve']))
+        # indice_actual = df2.index.get_loc(i)
+        # indices_vecinos = list(range(indice_actual-5, indice_actual)) + list(range(indice_actual +1, indice_actual +5))
+        # valores_vecinos = []
+
+        # for indice in indices_vecinos:
+        #     if 0 <= indice < len(df2):
+        #         valores_vecinos.append((df2.iloc[indice]['area_nieve']))
         
-        df2.loc[i, 'area_nieve'] = np.mean(valores_vecinos)
+        # df2.loc[i, 'area_nieve'] = np.mean(valores_vecinos)
 
     return df2
 
@@ -308,6 +320,5 @@ def arreglar_mapocho(df):
 # process_basin('mapocho-almendros')
 #%%
 mapocho = pd.read_csv(os.path.join(data_path, 'csv', 'areas', 'mapocho-almendros.csv'))
-mapocho = mapocho.drop(columns=['Unnamed: 0'])
 mapocho_arreglado = arreglar_mapocho(mapocho)
 mapocho_arreglado.to_csv(os.path.join(data_path, 'csv', 'areas', 'mapocho-almendros.csv'), index=False)
