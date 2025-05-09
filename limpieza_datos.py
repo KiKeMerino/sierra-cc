@@ -13,38 +13,7 @@ external_disk = "E:/"
 data_path = os.path.join(external_disk, "data/")
 
 #%%
-def process_split_series(input_file, output_path):
-    """
-    Reads, processes, and splits the aggregated historical ERA5-Land time series
-    data from a CSV file into separate CSV files for each basin.
-
-    The function performs the following steps:
-    1. Reads the CSV file specified by 'input_filepath' with semicolon delimiter.
-    2. Corrects the format of the 'Fecha' column to datetime objects.
-    3. Converts numerical columns ('T', 'T.1' to 'T.5', 'P', 'P.1' to 'P.5')
-       by replacing commas with periods and then converting to numeric type.
-    4. Creates a boolean precipitation column ('P_bool.5') based on a threshold
-       for the 'P.5' column.
-    5. Calculates the normalized day of the year (between 0 and 1) and its sine
-       transformation ('dia_sen').
-    6. Renames the 'Fecha' column to 'fecha'.
-    7. Deletes the unnecessary 'Year' and 'Mes' columns.
-    8. Splits the processed data into separate CSV files for each of the six
-       basins (adda-bornio, genil-dilar, indrawati-melamchi, mapocho-almendros,
-       nenskra-enguri, uncompahgre-ridgway) and saves them in the directory
-       specified by 'output_dir'. Each output file includes the 'fecha', 'dia_sen',
-       and the corresponding temperature ('T.x'), precipitation ('P.x'), and
-       precipitation boolean ('P_bool.x') columns for that basin.
-
-    Args:
-        input_filepath (str): The absolute path to the input CSV file
-            containing the aggregated historical ERA5-Land time series data.
-        output_dir (str): The absolute path to the directory where the
-            individual basin CSV files will be saved.
-
-    Returns:
-        None
-    """
+def process_var_exog(input_file, output_path, save=False):
 
     try:
         # Leo datos sobre variables exogenas: temperatura y precipitacion
@@ -77,50 +46,43 @@ def process_split_series(input_file, output_path):
     for col in columnas_innecesarias:
         del(series_agregadas[col])
 
-    try:
-        # Dividir columnas por basins
-        series_agregadas[['fecha','dia_sen','T','P','P_bool']].to_csv(f"{output_path}/adda-bornio.csv", index=False)
-        series_agregadas[['fecha','dia_sen','T.1','P.1','P_bool.1']].to_csv(f"{output_path}/genil-dilar.csv", index=False)
-        series_agregadas[['fecha','dia_sen','T.2','P.2','P_bool.2']].to_csv(f"{output_path}/indrawati-melamchi.csv", index=False)
-        series_agregadas[['fecha','dia_sen','T.3','P.3','P_bool.3']].to_csv(f"{output_path}/mapocho-almendros.csv", index=False)
-        series_agregadas[['fecha','dia_sen','T.4','P.4','P_bool.4']].to_csv(f"{output_path}/nenskra-enguri.csv", index=False)
-        series_agregadas[['fecha','dia_sen','T.5','P.5','P_bool.5']].to_csv(f"{output_path}/uncompahgre-ridgway.csv", index=False)
+    # Dividir columnas por basins
+    columns = ['fecha', 'dia_sen', 'temperatura', 'precipitacion', 'precipitacion_bool']
 
-    except FileNotFoundError:
-        print(f"Error: Output directory not found at '{output_path}'")
+    adda_bornio = series_agregadas[['fecha','dia_sen','T','P','P_bool']]
+    adda_bornio.columns = columns
+    adda_bornio['cuenca'] = 'adda-bornio'
 
+    genil_dilar = series_agregadas[['fecha','dia_sen','T.1','P.1','P_bool.1']]
+    genil_dilar.columns = columns
+    genil_dilar['cuenca'] = 'genil-dilar' 
+
+    indrawati_melamchi = series_agregadas[['fecha','dia_sen','T.2','P.2','P_bool.2']]
+    indrawati_melamchi.columns = columns
+    indrawati_melamchi['cuenca'] = 'indrawati-melamchi'
+
+    mapocho_almendros = series_agregadas[['fecha','dia_sen','T.3','P.3','P_bool.3']]
+    mapocho_almendros.columns = columns
+    mapocho_almendros['cuenca'] = 'mapocho-almendros'
+
+    nenskra_enguri = series_agregadas[['fecha','dia_sen','T.4','P.4','P_bool.4']]
+    nenskra_enguri.columns = columns
+    nenskra_enguri['cuenca'] = 'nenskra-enguri'
+
+    uncompahgre_ridgway = series_agregadas[['fecha','dia_sen','T.5','P.5','P_bool.5']]
+    uncompahgre_ridgway.columns = columns
+    uncompahgre_ridgway['cuenca'] = 'uncompahgre-ridgway'
+
+    df_final = pd.concat([adda_bornio, genil_dilar, indrawati_melamchi, mapocho_almendros, nenskra_enguri, uncompahgre_ridgway], axis=0)
+    df_final.reset_index(drop=True, inplace=True)
+
+    if save:
+        df_final.to_csv(os.path.join(output_path, 'v_exog_hist.csv'))
+    else:
+        return df_final
+
+#%%
 def calculate_area(snow_cover, basin):
-    """
-    Calculates the total snow cover area (in km²) for a given basin based on
-    the provided snow cover raster data.
-
-    The function reprojects the snow cover raster to a specific UTM coordinate
-    system based on the basin name. It then identifies pixels with Normalized
-    Difference Snow Index (NDSI) values between 40 and 100 (inclusive) as
-    snow-covered and calculates the total area by multiplying the number of
-    snow-covered pixels by the area of a single pixel.
-
-    Args:
-        snow_cover (rasterio.io.DatasetReader or xarray.Dataset): A raster dataset
-            containing snow cover data, typically with an 'CGF_NDSI_Snow_Cover'
-            variable. It should be readable by rasterio or xarray.
-        basin (str): The name of the basin ('adda-bornio', 'genil-dilar',
-            'indrawati-melamchi', 'machopo-almendros', 'nenskra-Enguri', or
-            'uncompahgre-ridgway'). This determines the UTM projection to which
-            the snow cover data will be reprojected.
-
-    Returns:
-        float: The total snow cover area in square kilometers (km²).
-
-    Raises:
-        ValueError: If the provided 'basin' name is not one of the supported basins.
-
-    Example:
-        >>> import rasterio
-        >>> with rasterio.open('snow_cover_adda.tif') as src:
-        >>>     area = calculate_area(src, 'adda-bornio')
-        >>>     print(f"Snow cover area for adda-bornio: {area:.2f} km²")
-    """
     if basin == "adda-bornio":
         snow_cover = snow_cover.rio.reproject("EPSG:25832")
     elif basin == "genil-dilar":
@@ -178,8 +140,8 @@ def process_hdf(basin, area, archivo):
         >>> if result:
         >>>     print(f"Date: {result['fecha']}, Snow Area: {result['area_nieve']:.2f} km²")
     """
-    print(f"\r{basin}: procesando {archivo}...", end="")
-    coincidencia = re.search(r"_A(\d{4})(\d{3})_", archivo)
+    print(f"/r{basin}: procesando {archivo}...", end="")
+    coincidencia = re.search(r"_A(/d{4})(/d{3})_", archivo)
     fecha = None
     if coincidencia:
         try:
@@ -194,39 +156,9 @@ def process_hdf(basin, area, archivo):
         return {'fecha': fecha, 'area_nieve': calculate_area(snow_cover, basin)}
     else:
         return None
-
 def process_basin(basin):
     """
-    Processes all HDF files within a specified basin's directory to calculate
-    daily snow cover area and saves the results to a CSV file.
-
-    The function searches for all '.hdf' files within the subdirectory named
-    after the basin inside the 'data_path/basins/' directory. It also locates
-    the basin's shapefile ('.shp') in the same directory to define the spatial
-    extent for processing. Each HDF file is processed using a thread pool
-    to parallelize the calculation of snow cover area using the `process_hdf`
-    function. The results are collected into a Pandas DataFrame, indexed by
-    date, sorted chronologically, and saved to a new CSV file named
-    '{basin_name}.csv' in the 'data_path/csv/areas/' directory.
-
-    Args:
-        basin (str): The name of the basin to process. The function expects
-            a subdirectory with this name to exist within 'data_path/basins/'
-            containing the HDF and SHP files.
-
-    Returns:
-        None
-
-    Raises:
-        FileNotFoundError: If the subdirectory for the specified basin or the
-            basin's shapefile is not found in the expected locations.
-        FileExistsError: If the output CSV file ('{basin_name}.csv') already
-            exists in the 'data_path/csv/areas/' directory, preventing overwriting.
-
-    Example:
-        >>> data_path = '/path/to/your/data/'
-        >>> process_basin('Guadalquivir')
-        >>> process_basin('Ebro')
+    Procesa los archivos hdf y crea un archivo de areas para cada cuenca
     """
     if basin not in ['adda-bornio', 'genil-dilar', 'indrawati-melamchi', 'mapocho-almendros', 'nenskra-Enguri', 'uncompahgre-ridgway']:
         raise ValueError(f"Unsupported basin: {basin}. Supported basins are: "
@@ -271,54 +203,54 @@ def process_basin(basin):
         df_datos.to_csv(output_filepath, index=False)
 
     else:
-        print(f"\nNo valid snow cover data found for basin {basin}.")
+        print(f"/nNo valid snow cover data found for basin {basin}.")
+
 #%%
-def arreglar_mapocho(df):
+def join_areas(areas_path, output_path, save=False):
     """
-    Reemplaza los valores de 'area_nieve' que son 0 para el 1 de julio
-    con la media del día anterior y el día posterior.
-
-    Args:
-        df (pd.DataFrame): El DataFrame con las columnas 'fecha' (datetime)
-                           y 'area_nieve' (numérica).
-
-    Returns:
-        pd.DataFrame: El DataFrame con los valores reemplazados.
+    Junta los 6 csv de areas para crear un unico dataframe con una nueva columna  identificando de que área se trata cada registro
     """
+    dfs = []
+    areas = os.listdir(areas_path)
+    for area in areas:
+        df = pd.read_csv(os.path.join(areas_path, area))
+        df['cuenca'] = area[:-4]
+        dfs.append(df)
 
-    df2 = df.copy()
-    df2['fecha'] = pd.to_datetime(df2['fecha'])
-    condicion = (df2['fecha'].dt.month == 7) & (df2['fecha'].dt.day <= 3) & (df2['area_nieve'] < 20)
+    df_final = pd.concat(dfs, axis=0)
+    if save:
+        df_final.to_csv(os.path.join(output_path, 'areas_total.csv'))
+    else:
+        return df_final
 
-    print(df2.index[condicion])
-
-    for i in df2.index[condicion]:
-        indice_anterior = df2.index.get_loc(i) - 1
-        print(f'Procesando índice: {i}, fecha: {df2.loc[i, "fecha"]}')
-        if indice_anterior >= 0:
-            fecha_anterior = df2.iloc[indice_anterior]['fecha']
-            valor_anterior = df2.iloc[indice_anterior]['area_nieve']
-            valor_actual = df2.loc[i, 'area_nieve']
-            print(f'  Índice anterior: {indice_anterior}, fecha anterior: {fecha_anterior}, valor anterior: {valor_anterior}')
-            print(f"  Valor actual ({valor_actual}) cambiado por {valor_anterior}")
-            df2.loc[i, 'area_nieve'] = valor_anterior
-
-        # indice_actual = df2.index.get_loc(i)
-        # indices_vecinos = list(range(indice_actual-5, indice_actual)) + list(range(indice_actual +1, indice_actual +5))
-        # valores_vecinos = []
-
-        # for indice in indices_vecinos:
-        #     if 0 <= indice < len(df2):
-        #         valores_vecinos.append((df2.iloc[indice]['area_nieve']))
-        
-        # df2.loc[i, 'area_nieve'] = np.mean(valores_vecinos)
-
-    return df2
-
-# basins = os.listdir(data_path + "basins/")
-# for basin in basins:
-# process_basin('mapocho-almendros')
 #%%
-mapocho = pd.read_csv(os.path.join(data_path, 'csv', 'areas', 'mapocho-almendros.csv'))
-mapocho_arreglado = arreglar_mapocho(mapocho)
-mapocho_arreglado.to_csv(os.path.join(data_path, 'csv', 'areas', 'mapocho-almendros.csv'), index=False)
+def merge_areas_exog(areas_file, exog_file, save=False):
+    areas = pd.read_csv(areas_file, index_col=0)
+    exog = pd.read_csv(exog_file, index_col = 0)
+
+    df = pd.merge(areas, exog, how='inner', on=['fecha', 'cuenca'])
+
+    del df['fecha']
+
+    # Calculo de dias transcurridos desde la última precipitacion
+    df['dias_sin_precip'] = 0
+    dias_transcurridos = 0
+    for index, row in df.iterrows():
+        if row['precipitacion_bool'] == 1:
+            dias_transcurridos = 0  # reinicia el contador si ha llovido
+        else:
+            dias_transcurridos += 1
+
+        df.loc[index, 'dias_sin_precip'] = dias_transcurridos
+
+    return df
+
+
+#%%
+join_areas("E:/data/csv/areas")
+
+#%%
+process_var_exog('E:/data/csv/Series_historicas_agregadas_ERA5Land.csv', '.')
+
+#%%
+merge_areas_exog('areas_total.csv', 'v_exog_hist.csv', save=True)
