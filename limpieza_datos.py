@@ -229,7 +229,9 @@ def merge_areas_exog(areas_file, exog_file, save=False):
     exog = pd.read_csv(exog_file, index_col = 0)
 
     df = pd.merge(areas, exog, how='inner', on=['fecha', 'cuenca'])
-
+    df['fecha'] = pd.to_datetime(df["fecha"])
+    df['year'] = df['fecha'].dt.year
+    df['month'] = df['fecha'].dt.month
     del df['fecha']
 
     # Calculo de dias transcurridos desde la última precipitacion
@@ -253,4 +255,7 @@ join_areas("E:/data/csv/areas")
 process_var_exog('E:/data/csv/Series_historicas_agregadas_ERA5Land.csv', '.')
 
 #%%
-merge_areas_exog('areas_total.csv', 'v_exog_hist.csv', save=True)
+df = merge_areas_exog('areas_total.csv', 'v_exog_hist.csv', save=False)
+
+#%%
+df
