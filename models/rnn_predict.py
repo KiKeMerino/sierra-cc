@@ -110,10 +110,10 @@ n_lags_area = 3
 n_lags_exog = 2
 
 # Rutas de los datos y el modelo guardado
-ruta_datos_historicos = 'E:/data/historico/'
-nombre_archivo_historico = 'df_all.csv'  # Reemplazar
-ruta_datos_futuros = 'ruta/a/tus/datos_futuros'  # Reemplazar
-ruta_modelo_guardado = 'ruta/donde/guardaste/el/modelo'  # Reemplazar
+ruta_datos_historicos = './'
+nombre_archivo_historico = 'df_all.csv'
+ruta_datos_futuros = 'ruta/a/tus/datos_futuros'
+ruta_modelo_guardado = './models/'
 
 # Realizar las predicciones
 predicciones = model_rnn_future(ruta_datos_historicos, nombre_archivo_historico, ruta_datos_futuros, ruta_modelo_guardado)
