@@ -11,41 +11,8 @@ csv_path = "E:/data/csv/"
 basins = ['genil-dilar','adda-bornio','indrawati-melamchi','mapocho-almendros','nenskra-Enguri','uncompahgre-ridgway']
 
 #%%
-def normalize_basin(basins, area_path='E:/data/csv/areas/', series_path='E:/data/csv/series_agregadas/', output_dir='./csv_merged/'):
-    """
-    Merges area and time series data for specified basins based on the 'fecha' column
-    and saves the merged data to a new CSV file.
+def merge_basin(basins, area_path='E:/data/csv/areas/', series_path='E:/data/csv/series_agregadas/', output_dir='./csv_merged/'):
 
-    The function reads area data from CSV files named '{basin_name}.csv' in the
-    directory specified by 'area_path', and time series data from CSV files
-    named '{basin_name}.csv' in the directory specified by 'series_path'.
-    It then performs an inner merge of these two DataFrames based on the 'fecha'
-    column. After merging, the 'fecha' column is removed, and the resulting
-    DataFrame is saved to a new CSV file named '{basin_name}_merged.csv' in the
-    './csv_merged/' directory.
-
-    Args:
-        basins (str or list): A single basin name (string) or a list of
-            basin names (strings).
-        area_path (str, optional): The directory path where the area data CSV
-            files are located. Defaults to 'E:/data/csv/areas/'.
-        series_path (str, optional): The directory path where the time series
-            data CSV files are located. Defaults to 'E:/data/csv/series_agregadas/'.
-        output_dir (str, optional): The directory where the merged CSV files
-            will be saved. Defaults to './csv_merged/'.
-
-    Returns:
-        None
-
-    Raises:
-        FileNotFoundError: If the area or time series CSV file for a specified
-            basin is not found in the specified paths (a message is printed).
-        OSError: If there are issues creating the output directory.
-
-    Example:
-        >>> merge_area_series('Guadalquivir')
-        >>> merge_area_series(['Guadalquivir', 'Ebro'], area_path='/path/to/areas/', series_path='/path/to/series/', output_dir='/path/to/merged/')
-    """
     if not isinstance(basins, list):
         basins = [basins]
 
@@ -90,4 +57,4 @@ def normalize_basin(basins, area_path='E:/data/csv/areas/', series_path='E:/data
             
 
 #%%
-normalize_basin(basins)
+merge_basin(basins)
