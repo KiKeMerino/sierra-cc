@@ -1,101 +1,131 @@
-# Red Neuronal Recurrente Simple (RNN) - UNA CUENCA
-#%%
-import numpy as np
-from tensorflow import keras
-from keras.layers import Input, Dense, SimpleRNN
-from sklearn.preprocessing import MinMaxScaler # Para escalar los datos
 import pandas as pd
-from sklearn import metrics
-import matplotlib as plt
-from keras.utils import plot_model
+import numpy as np
 import os
-from sklearn.model_selection import train_test_split
+from tensorflow import keras
+from joblib import load
 
+def model_rnn_future(ruta_datos_historicos, nombre_archivo_historico, ruta_datos_futuros, ruta_modelo_guardado):
+    """
+    Realiza predicciones futuras del área de nieve para múltiples cuencas y modelos de predicción futura
+    utilizando un modelo RNN autoregresivo con variables exógenas.
 
+    Args:
+        ruta_datos_historicos (str): Ruta al directorio que contiene el archivo de datos históricos.
+        nombre_archivo_historico (str): Nombre del archivo CSV con los datos históricos.
+        ruta_datos_futuros (str): Ruta al directorio que contiene los archivos CSV con las predicciones futuras.
+        ruta_modelo_guardado (str): Ruta al directorio donde se guardó el modelo RNN y los objetos de preprocesamiento.
 
-def load_data(path, file):
-    """Carga los datos desde un archivo CSV."""
-    return pd.read_csv(os.path.join(path, file))
+    Returns:
+        dict: Un diccionario donde las claves son los nombres de las cuencas y los valores son diccionarios.
+              Dentro de cada diccionario de cuenca, las claves son los nombres de los modelos futuros y los valores
+              son DataFrames con las predicciones futuras (fecha, area_nieve).
+    """
+    # 1. Cargar modelo y objetos de preprocesamiento
+    modelo_rnn = keras.models.load_model(os.path.join(ruta_modelo_guardado, 'simple_model_multicuenca.h5'))
+    scaler_x = load(os.path.join(ruta_modelo_guardado, 'scaler_x_rnn_multi.joblib'))
+    scaler_y = load(os.path.join(ruta_modelo_guardado, 'scaler_y_rnn_multi.joblib'))
+    encoder_cuenca = load(os.path.join(ruta_modelo_guardado, 'encoder_cuenca_rnn_multi.joblib'))
 
-def create_lags(df, n_lags_area, n_lags_exog):
-    """Crea las variables con lags."""
-    df_shifted = pd.DataFrame(df)
-    cols, names = list(), list()
-    for i in range(1,n_lags_area + 1):
-        cols.append(df_shifted['area_nieve'].shift(i))
-        names += [f'area_nieve(t-d{i})']
-    exog_cols = [col for col in df.columns if col != 'area_nieve']
-    for col in exog_cols:
-        for i in range(n_lags_exog + 1):
-            cols.append(df_shifted[col].shift(i))
-            names += [f'{col}(t-{i})']
-    agg = pd.concat(cols, axis=1)
-    agg.columns = names
-    agg.dropna(inplace=True)
-    return agg
+    # 2. Cargar datos históricos y obtener las cuencas únicas
+    df_historico = pd.read_csv(os.path.join(ruta_datos_historicos, nombre_archivo_historico))
+    cuencas = df_historico['cuenca'].unique()
 
-def preprocess_data(df_lagged):
-    """Escala las variables independientes y la dependiente."""
-    y = df_lagged['area_nieve(t-d1)'].astype(float)
-    X = df_lagged.drop(columns=['area_nieve(t-d1)']).values.astype(float)
-    scaler_x = MinMaxScaler()
-    X_scaled = scaler_x.fit_transform(X)
-    scaler_y = MinMaxScaler()
-    y_scaled = scaler_y.fit_transform(y.reshape(-1, 1))
-    return X_scaled, y_scaled, scaler_x, scaler_y
+    resultados_predicciones = {}
 
-def split_data(X_scaled, y_scaled, test_size=0.3, shuffle=False, random_state=42):
-    """Divide los datos en conjuntos de entrenamiento y prueba."""
-    return train_test_split(X_scaled, y_scaled, test_size=test_size, shuffle=shuffle, random_state=random_state)
+    # 3. Iterar sobre las cuencas
+    for cuenca in cuencas:
+        resultados_predicciones[cuenca] = {}
+        df_historico_cuenca = df_historico[df_historico['cuenca'] == cuenca].copy()
+        df_historico_cuenca.sort_values(by=df_historico_cuenca.columns[0], inplace=True) # Asegurar orden temporal
 
-def define_model(n_timesteps, n_features, units_rnn = 32):
-    """Define la arquitectura del modelo SimpleRNN."""
-    model = keras.Sequential([
-        Input(shape=(n_timesteps, n_features)),
-        SimpleRNN(units=units_rnn, activation='relu'),
-        Dense(units=1)
-    ])
-    model.compile(optimizer='adam', loss='mean_squared_error', metrics=['mae'])
-    return model
+        # Obtener los últimos datos históricos para lags iniciales
+        ultimo_historico = df_historico_cuenca.iloc[-n_lags_area:].to_dict('records')
+        if len(ultimo_historico) < n_lags_area:
+            print(f"Advertencia: No hay suficientes datos históricos para crear {n_lags_area} lags para la cuenca {cuenca}. Saltando esta cuenca.")
+            continue
 
-def train_model(model, X_train, y_train, epochs=100, batch_size=32, validation_split=0.2, callbacks=None, verbose=1):
-    """Entrena el modelo."""
-    return model.fit(X_train, y_train, epochs=epochs, batch_size=batch_size, validation_split=validation_split, callbacks=callbacks, verbose=verbose)
+        # 4. Identificar y iterar sobre los archivos de datos futuros para la cuenca actual
+        for nombre_archivo_futuro in os.listdir(ruta_datos_futuros):
+            if cuenca.lower() in nombre_archivo_futuro.lower() and nombre_archivo_futuro.endswith('.csv'):
+                ruta_archivo_futuro = os.path.join(ruta_datos_futuros, nombre_archivo_futuro)
+                df_futuro = pd.read_csv(ruta_archivo_futuro)
+                nombre_modelo = nombre_archivo_futuro.replace(f'{cuenca.lower()}-', '').replace('.csv', '')
+                predicciones_cuenca_modelo = []
 
-def save_model(model, save_path, filename):
-    """Guarda el modelo entrenado."""
-    model.save(os.path.join(save_path, filename))
-    print(f"Modelo guardado en: {os.path.join(save_path, filename)}")
+                # Preparar los lags iniciales
+                hist_area_nieve = [d['area_nieve'] for d in ultimo_historico]
+                hist_exog = {col: [d[col] for d in ultimo_historico] for col in df_historico_cuenca.columns if col not in ['area_nieve', 'cuenca']}
 
+                # 5. Predicción autoregresiva
+                for index, row_futuro in df_futuro.iterrows():
+                    # Crear el vector de entrada para la predicción
+                    input_data = {}
+                    # Lags del área de nieve
+                    for i in range(1, n_lags_area + 1):
+                        input_data[f'area_nieve(t-d{i})'] = hist_area_nieve[-i]
 
-def create_and_save_rnn_single(data_path, save_path, data_filename,
-                               n_lags_area=3, n_lags_exog=2, test_size=0.3, epochs=100,
-                               batch_size=32, units_rnn=32):
-    """Función principal para crear, entrenar y guardar el modelo RNN para una sola cuenca."""
-    # 1. Cargar datos
-    df = load_data(data_path, data_filename)
+                    # Lags de las variables exógenas
+                    for col_exog in hist_exog.keys():
+                        for i in range(n_lags_exog + 1):
+                            if i == 0:
+                                input_data[f'{col_exog}(t-{i})'] = row_futuro[col_exog]
+                            elif len(hist_exog[col_exog]) > i -1:
+                                input_data[f'{col_exog}(t-{i})'] = hist_exog[col_exog][-i]
+                            else:
+                                input_data[f'{col_exog}(t-{i})'] = 0 # Manejar la falta de lags históricos iniciales
 
-    # 2. Crear lags
-    df_lagged = create_lags(df.copy(), n_lags_area, n_lags_exog)
+                    # Variable 'cuenca'
+                    input_data['cuenca(t-0)'] = cuenca
 
-    # 3. Preprocesar datos
-    X_scaled, y_scaled, scaler_x, scaler_y = preprocess_data(df_lagged)
+                    # Convertir a DataFrame y preprocesar
+                    df_entrada = pd.DataFrame([input_data])
+                    exog_cols = [col for col in df_entrada.columns if col not in ['area_nieve(t-d1)', 'cuenca(t-0)']]
+                    X_exog = df_entrada[exog_cols].values.astype(float)
+                    X_scaled_exog = scaler_x.transform(X_exog)
+                    cuenca_col = df_entrada[['cuenca(t-0)']].values
+                    X_scaled_cuenca = encoder_cuenca.transform(cuenca_col)
+                    X_scaled = np.concatenate((X_scaled_exog, X_scaled_cuenca), axis=1)
+                    X_scaled_nn = X_scaled.reshape((1, 1, X_scaled.shape[1]))
 
-    # 4. Dividir datos
-    X_train, X_test, y_train, y_test = split_data(X_scaled, y_scaled, test_size=test_size)
+                    # Realizar la predicción
+                    prediccion_escalada = modelo_rnn.predict(X_scaled_nn)[0, 0]
+                    prediccion_original = scaler_y.inverse_transform(np.array([[prediccion_escalada]]))[0, 0]
+                    predicciones_cuenca_modelo.append((row_futuro.iloc[0], prediccion_original)) # Asumiendo que la primera columna es la fecha
 
-    # 5. Reshape para RNN
-    n_timesteps = 1
-    n_features = X_train.shape[1]
-    X_train_nn = X_train.reshape((X_train.shape[0], n_timesteps, n_features))
-    X_test_nn = X_test.reshape((X_test.shape[0], n_timesteps, n_features))
+                    # Actualizar los lags para la siguiente predicción
+                    hist_area_nieve.append(prediccion_original)
+                    if len(hist_area_nieve) > n_lags_area:
+                        hist_area_nieve.pop(0)
+                    for col_exog in hist_exog.keys():
+                        hist_exog[col_exog].append(row_futuro[col_exog])
+                        if len(hist_exog[col_exog]) > n_lags_area:
+                            hist_exog[col_exog].pop(0)
 
-    # 6. Definir modelo
-    model_rnn = define_model(n_timesteps, n_features, units_rnn)
+                resultados_predicciones[cuenca][nombre_modelo] = pd.DataFrame(predicciones_cuenca_modelo, columns=['fecha', 'area_nieve'])
 
-    # 7. Entrenar modelo
-    history = train_model(model_rnn, X_train_nn, y_train, epochs=epochs, batch_size=batch_size, validation_split=0.2, verbose=0)
+    return resultados_predicciones
 
-    # 8. Guardar modelo
-    nombre_archivo_modelo = "simple_model.h5"
-    save_model(model_rnn, save_path, nombre_archivo_modelo)
+# Definir los lags (deben coincidir con los usados en la creación del modelo)
+n_lags_area = 3
+n_lags_exog = 2
+
+# Rutas de los datos y el modelo guardado
+ruta_datos_historicos = 'E:/data/historico/'
+nombre_archivo_historico = 'df_all.csv'  # Reemplazar
+ruta_datos_futuros = 'ruta/a/tus/datos_futuros'  # Reemplazar
+ruta_modelo_guardado = 'ruta/donde/guardaste/el/modelo'  # Reemplazar
+
+# Realizar las predicciones
+predicciones = model_rnn_future(ruta_datos_historicos, nombre_archivo_historico, ruta_datos_futuros, ruta_modelo_guardado)
+
+# Imprimir o guardar los resultados
+for cuenca, modelos in predicciones.items():
+    print(f"\nPredicciones para la cuenca: {cuenca}")
+    for modelo, df_predicciones in modelos.items():
+        print(f"\n  Modelo futuro: {modelo}")
+        print(df_predicciones)
+
+# O puedes guardar los resultados en archivos CSV
+# for cuenca, modelos in predicciones.items():
+#     for modelo, df_predicciones in modelos.items():
+#         df_predicciones.to_csv(f'predicciones_{cuenca}_{modelo}.csv', index=False)
