@@ -250,6 +250,23 @@ def merge_areas_exog(areas_file, exog_file, save=False):
     else:
         return df
 
+#%%
+def cleaning_exogenous_variables(excel_file):
+    series_futuras = pd.read_excel(excel_file, sheet_name=None)
+    adda_bornio = pd.concat(series_futuras['Genil ssp 245 2051-2070'], series_futuras['Genil ssp 245 2081-2100'])
+    genil_dilar = pd.concat(series_futuras['Adda ssp 245 2051-2070'], series_futuras['Adda ssp 245 2081-2100'])
+    indrawati_melamchi = pd.concat(series_futuras['Genil ssp 245 2051-2070'], series_futuras['Genil ssp 245 2081-2100'])
+    mapocho_almendros = pd.concat(series_futuras['Genil ssp 245 2051-2070'], series_futuras['Genil ssp 245 2081-2100'])
+    nenskra_enguri = pd.concat(series_futuras['Genil ssp 245 2051-2070'], series_futuras['Genil ssp 245 2081-2100'])
+    uncompahgre_ridgway = pd.concat(series_futuras['Genil ssp 245 2051-2070'], series_futuras['Genil ssp 245 2081-2100'])
+
+    adda_bornio.to_csv("./predicted_exog/adda-bornio.csv")
+    genil_dilar.to_csv("./predicted_exog/genil-dilar.csv")
+    indrawati_melamchi.to_csv("./predicted_exog/indrawati-melamchi.csv")
+    mapocho_almendros.to_csv("./predicted_exog/mapocho-almendros.csv")
+    nenskra_enguri.to_csv("./predicted_exog/nenskra-enguri.csv")
+    uncompahgre_ridgway.to_csv("./predicted_exog/uncompahgre-ridgway.csv")
+
 
 #%%
 # join_areas("E:/data/csv/areas",)
@@ -258,7 +275,6 @@ def merge_areas_exog(areas_file, exog_file, save=False):
 # process_var_exog('E:/data/csv/Series_historicas_agregadas_ERA5Land.csv', '.')
 
 #%%
-df = merge_areas_exog('./areas_total.csv', 'v_exog_hist.csv', save=True)
+merge_areas_exog('areas_total.csv', './v_exog_hist.csv', save=True)
 
 #%%
-df.head()

@@ -1,3 +1,5 @@
 __pycache__/
 csv/
 estructura_datos.txt
+models/*.joblib
+models/*.h5

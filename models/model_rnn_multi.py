@@ -6,10 +6,11 @@ from keras.layers import Input, Dense, SimpleRNN
 from sklearn.model_selection import train_test_split
 from keras.callbacks import EarlyStopping
 import os
+from joblib import dump
 
 def cargar_datos(ruta_datos, nombre_archivo):
     """Carga los datos desde un archivo CSV."""
-    return pd.read_csv(os.path.join(ruta_datos, nombre_archivo))
+    return pd.read_csv(os.path.join(ruta_datos, nombre_archivo), index_col=0)
 
 def crear_lags(df, n_lags_area, n_lags_exog):
     """Crea las variables con lags incluyendo la columna 'cuenca'."""
@@ -28,6 +29,7 @@ def crear_lags(df, n_lags_area, n_lags_exog):
     agg = pd.concat(cols, axis=1)
     agg.columns = names
     agg.dropna(inplace=True)
+    print(f"Columnas de lags: {df.columns}")
     return agg
 
 def preprocesar_datos(df_lagged):
@@ -73,7 +75,7 @@ def guardar_modelo(model, ruta_guardado, nombre_archivo):
     print(f"Modelo RNN multi-cuenca guardado en: {os.path.join(ruta_guardado, nombre_archivo)}")
 
 def crear_y_guardar_rnn_multi(ruta_datos, ruta_guardado, nombre_archivo_datos,
-                               n_lags_area=3, n_lags_exog=2, test_size=0.3, epochs=100,
+                               n_lags_area=3, n_lags_exog=2, test_size=0.3, epochs=50,
                                batch_size=64, unidades_rnn=64):
     """Función principal para crear, entrenar y guardar el modelo RNN para todas las cuencas."""
     # 1. Cargar datos
@@ -107,15 +109,17 @@ def crear_y_guardar_rnn_multi(ruta_datos, ruta_guardado, nombre_archivo_datos,
     nombre_archivo_modelo = "simple_model_multicuenca.h5"
     guardar_modelo(model_rnn, ruta_guardado, nombre_archivo_modelo)
     # Puedes guardar los scalers y el encoder usando joblib si los necesitas para la evaluación
-    from joblib import dump
+    
+    dump(scaler_x, os.path.join(ruta_guardado, 'scaler_x_rnn_multi.joblib'))
     dump(scaler_x, os.path.join(ruta_guardado, 'scaler_x_rnn_multi.joblib'))
     dump(scaler_y, os.path.join(ruta_guardado, 'scaler_y_rnn_multi.joblib'))
     dump(encoder_cuenca, os.path.join(ruta_guardado, 'encoder_cuenca_rnn_multi.joblib'))
 
-if __name__ == '__main__':
-    RUTA_DATOS = './csv_merged/final/'
-    RUTA_MODELOS = './models/'
-    NOMBRE_ARCHIVO_DATOS = 'cuencas_all.csv'
-    if not os.path.exists(RUTA_MODELOS):
-        os.makedirs(RUTA_MODELOS)
-    crear_y_guardar_rnn_multi(RUTA_DATOS, RUTA_MODELOS, NOMBRE_ARCHIVO_DATOS)
+
+
+RUTA_DATOS = './'
+RUTA_MODELOS = './models/'
+NOMBRE_ARCHIVO_DATOS = 'df_all.csv'
+if not os.path.exists(RUTA_MODELOS):
+    os.makedirs(RUTA_MODELOS)
+crear_y_guardar_rnn_multi(RUTA_DATOS, RUTA_MODELOS, NOMBRE_ARCHIVO_DATOS)

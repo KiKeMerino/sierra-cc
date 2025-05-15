@@ -189,3 +189,35 @@ Este DataFrame contiene datos diarios para la basin "uncompahgre-ridgway" a lo l
 3. Visualización
 4. Pre-procesing
 
+
+
+-------------- Métricas en el conjunto de prueba modelo lstm (Predicción Directa) ---------------
+R2 (Directa): 0.7156
+MAE (Directa): 86.2435
+NSE (Directa): 0.7156
+KGE (Directa): 0.5182
+
+Para predecir el área de nieve en el día t+1:
+
+Las entradas al modelo serán:
+Las predicciones del área de nieve en los días t,t−1,t−2,...,t−n (donde n es el número de lags).
+Los valores reales de las variables exógenas para el día t+1.
+Para predecir el área de nieve en el día t+2:
+
+Las entradas al modelo serán:
+La predicción del área de nieve para el día t+1.
+La predicción del área de nieve para los días t,t−1,...,t−(n−1).
+Los valores reales de las variables exógenas para el día t+2.
+Y así sucesivamente.
+
+
+Esquema de la predicción iterativa en el conjunto de validación:
+
+Selecciona la última ventana de n_lags_area datos del conjunto de entrenamiento (escalados) como el historial inicial.
+Itera sobre el número de pasos que deseas predecir en el conjunto de validación iterativa.
+En cada paso:
+Toma la ventana de historial actual y los valores correspondientes de las variables exógenas del conjunto de validación iterativa.
+Realiza la predicción con el modelo.
+Desescala la predicción del área de nieve.
+Almacena esta predicción.
+Actualiza la ventana de historial: elimina el valor más antiguo y añade la predicción actual (escalada).

@@ -4,15 +4,15 @@ import os
 from tensorflow import keras
 from joblib import load
 
-def model_rnn_future(ruta_datos_historicos, nombre_archivo_historico, ruta_datos_futuros, ruta_modelo_guardado):
+def rnn_predict(ruta_datos_historicos, nombre_archivo_historico, ruta_datos_futuros, ruta_modelo_guardado):
     """
     Realiza predicciones futuras del área de nieve para múltiples cuencas y modelos de predicción futura
-    utilizando un modelo RNN autoregresivo con variables exógenas.
+    utilizando un modelo RNN autoregresivo con variables exógenas, asumiendo un archivo futuro unificado por cuenca.
 
     Args:
         ruta_datos_historicos (str): Ruta al directorio que contiene el archivo de datos históricos.
         nombre_archivo_historico (str): Nombre del archivo CSV con los datos históricos.
-        ruta_datos_futuros (str): Ruta al directorio que contiene los archivos CSV con las predicciones futuras.
+        ruta_datos_futuros (str): Ruta al directorio que contiene los archivos CSV futuros unificados por cuenca.
         ruta_modelo_guardado (str): Ruta al directorio donde se guardó el modelo RNN y los objetos de preprocesamiento.
 
     Returns:
@@ -44,20 +44,26 @@ def model_rnn_future(ruta_datos_historicos, nombre_archivo_historico, ruta_datos
             print(f"Advertencia: No hay suficientes datos históricos para crear {n_lags_area} lags para la cuenca {cuenca}. Saltando esta cuenca.")
             continue
 
-        # 4. Identificar y iterar sobre los archivos de datos futuros para la cuenca actual
-        for nombre_archivo_futuro in os.listdir(ruta_datos_futuros):
-            if cuenca.lower() in nombre_archivo_futuro.lower() and nombre_archivo_futuro.endswith('.csv'):
-                ruta_archivo_futuro = os.path.join(ruta_datos_futuros, nombre_archivo_futuro)
-                df_futuro = pd.read_csv(ruta_archivo_futuro)
-                nombre_modelo = nombre_archivo_futuro.replace(f'{cuenca.lower()}-', '').replace('.csv', '')
-                predicciones_cuenca_modelo = []
+        # 4. Identificar y cargar el archivo de datos futuros para la cuenca actual
+        nombre_archivo_futuro_cuenca = f'{cuenca.lower()}.csv'
+        ruta_archivo_futuro_cuenca = os.path.join(ruta_datos_futuros, nombre_archivo_futuro_cuenca)
+
+        if os.path.exists(ruta_archivo_futuro_cuenca):
+            df_futuro_cuenca = pd.read_csv(ruta_archivo_futuro_cuenca)
+            modelos_futuros = df_futuro_cuenca['modelo'].unique()
+
+            # 5. Iterar sobre los modelos futuros dentro del DataFrame de la cuenca
+            for modelo in modelos_futuros:
+                df_futuro_modelo = df_futuro_cuenca[df_futuro_cuenca['modelo'] == modelo].copy()
+                df_futuro_modelo.sort_values(by='fecha', inplace=True) # Asegurar orden temporal de las predicciones
+                predicciones_modelo = []
 
                 # Preparar los lags iniciales
                 hist_area_nieve = [d['area_nieve'] for d in ultimo_historico]
                 hist_exog = {col: [d[col] for d in ultimo_historico] for col in df_historico_cuenca.columns if col not in ['area_nieve', 'cuenca']}
 
-                # 5. Predicción autoregresiva
-                for index, row_futuro in df_futuro.iterrows():
+                # 6. Predicción autoregresiva para cada paso de tiempo del modelo actual
+                for index, row_futuro in df_futuro_modelo.iterrows():
                     # Crear el vector de entrada para la predicción
                     input_data = {}
                     # Lags del área de nieve
@@ -69,7 +75,7 @@ def model_rnn_future(ruta_datos_historicos, nombre_archivo_historico, ruta_datos
                         for i in range(n_lags_exog + 1):
                             if i == 0:
                                 input_data[f'{col_exog}(t-{i})'] = row_futuro[col_exog]
-                            elif len(hist_exog[col_exog]) > i -1:
+                            elif len(hist_exog[col_exog]) > i - 1:
                                 input_data[f'{col_exog}(t-{i})'] = hist_exog[col_exog][-i]
                             else:
                                 input_data[f'{col_exog}(t-{i})'] = 0 # Manejar la falta de lags históricos iniciales
@@ -90,7 +96,7 @@ def model_rnn_future(ruta_datos_historicos, nombre_archivo_historico, ruta_datos
                     # Realizar la predicción
                     prediccion_escalada = modelo_rnn.predict(X_scaled_nn)[0, 0]
                     prediccion_original = scaler_y.inverse_transform(np.array([[prediccion_escalada]]))[0, 0]
-                    predicciones_cuenca_modelo.append((row_futuro.iloc[0], prediccion_original)) # Asumiendo que la primera columna es la fecha
+                    predicciones_modelo.append((row_futuro['fecha'], prediccion_original))
 
                     # Actualizar los lags para la siguiente predicción
                     hist_area_nieve.append(prediccion_original)
@@ -101,7 +107,9 @@ def model_rnn_future(ruta_datos_historicos, nombre_archivo_historico, ruta_datos
                         if len(hist_exog[col_exog]) > n_lags_area:
                             hist_exog[col_exog].pop(0)
 
-                resultados_predicciones[cuenca][nombre_modelo] = pd.DataFrame(predicciones_cuenca_modelo, columns=['fecha', 'area_nieve'])
+                resultados_predicciones[cuenca][modelo] = pd.DataFrame(predicciones_modelo, columns=['fecha', 'area_nieve'])
+        else:
+            print(f"Advertencia: No se encontró el archivo de datos futuros para la cuenca {cuenca}.")
 
     return resultados_predicciones
 
@@ -109,23 +117,24 @@ def model_rnn_future(ruta_datos_historicos, nombre_archivo_historico, ruta_datos
 n_lags_area = 3
 n_lags_exog = 2
 
-# Rutas de los datos y el modelo guardado
+# Rutas de los datos y el modelo guardado (¡Asegúrate de actualizarlas!)
 ruta_datos_historicos = './'
-nombre_archivo_historico = 'df_all.csv'
-ruta_datos_futuros = 'ruta/a/tus/datos_futuros'
+nombre_archivo_historico = 'historic_data.csv'
+ruta_datos_futuros = './predicted_exog/'
 ruta_modelo_guardado = './models/'
 
-# Realizar las predicciones
-predicciones = model_rnn_future(ruta_datos_historicos, nombre_archivo_historico, ruta_datos_futuros, ruta_modelo_guardado)
+# Realizar las predicciones con la estructura de archivos unificada
+predicciones_unificadas = rnn_predict(ruta_datos_historicos, nombre_archivo_historico, ruta_datos_futuros, ruta_modelo_guardado)
 
 # Imprimir o guardar los resultados
-for cuenca, modelos in predicciones.items():
+for cuenca, modelos in predicciones_unificadas.items():
     print(f"\nPredicciones para la cuenca: {cuenca}")
     for modelo, df_predicciones in modelos.items():
         print(f"\n  Modelo futuro: {modelo}")
         print(df_predicciones)
 
 # O puedes guardar los resultados en archivos CSV
-# for cuenca, modelos in predicciones.items():
+# for cuenca, modelos in predicciones_unificadas.items():
 #     for modelo, df_predicciones in modelos.items():
-#         df_predicciones.to_csv(f'predicciones_{cuenca}_{modelo}.csv', index=False)
+#         df_predicciones.to_csv(f'predicciones_unificada_{cuenca}_{modelo}.csv', index=False)
+
