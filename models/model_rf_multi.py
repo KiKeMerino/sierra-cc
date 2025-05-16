@@ -142,6 +142,128 @@ def evaluar_modelo_rf(ruta_datos, ruta_modelos, nombre_archivo_datos, n_lags_are
     print(f"\nMétricas en todo el conjunto de datos:")
     print(f"R2: {r2_total:.4f}, MAE: {mae_total:.4f}, NSE: {nse_total:.4f}, KGE: {kge_total:.4f}")
 
+def evaluar_modelo_rf_extendido(ruta_datos, ruta_modelos, nombre_archivo_datos, n_lags_area=3, test_size=0.2, validation_iter_ratio=0.1):
+    """Evalúa un modelo Random Forest previamente entrenado con predicción iterativa total."""
+    # 1. Cargar datos
+    df = cargar_datos(ruta_datos, nombre_archivo_datos)
+
+    # 2. Crear lags
+    df_lagged = crear_lags(df.copy(), n_lags_area)
+
+    # 3. Preprocesar datos
+    X, y, feature_columns = preprocesar_datos_rf(df_lagged)
+
+    # 4. Dividir datos (necesario para la evaluación tradicional)
+    train_size = 1 - test_size
+    split_index = int(len(X) * train_size)
+    X_train_eval, X_test_eval = X[:split_index], X[split_index:]
+    y_train_eval, y_test_eval = y[:split_index], y[split_index:]
+
+    # 5. Cargar modelo
+    nombre_archivo_modelo = "rf_model_multicuenca.joblib"
+    model_rf_loaded = load(os.path.join(ruta_modelos, nombre_archivo_modelo))
+
+    # 6. Evaluar en el conjunto de prueba (predicción directa)
+    print("\nEvaluación en el conjunto de prueba (predicción directa):")
+    y_pred_test = model_rf_loaded.predict(X_test_eval)
+    r2_test = r2_score(y_test_eval, y_pred_test)
+    mae_test = mean_absolute_error(y_test_eval, y_pred_test)
+    nse_test = calcular_nse(y_test_eval, y_pred_test)
+    kge_test = calcular_kge(y_test_eval, y_pred_test)
+    print(f"R2: {r2_test:.4f}, MAE: {mae_test:.4f}, NSE: {nse_test:.4f}, KGE: {kge_test:.4f}")
+
+    # 7. Realizar predicción iterativa en el conjunto de validación
+    print("\nEvaluación en el conjunto de validación iterativa:")
+    total_size = len(X)
+    test_size_abs = int(total_size * test_size)
+    val_iter_size_abs = int(test_size_abs * validation_iter_ratio)
+    val_iter_start_index = total_size - val_iter_size_abs
+
+    X_val_iter = X.iloc[val_iter_start_index:]
+    y_val_iter = y.iloc[val_iter_start_index:]
+    X_hist = X.iloc[:val_iter_start_index]
+    y_hist = y.iloc[:val_iter_start_index]
+
+    if len(y_val_iter) > n_lags_area:
+        predicciones_iterativas = []
+        historial_area_nieve = y_hist[-n_lags_area:].tolist()
+        historial_exogenas = X_hist.iloc[-n_lags_area:].to_dict('records')
+
+        for i in range(len(y_val_iter)):
+            entrada_prediccion = {}
+            for j in range(n_lags_area):
+                entrada_prediccion[f'area_nieve(t-{n_lags_area - j})'] = historial_area_nieve[j]
+            for key, value in historial_exogenas[-1].items():
+                if 'area_nieve(t-' not in key:
+                    entrada_prediccion[key] = value
+
+            entrada_df = pd.DataFrame([entrada_prediccion])[feature_columns]
+            prediccion = model_rf_loaded.predict(entrada_df)[0]
+            predicciones_iterativas.append(prediccion)
+
+            historial_area_nieve.append(prediccion)
+            historial_area_nieve = historial_area_nieve[1:]
+            if i < len(y_val_iter) - 1:
+                historial_exogenas.append(X_val_iter.iloc[i].to_dict())
+                historial_exogenas = historial_exogenas[-n_lags_area:]
+
+        y_true_val_iter = y_val_iter.values
+
+        if len(predicciones_iterativas) == len(y_true_val_iter):
+            r2_val_iter = r2_score(y_true_val_iter, predicciones_iterativas)
+            mae_val_iter = mean_absolute_error(y_true_val_iter, predicciones_iterativas)
+            nse_val_iter = calcular_nse(y_true_val_iter, predicciones_iterativas)
+            kge_val_iter = calcular_kge(y_true_val_iter, predicciones_iterativas)
+            print(f"R2 (iterativo): {r2_val_iter:.4f}, MAE: {mae_val_iter:.4f}, NSE: {nse_val_iter:.4f}, KGE: {kge_val_iter:.4f}")
+        else:
+            print(f"Advertencia: La longitud de las predicciones iterativas ({len(predicciones_iterativas)}) no coincide con la longitud de los valores reales del conjunto de validación ({len(y_true_val_iter)}).")
+    else:
+        print("\nEl tamaño del conjunto de validación iterativa es menor o igual al número de lags.")
+
+    # 8. Evaluar en todo el conjunto de datos (modo predictivo)
+    print("\nEvaluación en todo el conjunto de datos (modo predictivo):")
+    predicciones_iterativas_total = []
+    historial_area_nieve = y[:n_lags_area].tolist()
+    historial_exogenas = X[:n_lags_area].to_dict('records')
+
+    for i in range(len(y)):
+        if i < n_lags_area:
+            prediccion = historial_area_nieve[i]
+            predicciones_iterativas_total.append(prediccion)
+            continue
+
+        entrada_prediccion = {}
+        for j in range(n_lags_area):
+            entrada_prediccion[f'area_nieve(t-{n_lags_area - j})'] = historial_area_nieve[j]
+        for key, value in historial_exogenas[-1].items():
+            if 'area_nieve(t-' not in key:
+                entrada_prediccion[key] = value
+
+        entrada_df = pd.DataFrame([entrada_prediccion])[feature_columns]
+        prediccion = model_rf_loaded.predict(entrada_df)[0]
+        predicciones_iterativas_total.append(prediccion)
+
+        historial_area_nieve.append(prediccion)
+        historial_area_nieve = historial_area_nieve[1:]
+        if i < len(y) - 1:
+            historial_exogenas.append(X.iloc[i].to_dict())
+            historial_exogenas = historial_exogenas[-n_lags_area:]
+
+    y_true_total = y.values
+
+    if len(predicciones_iterativas_total) == len(y_true_total):
+        r2_total_pred = r2_score(y_true_total, predicciones_iterativas_total)
+        mae_total_pred = mean_absolute_error(y_true_total, predicciones_iterativas_total)
+        nse_total_pred = calcular_nse(y_true_total, predicciones_iterativas_total)
+        kge_total_pred = calcular_kge(y_true_total, predicciones_iterativas_total)
+        print(f"\nMétricas en todo el conjunto de datos (modo predictivo):")
+        print(f"R2: {r2_total_pred:.4f}, MAE: {mae_total_pred:.4f}, NSE: {nse_total_pred:.4f}, KGE: {kge_total_pred:.4f}")
+    else:
+        print("Error: La longitud de las predicciones iterativas no coincide con la longitud de los valores reales.")
+
+
+# Modificamos la llamada a la función de evaluación
+
 # Definir rutas y nombre de archivo
 RUTA_DATOS = './'
 RUTA_MODELOS = './models/'
@@ -151,25 +273,29 @@ TEST_SIZE = 0.2
 VALIDATION_ITER_RATIO = 0.1
 
 # 1. Cargar datos
-df = cargar_datos(RUTA_DATOS, NOMBRE_ARCHIVO_DATOS)
+#df = cargar_datos(RUTA_DATOS, NOMBRE_ARCHIVO_DATOS)
 
 # 2. Crear lags
-df_lagged = crear_lags(df.copy(), N_LAGS_AREA)
+#df_lagged = crear_lags(df.copy(), N_LAGS_AREA)
 
 # 3. Preprocesar datos
-X, y, feature_columns = preprocesar_datos_rf(df_lagged)
+#X, y, feature_columns = preprocesar_datos_rf(df_lagged)
 
 # 4. Dividir datos para entrenamiento
-X_train, X_test, y_train, y_test = dividir_datos_rf(X, y, test_size=TEST_SIZE, random_state=42)
+#X_train, X_test, y_train, y_test = dividir_datos_rf(X, y, test_size=TEST_SIZE, random_state=42)
 
 # 5. Entrenar el modelo Random Forest
-model_rf = entrenar_modelo_rf(X_train, y_train, n_estimators=100, random_state=42)
+#model_rf = entrenar_modelo_rf(X_train, y_train, n_estimators=100, random_state=42)
 
 # 6. Guardar el modelo entrenado
-os.makedirs(RUTA_MODELOS, exist_ok=True)
-nombre_archivo_modelo = "rf_model_multicuenca.joblib"
-dump(model_rf, os.path.join(RUTA_MODELOS, nombre_archivo_modelo))
-print(f"\nModelo Random Forest guardado en: {os.path.join(RUTA_MODELOS, nombre_archivo_modelo)}")
+#os.makedirs(RUTA_MODELOS, exist_ok=True)
+#nombre_archivo_modelo = "rf_model_multicuenca.joblib"
+#dump(model_rf, os.path.join(RUTA_MODELOS, nombre_archivo_modelo))
+#print(f"\nModelo Random Forest guardado en: {os.path.join(RUTA_MODELOS, nombre_archivo_modelo)}")
 
 # 7. Evaluar el modelo
-evaluar_modelo_rf(RUTA_DATOS, RUTA_MODELOS, NOMBRE_ARCHIVO_DATOS, N_LAGS_AREA, TEST_SIZE, VALIDATION_ITER_RATIO)
+#evaluar_modelo_rf(RUTA_DATOS, RUTA_MODELOS, NOMBRE_ARCHIVO_DATOS, N_LAGS_AREA, TEST_SIZE, VALIDATION_ITER_RATIO)
+
+#evaluar_modelo_rf_extendido(RUTA_DATOS, RUTA_MODELOS, NOMBRE_ARCHIVO_DATOS, N_LAGS_AREA, TEST_SIZE, VALIDATION_ITER_RATIO)
+# Modificamos la llamada a la función de evaluación para usar la extendida
+evaluar_modelo_rf_extendido(RUTA_DATOS, RUTA_MODELOS, NOMBRE_ARCHIVO_DATOS, N_LAGS_AREA, TEST_SIZE, VALIDATION_ITER_RATIO)
