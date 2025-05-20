@@ -5,7 +5,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 from keras.models import Sequential
-from keras.layers import LSTM, Dense
+from keras.layers import LSTM, Dense, Dropout
 from sklearn.metrics import r2_score, mean_absolute_error
 import os
 
@@ -71,12 +71,19 @@ def create_sequences(data, n_lags, exog_cols_scaled, target_col_scaled='area_nie
         y.append(data[target_col_scaled].iloc[i + n_lags])
     return np.array(X), np.array(y).reshape(-1, 1)
 
+# Crear bucle para probar distintas configuraciones
 def create_narx_model(n_lags, n_features, n_units_lstm=50):
     model = Sequential([
-        LSTM(n_units_lstm, activation='relu', input_shape=(n_lags, n_features)),
+        LSTM(n_units_lstm, activation='relu', input_shape=(n_lags, n_features), return_sequences=True), # Añadimos return_sequences para la siguiente capa LSTM
+        LSTM(n_units_lstm, activation='relu'),
+        Dropout(0.1), # Añadimos una capa Dropout
         Dense(1)
     ])
-    model.compile(optimizer='adam', loss='mse')
+
+    # Optimizador con recorte de gradientes
+    optimizer = tf.keras.optimizers.Adam(learning_rate=0.001, clipnorm=1.0) # clipnorm para el recorte
+    model.compile(optimizer=optimizer, loss='mse')
+
     return model
 
 def train_models(sequences_data, n_lags_area, exog_cols_scaled, cuencas, models_dir='models'):
@@ -112,7 +119,7 @@ def load_models(cuencas, models_dir='models'):
 def evaluate_model(model, sequences, scaler_area):
     X = sequences['X']
     y_true = sequences['y']
-    y_pred_scaled = model.predict(X)
+    y_pred_scaled = model.predict(X, verbose=0)
     y_pred_original = scaler_area.inverse_transform(y_pred_scaled)
     y_true_original = scaler_area.inverse_transform(y_true)
 
@@ -132,7 +139,7 @@ def evaluate_validation(model, df_val_scaled, scaler_area, exog_cols, n_lags_are
     last_sequence = first_sequence.copy()
 
     for i in range(len(df_val_scaled) - n_lags_area):
-        pred_scaled = model.predict(last_sequence)
+        pred_scaled = model.predict(last_sequence, verbose=0)
         y_val_pred_scaled.append(pred_scaled[0, 0])
 
         next_area_scaled = pred_scaled.reshape(1, 1, 1)
@@ -153,45 +160,60 @@ def evaluate_validation(model, df_val_scaled, scaler_area, exog_cols, n_lags_are
 
 def evaluate_full_dataset(models, scaled_data, scalers, cuencas, n_lags_area, exog_cols_scaled):
     full_metrics = {}
+
     for cuenca in cuencas:
+        model = models[cuenca]
         scaler_area = scalers[cuenca]['area']
+        
+        # Recuperar el DataFrame completo escalado para esta cuenca
+        # Es crucial usar todo el DataFrame escalado de la cuenca, no solo los sets divididos.
+        df_full_scaled_cuenca = scaled_data[cuenca]['df'].copy()
 
-        X_train = sequences_data[cuenca]['X_train']
-        y_train = sequences_data[cuenca]['y_train']
-        y_train_pred = scaler_area.inverse_transform(models[cuenca].predict(X_train))
-        y_train_true = scaler_area.inverse_transform(y_train)
+        n_exog_features = len(exog_cols_scaled)
 
-        X_test = sequences_data[cuenca]['X_test']
-        y_test = sequences_data[cuenca]['y_test']
-        y_test_pred = scaler_area.inverse_transform(models[cuenca].predict(X_test))
-        y_test_true = scaler_area.inverse_transform(y_test)
+        # Inicializar listas para almacenar las predicciones y los valores reales para toda la serie
+        y_full_true_original = df_full_scaled_cuenca['area_nieve'].values[n_lags_area:].reshape(-1, 1)
+        y_full_pred_scaled = []
 
-        df_val_scaled = scaled_data[cuenca]['df'].iloc[scaled_data[cuenca]['val_idx']].copy()
-        y_val_true_original = df_val_scaled['area_nieve'].values[n_lags_area:].reshape(-1, 1)
-        y_val_pred_original_scaled = []
-        first_sequence = df_val_scaled[['area_nieve_scaled'] + [col + '_scaled' for col in exog_cols_scaled]].iloc[:n_lags_area].values.reshape(1, n_lags_area, -1)
-        last_sequence = first_sequence.copy()
-        for i in range(len(df_val_scaled) - n_lags_area):
-            pred_scaled = models[cuenca].predict(last_sequence)
-            y_val_pred_original_scaled.append(pred_scaled[0, 0])
+        # Usar los primeros 'n_lags_area' valores reales de todo el conjunto de datos para iniciar la predicción
+        first_sequence_full = df_full_scaled_cuenca[['area_nieve_scaled'] + exog_cols_scaled].iloc[:n_lags_area].values.reshape(1, n_lags_area, -1)
+        last_sequence_full = first_sequence_full.copy()
+
+        # Realizar la predicción paso a paso para todo el resto del DataFrame
+        for i in range(len(df_full_scaled_cuenca) - n_lags_area):
+            pred_scaled = model.predict(last_sequence_full, verbose=0)
+            y_full_pred_scaled.append(pred_scaled[0, 0])
+
+            # Crear la siguiente secuencia de entrada
             next_area_scaled = pred_scaled.reshape(1, 1, 1)
-            next_exog_scaled = df_val_scaled[[col + '_scaled' for col in exog_cols_scaled]].iloc[n_lags_area + i].values.reshape(1, 1, len(exog_cols_scaled))
-            updated_area_sequence = np.concatenate([last_sequence[:, 1:, 0].reshape(1, n_lags_area - 1, 1), next_area_scaled], axis=1)
-            updated_exog_sequence = np.concatenate([last_sequence[:, 1:, 1:], next_exog_scaled], axis=1)
-            last_sequence = np.concatenate([updated_area_sequence, updated_exog_sequence], axis=2)
-        y_val_pred_original = scaler_area.inverse_transform(np.array(y_val_pred_original_scaled).reshape(-1, 1))
+            next_exog_scaled = df_full_scaled_cuenca[exog_cols_scaled].iloc[n_lags_area + i].values.reshape(1, 1, n_exog_features)
 
-        y_true_full = np.vstack([y_train_true, y_test_true, y_val_true_original])
-        y_pred_full = np.vstack([y_train_pred, y_test_pred, y_val_pred_original])
+            # Descartar el valor más antiguo del área de nieve y agregar la nueva predicción
+            updated_area_sequence = np.concatenate([last_sequence_full[:, 1:, 0].reshape(1, n_lags_area - 1, 1), next_area_scaled], axis=1)
 
-        r2_full = r2_score(y_true_full, y_pred_full)
-        mae_full = mean_absolute_error(y_true_full, y_pred_full)
-        nse_full = nash_sutcliffe_efficiency(y_true_full, y_pred_full)
-        kge_full = kling_gupta_efficiency(y_true_full, y_pred_full)
+            # Descartar el valor más antiguo de las variables exógenas y agregar el nuevo valor
+            updated_exog_sequence = np.concatenate([last_sequence_full[:, 1:, 1:], next_exog_scaled], axis=1)
+
+            # Concatenar las secuencias actualizadas
+            last_sequence_full = np.concatenate([updated_area_sequence, updated_exog_sequence], axis=2)
+
+        # Invertir el escalado de las predicciones para todo el conjunto
+        y_full_pred_original = scaler_area.inverse_transform(np.array(y_full_pred_scaled).reshape(-1, 1))
+
+        # Calcular las métricas en todo el conjunto de datos (excepto los primeros n_lags)
+        r2_full = r2_score(y_full_true_original, y_full_pred_original)
+        mae_full = mean_absolute_error(y_full_true_original, y_full_pred_original)
+        nse_full = nash_sutcliffe_efficiency(y_full_true_original, y_full_pred_original)
+        kge_full = kling_gupta_efficiency(y_full_true_original, y_full_pred_original)
 
         full_metrics[cuenca] = {'R2': r2_full, 'MAE': mae_full, 'NSE': nse_full, 'KGE': kge_full}
-        print(f"Métricas en todo el conjunto de datos para {cuenca}: R2={r2_full:.3f}, MAE={mae_full:.3f}, NSE={nse_full:.3f}, KGE={kge_full:.3f}")
+        print(f"Métricas en todo el conjunto de datos (modo prediccion) para {cuenca}: R2={r2_full:.3f}, MAE={mae_full:.3f}, NSE={nse_full:.3f}, KGE={kge_full:.3f}")
+    
     return full_metrics
+
+# --- En la sección de ejecución principal, puedes llamarla así ---
+# Por ejemplo, después de entrenar o cargar los modelos:
+# full_dataset_metrics = evaluate_full_dataset(models, scaled_data, scalers, cuencas, n_lags_area, exog_cols_scaled)
 
 # --- Main execution ---
 # DataFrame de ejemplo (reemplaza con tu DataFrame real)
@@ -221,10 +243,10 @@ for cuenca, data_indices in scaled_data.items():
     }
 
 # Entrenar y guardar los modelos
-models = train_models(sequences_data, n_lags_area, [col.replace('_scaled', '') + '_scaled' for col in exog_cols_scaled], cuencas)
+# models = train_models(sequences_data, n_lags_area, [col.replace('_scaled', '') + '_scaled' for col in exog_cols_scaled], cuencas)
 
 # O cargar los modelos si ya están entrenados
-# models = load_models(cuencas)
+models = load_models(cuencas)
 
 # Evaluar los modelos
 train_metrics = {}
@@ -236,18 +258,15 @@ for cuenca, model in models.items():
 
     train_sequences = {'X': sequences_data[cuenca]['X_train'], 'y': sequences_data[cuenca]['y_train']}
     train_metrics[cuenca], _, _ = evaluate_model(model, train_sequences, scaler_area)
-    print(f"Métricas de entrenamiento para {cuenca}: {train_metrics[cuenca]}")
+    print(f"Métricas conjunto de 'train' para {cuenca}: {train_metrics[cuenca]}")
 
     test_sequences = {'X': sequences_data[cuenca]['X_test'], 'y': sequences_data[cuenca]['y_test']}
     test_metrics[cuenca], _, _ = evaluate_model(model, test_sequences, scaler_area)
-    print(f"Métricas de prueba para {cuenca}: {test_metrics[cuenca]}")
+    print(f"Métricas conjunto de 'test' para {cuenca}: {test_metrics[cuenca]}")
 
     df_val_scaled = scaled_data[cuenca]['df'].iloc[scaled_data[cuenca]['val_idx']].copy()
     validation_metrics[cuenca], _, _ = evaluate_validation(model, df_val_scaled, scaler_area, [col.replace('_scaled', '') for col in exog_cols_scaled], n_lags_area)
-    print(f"Métricas de validación para {cuenca}: {validation_metrics[cuenca]}")
+    print(f"Métricas conjunto de 'validation' (modo prediccion) para {cuenca}: {validation_metrics[cuenca]}")
 
 # Evaluar en todo el conjunto de datos
-full_dataset_metrics = evaluate_full_dataset(models, scaled_data, scalers, cuencas, n_lags_area, [col.replace('_scaled', '') + '_scaled' for col in exog_cols_scaled])
-
-print("\nMétricas en todo el conjunto de datos:")
-print(full_dataset_metrics)
+evaluate_full_dataset(models, scaled_data, scalers, cuencas, n_lags_area, [col.replace('_scaled', '') + '_scaled' for col in exog_cols_scaled])

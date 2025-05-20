@@ -223,10 +223,21 @@ Almacena esta predicción.
 Actualiza la ventana de historial: elimina el valor más antiguo y añade la predicción actual (escalada).
 
 
-METRICAS CON RF:
+METRICAS CON Random Forest:
 - Evaluación en el conjunto de prueba (predicción directa):
     R2: 0.9467, MAE: 28.7578, NSE: 0.9467, KGE: 0.9404
 - Evaluación en el conjunto de validación iterativa (modo predictivo):
     R2: 0.1556, MAE: 173.3554, NSE: 0.1556, KGE: 0.2602
 - Métricas en todo el conjunto de datos (modo predictivo):
     R2: -0.5581, MAE: 177.8610, NSE: -0.5581, KGE: 0.0190
+
+
+
+
+
+
+NUEVO MODELO NARX con capas LSTM(Long Short-Term Memory) de la libreria Keras (que se ejecuta sobre TensorFlow)
+    - El LSTM es un tipo de capa de red neuronal recurrente
+    - Para cada paspo en el tiempo, el modelo recibe como entrada una secuencia de los n_lags_area valores pasados del area de nieve
+    - La capa LSTM procesa esta secuencia de entrada, aprendiendo las relaciones temporales entre el área de nieve pasada y las variables exógenas pasadas para entender cómo influyen en el valor futuro del área de nieve.
+    

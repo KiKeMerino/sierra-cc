@@ -94,7 +94,7 @@ def evaluar_modelo_rf(ruta_datos, ruta_modelos, nombre_archivo_datos, n_lags_are
     model_rf_loaded = load(os.path.join(ruta_modelos, nombre_archivo_modelo))
 
     # 6. Evaluar en el conjunto de prueba (predicción directa)
-    print("\nEvaluación en el conjunto de prueba (predicción directa):")
+    print("\nEvaluación en el conjunto de test:")
     y_pred_test = model_rf_loaded.predict(X_test_eval)
     r2_test = r2_score(y_test_eval, y_pred_test)
     mae_test = mean_absolute_error(y_test_eval, y_pred_test)
@@ -197,9 +197,9 @@ def evaluar_modelo_rf(ruta_datos, ruta_modelos, nombre_archivo_datos, n_lags_are
 RUTA_DATOS = './'
 RUTA_MODELOS = './models/'
 NOMBRE_ARCHIVO_DATOS = 'df_all.csv'
-N_LAGS_AREA = 3
+N_LAGS_AREA = 7
 TEST_SIZE = 0.2
 VALIDATION_ITER_RATIO = 0.1
 
-
+cargar_guardar_modelo(os.path.join(RUTA_DATOS,NOMBRE_ARCHIVO_DATOS), N_LAGS_AREA, TEST_SIZE, VALIDATION_ITER_RATIO)
 evaluar_modelo_rf(RUTA_DATOS, RUTA_MODELOS, NOMBRE_ARCHIVO_DATOS, N_LAGS_AREA, TEST_SIZE, VALIDATION_ITER_RATIO)
