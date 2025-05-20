@@ -240,4 +240,39 @@ NUEVO MODELO NARX con capas LSTM(Long Short-Term Memory) de la libreria Keras (q
     - El LSTM es un tipo de capa de red neuronal recurrente
     - Para cada paspo en el tiempo, el modelo recibe como entrada una secuencia de los n_lags_area valores pasados del area de nieve
     - La capa LSTM procesa esta secuencia de entrada, aprendiendo las relaciones temporales entre el área de nieve pasada y las variables exógenas pasadas para entender cómo influyen en el valor futuro del área de nieve.
-    
+
+
+Métricas conjunto de 'train' para adda-bornio: {'R2': 0.9841177450777601, 'MAE': 10.54553345032225, 'NSE': 0.9841177450777601, 'KGE': 0.9698584488088482}
+Métricas conjunto de 'test' para adda-bornio: {'R2': 0.9858470369670861, 'MAE': 10.73206148625898, 'NSE': 0.9858470369670861, 'KGE': 0.9673529671629062}
+Métricas conjunto de 'validation' (modo prediccion) para adda-bornio: {'R2': 0.7563844177771055, 'MAE': 72.30012986340141, 'NSE': 0.7563844177771055, 'KGE': 0.6762539448332815}
+Métricas en todo el conjunto de datos (modo prediccion) para adda-bornio: R2=0.811, MAE=63.246, NSE=0.811, KGE=0.717
+
+Métricas conjunto de 'train' para genil-dilar: {'R2': 0.9296348450461472, 'MAE': 7.3944132279862185, 'NSE': 0.9296348450461472, 'KGE': 0.8957372075123364}
+Métricas conjunto de 'test' para genil-dilar: {'R2': 0.8951661809883981, 'MAE': 7.030168435421019, 'NSE': 0.8951661809883981, 'KGE': 0.8968190264881305}
+Métricas conjunto de 'validation' (modo prediccion) para genil-dilar: {'R2': 0.24856697729693666, 'MAE': 28.169192683917696, 'NSE': 0.24856697729693666, 'KGE': 0.35094503823660084}
+Métricas en todo el conjunto de datos (modo prediccion) para genil-dilar: R2=0.487, MAE=30.155, NSE=0.487, KGE=0.446
+
+Métricas conjunto de 'train' para indrawati-melamchi: {'R2': 0.9248574420598481, 'MAE': 9.112193985405703, 'NSE': 0.9248574420598481, 'KGE': 0.9305120457255507}
+Métricas conjunto de 'test' para indrawati-melamchi: {'R2': 0.9179178682963512, 'MAE': 10.536969623654578, 'NSE': 0.9179178682963512, 'KGE': 0.913456707965113}
+Métricas conjunto de 'validation' (modo prediccion) para indrawati-melamchi: {'R2': 0.5623453093850601, 'MAE': 29.66755398277173, 'NSE': 0.5623453093850601, 'KGE': 0.44246558002169234}
+Métricas en todo el conjunto de datos (modo prediccion) para indrawati-melamchi: R2=0.632, MAE=26.357, NSE=0.632, KGE=0.631
+
+Métricas conjunto de 'train' para mapocho-almendros: {'R2': 0.969472524226134, 'MAE': 16.77330507876308, 'NSE': 0.969472524226134, 'KGE': 0.9725103476181967}
+Métricas conjunto de 'test' para mapocho-almendros: {'R2': 0.9484543725445741, 'MAE': 17.46058055761427, 'NSE': 0.9484543725445741, 'KGE': 0.940657736292907}
+Métricas conjunto de 'validation' (modo prediccion) para mapocho-almendros: {'R2': 0.2191022075862199, 'MAE': 99.29130034802725, 'NSE': 0.2191022075862199, 'KGE': 0.24717099755789784}
+Métricas en todo el conjunto de datos (modo prediccion) para mapocho-almendros: R2=0.522, MAE=82.000, NSE=0.522, KGE=0.582
+
+Métricas conjunto de 'train' para nenskra-enguri: {'R2': 0.987605172656895, 'MAE': 15.8249146683379, 'NSE': 0.987605172656895, 'KGE': 0.9557532036540093}
+Métricas conjunto de 'test' para nenskra-enguri: {'R2': 0.9891162712771787, 'MAE': 15.696199299727915, 'NSE': 0.9891162712771787, 'KGE': 0.9565282885706232}
+Métricas conjunto de 'validation' (modo prediccion) para nenskra-enguri: {'R2': 0.8829395871633829, 'MAE': 60.786487872681164, 'NSE': 0.8829395871633829, 'KGE': 0.7380100213134291}
+Métricas en todo el conjunto de datos (modo prediccion) para nenskra-enguri: R2=0.893, MAE=62.420, NSE=0.893, KGE=0.739
+
+Métricas conjunto de 'train' para uncompahgre-ridgway: {'R2': 0.9773677587032614, 'MAE': 20.512550422433243, 'NSE': 0.9773677587032614, 'KGE': 0.9446418074765338}
+Métricas conjunto de 'test' para uncompahgre-ridgway: {'R2': 0.9688159511634374, 'MAE': 21.556014278926497, 'NSE': 0.9688159511634374, 'KGE': 0.94049778280746}
+Métricas conjunto de 'validation' (modo prediccion) para uncompahgre-ridgway: {'R2': 0.8594611102424274, 'MAE': 56.796209398082276, 'NSE': 0.8594611102424274, 'KGE': 0.725263908874157}
+Métricas en todo el conjunto de datos (modo prediccion) para uncompahgre-ridgway: R2=0.816, MAE=68.140, NSE=0.816, KGE=0.681
+
+
+
+
+
