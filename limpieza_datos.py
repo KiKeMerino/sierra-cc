@@ -269,7 +269,7 @@ def cleaning_exogenous_variables(excel_file):
 
 
 #%%
-# join_areas("E:/data/csv/areas",)
+join_areas("E:/data/csv/areas", '', True)
 
 #%%
 # process_var_exog('E:/data/csv/Series_historicas_agregadas_ERA5Land.csv', '.')

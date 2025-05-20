@@ -221,3 +221,12 @@ Realiza la predicción con el modelo.
 Desescala la predicción del área de nieve.
 Almacena esta predicción.
 Actualiza la ventana de historial: elimina el valor más antiguo y añade la predicción actual (escalada).
+
+
+METRICAS CON RF:
+- Evaluación en el conjunto de prueba (predicción directa):
+    R2: 0.9467, MAE: 28.7578, NSE: 0.9467, KGE: 0.9404
+- Evaluación en el conjunto de validación iterativa (modo predictivo):
+    R2: 0.1556, MAE: 173.3554, NSE: 0.1556, KGE: 0.2602
+- Métricas en todo el conjunto de datos (modo predictivo):
+    R2: -0.5581, MAE: 177.8610, NSE: -0.5581, KGE: 0.0190
