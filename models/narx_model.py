@@ -1,3 +1,4 @@
+#%%
 import pandas as pd
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.model_selection import train_test_split
@@ -8,7 +9,7 @@ from keras.models import Sequential
 from keras.layers import LSTM, Dense, Dropout
 from sklearn.metrics import r2_score, mean_absolute_error
 import os
-
+#%%
 def nash_sutcliffe_efficiency(y_true, y_pred):
     numerator = np.sum((y_true - y_pred)**2)
     denominator = np.sum((y_true - np.mean(y_true))**2)
@@ -21,7 +22,7 @@ def kling_gupta_efficiency(y_true, y_pred):
     alpha = np.std(y_pred) / np.std(y_true)
     beta = np.mean(y_pred) / np.mean(y_true)
     return 1 - np.sqrt(((r - 1)**2) + ((alpha - 1)**2) + ((beta - 1)**2))
-
+#%%
 def preprocess_data(df, train_size=0.7, test_size=0.2):
     cuencas = df['cuenca'].unique()
     df_por_cuenca = {cuenca: df[df['cuenca'] == cuenca].copy() for cuenca in cuencas}
@@ -39,7 +40,7 @@ def preprocess_data(df, train_size=0.7, test_size=0.2):
 
         scaler_area = StandardScaler()
         scaler_exog = StandardScaler()
-        exog_features = ['temperatura', 'precipitacion', 'dias_sin_precip']
+        exog_features = ['temperatura', 'precipitacion', 'dias_sin_precip' , 'dia_sen', 'year', 'month']
 
         scaler_area.fit(df_cuenca.iloc[train_idx]['area_nieve'].values.reshape(-1, 1))
         scaler_exog.fit(df_cuenca.iloc[train_idx][exog_features])
@@ -60,7 +61,7 @@ def preprocess_data(df, train_size=0.7, test_size=0.2):
         print(f"Cuenca: {cuenca}, Train: {len(train_idx)}, Test: {len(test_idx)}, Val: {len(val_idx)}")
 
     return scaled_data, scalers, cuencas
-
+#%%
 def create_sequences(data, n_lags, exog_cols_scaled, target_col_scaled='area_nieve_scaled'):
     X, y = [], []
     for i in range(len(data) - n_lags):
@@ -86,7 +87,7 @@ def create_narx_model(n_lags, n_features, n_units_lstm=50):
 
     return model
 
-def train_models(sequences_data, n_lags_area, exog_cols_scaled, cuencas, models_dir='models'):
+def create_train_models(sequences_data, n_lags_area, exog_cols_scaled, cuencas, save, models_dir='narx_models'):
     models = {}
     history = {}
     n_features = 1 + len(exog_cols_scaled)
@@ -100,9 +101,12 @@ def train_models(sequences_data, n_lags_area, exog_cols_scaled, cuencas, models_
         model_history = model.fit(X_train, y_train, epochs=50, verbose=0, validation_split=0.1)
         models[cuenca] = model
         history[cuenca] = model_history
-        model_path = os.path.join(models_dir, f'narx_model_{cuenca}.h5')
-        model.save(model_path)
-        print(f"Modelo entrenado y guardado para la cuenca: {cuenca} en {model_path}")
+        model_path = os.path.join(models_dir, f'narx_model_{cuenca}2.h5')
+        if save:
+            model.save(model_path)
+            print(f"Modelo entrenado y guardado para la cuenca: {cuenca} en {model_path}")
+        else:
+            print(f'Modelo entrenado para la cuenca {cuenca}')
     return models
 
 def load_models(cuencas, models_dir='models'):
@@ -216,16 +220,18 @@ def evaluate_full_dataset(models, scaled_data, scalers, cuencas, n_lags_area, ex
 # full_dataset_metrics = evaluate_full_dataset(models, scaled_data, scalers, cuencas, n_lags_area, exog_cols_scaled)
 
 # --- Main execution ---
-# DataFrame de ejemplo (reemplaza con tu DataFrame real)
-df = pd.read_csv('df_all.csv')
-
+#%%
+df = pd.read_csv('df_all.csv', index_col=0)
+df
+#%%
 # Parámetros
 n_lags_area = 3
-exog_cols_scaled = ['temperatura_scaled', 'precipitacion_scaled', 'dias_sin_precip_scaled']
 
 # Preprocesar los datos
 scaled_data, scalers, cuencas = preprocess_data(df)
+exog_cols_scaled = [col for col in scaled_data['adda-bornio']['df'].columns if col.endswith('_scaled')]
 
+#%%
 # Crear las secuencias
 sequences_data = {}
 for cuenca, data_indices in scaled_data.items():
@@ -234,19 +240,19 @@ for cuenca, data_indices in scaled_data.items():
     test_data = data_indices['df'].iloc[data_indices['test_idx']]
 
     sequences_data[cuenca] = {
-        'X_train': create_sequences(train_data, n_lags_area, [col.replace('_scaled', '') + '_scaled' for col in exog_cols_scaled])[0],
-        'y_train': create_sequences(train_data, n_lags_area, [col.replace('_scaled', '') + '_scaled' for col in exog_cols_scaled])[1],
-        'X_val': create_sequences(val_data, n_lags_area, [col.replace('_scaled', '') + '_scaled' for col in exog_cols_scaled])[0],
-        'y_val': create_sequences(val_data, n_lags_area, [col.replace('_scaled', '') + '_scaled' for col in exog_cols_scaled])[1],
-        'X_test': create_sequences(test_data, n_lags_area, [col.replace('_scaled', '') + '_scaled' for col in exog_cols_scaled])[0],
-        'y_test': create_sequences(test_data, n_lags_area, [col.replace('_scaled', '') + '_scaled' for col in exog_cols_scaled])[1],
+        'X_train': create_sequences(train_data, n_lags_area, exog_cols_scaled)[0],
+        'y_train': create_sequences(train_data, n_lags_area, exog_cols_scaled)[1],
+        'X_val': create_sequences(val_data, n_lags_area, exog_cols_scaled)[0],
+        'y_val': create_sequences(val_data, n_lags_area, exog_cols_scaled)[1],
+        'X_test': create_sequences(test_data, n_lags_area, exog_cols_scaled)[0],
+        'y_test': create_sequences(test_data, n_lags_area, exog_cols_scaled)[1],
     }
 
 # Entrenar y guardar los modelos
-# models = train_models(sequences_data, n_lags_area, [col.replace('_scaled', '') + '_scaled' for col in exog_cols_scaled], cuencas)
+models = create_train_models(sequences_data, n_lags_area, exog_cols_scaled, cuencas, True)
 
 # O cargar los modelos si ya están entrenados
-models = load_models(cuencas)
+# models = load_models(cuencas)
 
 # Evaluar los modelos
 train_metrics = {}
@@ -269,4 +275,4 @@ for cuenca, model in models.items():
     print(f"Métricas conjunto de 'validation' (modo prediccion) para {cuenca}: {validation_metrics[cuenca]}")
 
 # Evaluar en todo el conjunto de datos
-evaluate_full_dataset(models, scaled_data, scalers, cuencas, n_lags_area, [col.replace('_scaled', '') + '_scaled' for col in exog_cols_scaled])
+evaluate_full_dataset(models, scaled_data, scalers, cuencas, n_lags_area, exog_cols_scaled)

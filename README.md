@@ -185,18 +185,6 @@ Este DataFrame contiene datos diarios para la basin "uncompahgre-ridgway" a lo l
 
 
 
-2. Data cleaning: Limpiar datos en blanco, así como detectar outliers y errores lógicos de información
-3. Visualización
-4. Pre-procesing
-
-
-
--------------- Métricas en el conjunto de prueba modelo lstm (Predicción Directa) ---------------
-R2 (Directa): 0.7156
-MAE (Directa): 86.2435
-NSE (Directa): 0.7156
-KGE (Directa): 0.5182
-
 Para predecir el área de nieve en el día t+1:
 
 Las entradas al modelo serán:
@@ -234,9 +222,7 @@ METRICAS CON Random Forest:
 
 
 
-
-
-NUEVO MODELO NARX con capas LSTM(Long Short-Term Memory) de la libreria Keras (que se ejecuta sobre TensorFlow)
+NUEVO MODELO NARX (Red Neuronal Auto-Regresiva con Variables Exógenas) implementada con capas LSTM(Long Short-Term Memory) de la libreria Keras (que se ejecuta sobre TensorFlow)
     - El LSTM es un tipo de capa de red neuronal recurrente
     - Para cada paspo en el tiempo, el modelo recibe como entrada una secuencia de los n_lags_area valores pasados del area de nieve
     - La capa LSTM procesa esta secuencia de entrada, aprendiendo las relaciones temporales entre el área de nieve pasada y las variables exógenas pasadas para entender cómo influyen en el valor futuro del área de nieve.
@@ -275,4 +261,110 @@ Métricas en todo el conjunto de datos (modo prediccion) para uncompahgre-ridgwa
 
 
 
+
+
+
+
+# Modelo de Predicción del Área de Nieve en Cuencas Hidrográficas
+
+## ❄️ Visión General del Proyecto
+
+Este proyecto desarrolla un modelo de predicción del área de nieve utilizando una Red Neuronal Auto-Regresiva con Variables Exógenas (NARX), implementada con capas Long Short-Term Memory (LSTM), para seis cuencas hidrográficas distintas.
+
+## 🎯 Objetivo del Modelo
+
+El objetivo principal de este modelo es predecir el área de nieve en diferentes cuencas hidrográficas en escenarios futuros. Aprovechando una amplia serie temporal de datos históricos de área de nieve y diversas variables meteorológicas (exógenas) clave, el modelo busca aprender los patrones complejos y las relaciones temporales para generar predicciones precisas y robustas.
+
+Las predicciones de área de nieve son cruciales para la gestión de recursos hídricos, la previsión de inundaciones, la planificación agrícola y la mitigación de riesgos en regiones dependientes del deshielo.
+
+## 🧠 Tipo de Modelo: NARX (Nonlinear AutoRegressive with eXogenous inputs)
+
+Nuestro modelo se basa en la arquitectura **NARX (Nonlinear AutoRegressive with eXogenous inputs)**, que se implementa mediante **Redes Neuronales Recurrentes (RNN)** con **capas LSTM (Long Short-Term Memory)**.
+
+### ¿Qué es NARX?
+
+**NARX** es una clase de modelos de series temporales que predice un valor futuro de una variable basándose en:
+* **Auto-Regresivo (AR):** Valores pasados de la misma variable (en este caso, el área de nieve).
+* **Variables Exógenas (X):** Valores pasados y/o presentes de otras variables externas que influyen en la variable objetivo. Para este proyecto, estas variables exógenas incluyen:
+    * `temperatura`
+    * `precipitacion`
+    * `dias_sin_precip`
+    * (`precipitacion_bool`, `year`, `month`) también presentes en los datos, en algunos modelos los incluiré y en otros no, para comprobar rendimiento y métricas
+* **No Lineal (N):** Las relaciones entre las entradas y la salida no son lineales, lo que permite al modelo capturar dinámicas complejas. Las redes neuronales son la elección ideal para modelar estas relaciones no lineales.
+
+### ¿Por qué LSTM?
+
+Las **LSTM** son un tipo avanzado de capa de red neuronal recurrente. Su principal ventaja es su capacidad para aprender y recordar dependencias a largo plazo en secuencias de datos. Esto es crucial para la predicción de series temporales, donde el estado actual del sistema (área de nieve) puede depender de eventos que ocurrieron hace mucho tiempo. A diferencia de las RNN tradicionales, las LSTM superan el problema del "gradiente desvanecido" mediante "puertas" internas que controlan el flujo de información, permitiéndoles retener información relevante y descartar la irrelevante a lo largo de extensas secuencias.
+
+### Arquitectura del Modelo Específico
+
+Se entrena un modelo NARX-LSTM independiente para cada cuenca, lo que permite una especialización y adaptación a las características únicas de cada una. La arquitectura de cada modelo es la siguiente:
+
+* **Capa de Entrada:** `input_shape = (n_lags_area, 1 + num_variables_exogenas)`
+    * Recibe secuencias de longitud `n_lags_area` (ej. 3) de datos. Cada elemento de la secuencia es un vector que contiene el área de nieve escalada y las variables exógenas escaladas para un momento dado.
+* **Capa LSTM:** `LSTM(n_units_lstm, activation='relu')` Una capa recurrente que procesa la secuencia de entrada. Aprende y extrae patrones temporales y relaciones no lineales. Se configura con 2 parámetros:
+    *  n_units_lstm: numero de neuronas, cuanto mayor sea este número mayor capacidad para aprender patrones y relaciones complejas pero mayor coste computacional y mayor riesgo de 'overfitting'
+    *  Funcion de activación, en este caso "relu" (Rectified Linear Unit): introduce no linealidad, permitiendo que la red aprenda y modele relaciones más complejas y no lineales en los datos.
+* **Capa Densa de Salida:** Una capa totalmente conectada con una única neurona, que produce la predicción del área de nieve para el siguiente paso de tiempo ($t+1$).
+    * `Dense(1)`
+
+## 📊 Evaluación del Modelo
+
+El rendimiento del modelo se evalúa utilizando cuatro métricas clave en diferentes conjuntos de datos para proporcionar una visión completa de su capacidad:
+
+* **R2 (Coeficiente de Determinación):** Mide la proporción de la varianza en la variable dependiente que es predecible a partir de las variables independientes. Un valor cercano a 1.0 indica un buen ajuste.
+* **MAE (Error Absoluto Medio):** Calcula la media de las diferencias absolutas entre las predicciones y los valores reales. Se expresa en las mismas unidades que la variable objetivo, facilitando su interpretación.
+* **NSE (Eficiencia de Nash-Sutcliffe):** Una métrica hidrológica que evalúa qué tan bien las predicciones se ajustan a las observaciones. Un NSE de 1.0 indica un ajuste perfecto, mientras que valores negativos sugieren que el modelo es peor que usar la media de las observaciones.
+* **KGE (Eficiencia de Kling-Gupta):** Mejora el NSE al considerar la correlación, la varianza relativa y la sesgo relativo entre las predicciones y las observaciones. Un KGE de 1.0 es el valor óptimo.
+
+### Conjuntos de Evaluación
+
+1.  **Métricas de Entrenamiento:**
+    * **Dónde:** Calculadas sobre el `conjunto de entrenamiento`.
+    * **Propósito:** Indican qué tan bien el modelo ha aprendido los patrones de los datos utilizados para su optimización. Un buen rendimiento es esencial, pero un rendimiento excesivamente alto puede indicar sobreajuste.
+
+2.  **Métricas de Prueba:**
+    * **Dónde:** Calculadas sobre el `conjunto de prueba`.
+    * **Propósito:** Evalúan la capacidad de generalización del modelo en datos **nunca antes vistos** durante el entrenamiento. Son la medida más honesta del rendimiento del modelo fuera del proceso de aprendizaje.
+
+3.  **Métricas de Validación (Predicción Paso a Paso):**
+    * **Dónde:** Calculadas sobre el `conjunto de validación`.
+    * **Propósito:** Simulan un escenario de predicción futura real. El modelo utiliza los `n_lags_area` datos históricos iniciales y, a partir de ahí, usa sus **propias predicciones anteriores** como entrada para los pasos subsiguientes, junto con los valores reales futuros de las variables exógenas.
+    * **Importancia:** Revela la robustez del modelo y cómo se acumulan los errores de predicción a lo largo del tiempo. Las métricas aquí suelen ser las más bajas debido a la propagación de errores, lo cual es un comportamiento esperado.
+
+4.  **Métricas en Todo el Conjunto de Datos:**
+    * **Dónde:** Calculadas combinando las predicciones y valores reales de los `conjuntos de entrenamiento`, `prueba` y `validación`.
+    * **Propósito:** Proporciona una visión global del rendimiento del modelo a lo largo de todo el período de datos disponibles, ofreciendo un resumen consolidado en modo predicción.
+
+
+
+Métricas conjunto de 'train' para adda-bornio: {'R2': 0.9848937273869058, 'MAE': 11.422625820357998, 'NSE': 0.9848937273869058, 'KGE': 0.9624158664471593}
+Métricas conjunto de 'test' para adda-bornio: {'R2': 0.9808589956700315, 'MAE': 16.239473269537907, 'NSE': 0.9808589956700315, 'KGE': 0.9319888470111187}
+Métricas conjunto de 'validation' (modo prediccion) para adda-bornio: {'R2': 0.96176474349375, 'MAE': 27.495538347091667, 'NSE': 0.96176474349375, 'KGE': 0.8498673087573136}
+Métricas en todo el conjunto de datos (modo prediccion) para adda-bornio: R2=0.975, MAE=18.631, NSE=0.975, KGE=0.918
+
+Métricas conjunto de 'train' para genil-dilar: {'R2': 0.9372259290592876, 'MAE': 8.388898751050093, 'NSE': 0.9372259290592876, 'KGE': 0.9406776634295443}
+Métricas conjunto de 'test' para genil-dilar: {'R2': 0.860898100779585, 'MAE': 9.80432326462139, 'NSE': 0.860898100779585, 'KGE': 0.9200870924496527}
+Métricas conjunto de 'validation' (modo prediccion) para genil-dilar: {'R2': 0.7303075303975746, 'MAE': 11.821146186536254, 'NSE': 0.7303075303975746, 'KGE': 0.8532709931938088}
+Métricas en todo el conjunto de datos (modo prediccion) para genil-dilar: R2=0.880, MAE=12.508, NSE=0.880, KGE=0.885
+
+Métricas conjunto de 'train' para indrawati-melamchi: {'R2': 0.9283167874697322, 'MAE': 8.958353898516156, 'NSE': 0.9283167874697322, 'KGE': 0.9481170501100785}
+Métricas conjunto de 'test' para indrawati-melamchi: {'R2': 0.9210991782576825, 'MAE': 11.0904753786496, 'NSE': 0.9210991782576825, 'KGE': 0.9412663442053899}
+Métricas conjunto de 'validation' (modo prediccion) para indrawati-melamchi: {'R2': 0.8882975583638146, 'MAE': 13.332796983608887, 'NSE': 0.8882975583638146, 'KGE': 0.9056586564238376}
+Métricas en todo el conjunto de datos (modo prediccion) para indrawati-melamchi: R2=0.911, MAE=11.681, NSE=0.911, KGE=0.916
+
+Métricas conjunto de 'train' para mapocho-almendros: {'R2': 0.9727379819072993, 'MAE': 17.60963005973425, 'NSE': 0.9727379819072993, 'KGE': 0.9615460278682817}
+Métricas conjunto de 'test' para mapocho-almendros: {'R2': 0.9123884970799073, 'MAE': 24.618680508312146, 'NSE': 0.9123884970799073, 'KGE': 0.9419058778028343}
+Métricas conjunto de 'validation' (modo prediccion) para mapocho-almendros: {'R2': 0.6282104632977037, 'MAE': 51.83852656097493, 'NSE': 0.6282104632977037, 'KGE': 0.7822081792919674}
+Métricas en todo el conjunto de datos (modo prediccion) para mapocho-almendros: R2=0.927, MAE=26.784, NSE=0.927, KGE=0.936
+
+Métricas conjunto de 'train' para nenskra-enguri: {'R2': 0.9893086966386203, 'MAE': 13.608720571033052, 'NSE': 0.9893086966386203, 'KGE': 0.9789563247566387}
+Métricas conjunto de 'test' para nenskra-enguri: {'R2': 0.9748549207615304, 'MAE': 26.48993988811659, 'NSE': 0.9748549207615304, 'KGE': 0.9137027447412311}
+Métricas conjunto de 'validation' (modo prediccion) para nenskra-enguri: {'R2': 0.861020025044487, 'MAE': 67.64532442089283, 'NSE': 0.861020025044487, 'KGE': 0.757474385856627}
+Métricas en todo el conjunto de datos (modo prediccion) para nenskra-enguri: R2=0.969, MAE=26.365, NSE=0.969, KGE=0.931
+
+Métricas conjunto de 'train' para uncompahgre-ridgway: {'R2': 0.9833959855837182, 'MAE': 17.978890962681497, 'NSE': 0.9833959855837182, 'KGE': 0.9792152268951854}
+Métricas conjunto de 'test' para uncompahgre-ridgway: {'R2': 0.9632518023648534, 'MAE': 28.907755022417238, 'NSE': 0.9632518023648534, 'KGE': 0.9209165460237245}
+Métricas conjunto de 'validation' (modo prediccion) para uncompahgre-ridgway: {'R2': 0.9069058683397624, 'MAE': 57.11412298191705, 'NSE': 0.9069058683397624, 'KGE': 0.7919199726871856}
+Métricas en todo el conjunto de datos (modo prediccion) para uncompahgre-ridgway: R2=0.967, MAE=28.815, NSE=0.967, KGE=0.933
 
