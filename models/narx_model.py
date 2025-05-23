@@ -215,9 +215,6 @@ def evaluate_full_dataset(models, scaled_data, scalers, cuencas, n_lags_area, ex
     
     return full_metrics
 
-# --- En la sección de ejecución principal, puedes llamarla así ---
-# Por ejemplo, después de entrenar o cargar los modelos:
-# full_dataset_metrics = evaluate_full_dataset(models, scaled_data, scalers, cuencas, n_lags_area, exog_cols_scaled)
 
 # --- Main execution ---
 #%%
@@ -249,10 +246,10 @@ for cuenca, data_indices in scaled_data.items():
     }
 
 # Entrenar y guardar los modelos
-models = create_train_models(sequences_data, n_lags_area, exog_cols_scaled, cuencas, True)
+# models = create_train_models(sequences_data, n_lags_area, exog_cols_scaled, cuencas, True)
 
 # O cargar los modelos si ya están entrenados
-# models = load_models(cuencas)
+models = load_models(cuencas, models_dir='narx_models2')
 
 # Evaluar los modelos
 train_metrics = {}
@@ -275,4 +272,4 @@ for cuenca, model in models.items():
     print(f"Métricas conjunto de 'validation' (modo prediccion) para {cuenca}: {validation_metrics[cuenca]}")
 
 # Evaluar en todo el conjunto de datos
-evaluate_full_dataset(models, scaled_data, scalers, cuencas, n_lags_area, exog_cols_scaled)
+# evaluate_full_dataset(models, scaled_data, scalers, cuencas, n_lags_area, exog_cols_scaled)
