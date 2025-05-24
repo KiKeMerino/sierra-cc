@@ -10,6 +10,7 @@ from sklearn.metrics import r2_score, mean_absolute_error
 import os
 import itertools # Para generar combinaciones de hiperparámetros
 import json # Para guardar resultados
+from joblib import dump, load
 
 #%% --- Funciones de métricas ---
 def nash_sutcliffe_efficiency(y_true, y_pred):
@@ -277,35 +278,38 @@ for i, combo in enumerate(combinations):
         test_data = scaled_data_global[cuenca]['df'].iloc[scaled_data_global[cuenca]['test_idx']]
         X_test, y_test = create_sequences(test_data, n_lags_current, exog_cols_scaled)
 
-        # Crear y entrenar el modelo para la configuración actual
-        model = create_narx_model(
-            n_lags=n_lags_current,
-            n_features=n_features,
-            n_units_lstm=current_params['n_units_lstm'],
-            num_lstm_layers=current_params['num_lstm_layers'],
-            dropout_rate=current_params['dropout_rate'],
-            learning_rate=current_params['learning_rate']
-        )
-        
-        print(f"    Entrenando modelo para {cuenca}...")
-        _ = train_model(model, X_train, y_train, current_params['epochs'])
-        experiment_models[cuenca] = model
 
-        # Guardar el modelo
+        # # Crear y entrenar el modelo para la configuración actual
+        # model = create_narx_model(
+        #     n_lags=n_lags_current,
+        #     n_features=n_features,
+        #     n_units_lstm=current_params['n_units_lstm'],
+        #     num_lstm_layers=current_params['num_lstm_layers'],
+        #     dropout_rate=current_params['dropout_rate'],
+        #     learning_rate=current_params['learning_rate']
+        # )
+        
+        # print(f"    Entrenando modelo para {cuenca}...")
+        # _ = train_model(model, X_train, y_train, current_params['epochs'])
+        # experiment_models[cuenca] = model
+
+        # # Guardar el modelo
         models_dir_exp = os.path.join(models_dir_base, f"exp_{i+1}")
-        if not os.path.exists(models_dir_exp):
-            os.makedirs(models_dir_exp)
-        model.save(os.path.join(models_dir_exp, f'narx_model_{cuenca}.h5'))
+        # if not os.path.exists(models_dir_exp):
+        #     os.makedirs(models_dir_exp)
+        # model.save(os.path.join(models_dir_exp, f'narx_model_{cuenca}.h5'))
+
+        model = load(os.path.join(models_dir_exp, f'narx_model_{cuenca}.h5'))
 
         # Evaluar en train y test
         train_metrics, _, _ = evaluate_model(model, X_train, y_train, scalers_global[cuenca]['area'])
         test_metrics, _, _ = evaluate_model(model, X_test, y_test, scalers_global[cuenca]['area'])
 
         # Evaluar en validación (modo predicción)
-        # df_val_scaled = scaled_data_global[cuenca]['df'].iloc[scaled_data_global[cuenca]['val_idx']].copy()
-        # validation_metrics, _, _ = evaluate_validation(
-        #     model, df_val_scaled, scalers_global[cuenca]['area'], exog_cols_original, n_lags_current, len(exog_cols_scaled)
-        # )
+        df_val_scaled = scaled_data_global[cuenca]['df'].iloc[scaled_data_global[cuenca]['val_idx']].copy()
+        validation_metrics, _, _ = evaluate_validation(
+            model, df_val_scaled, scalers_global[cuenca]['area'], exog_cols_original, n_lags_current, len(exog_cols_scaled)
+        )
 
 
         # Evaluar en todo el conjunto de datos (llamando a la función dedicada para esto)
@@ -313,21 +317,21 @@ for i, combo in enumerate(combinations):
         # y luego llamar a evaluate_full_dataset una vez al final del experimento para todos los modelos.
         # Simplificación: Pasamos el modelo entrenado y los datos globales
 
-    #     full_metrics = evaluate_full_dataset({cuenca: model}, scaled_data_global, scalers_global, [cuenca], n_lags_current, exog_cols_scaled)
+        # full_metrics = evaluate_full_dataset({cuenca: model}, scaled_data_global, scalers_global, [cuenca], n_lags_current, exog_cols_scaled)
 
         current_experiment_results['metrics_by_cuenca'][cuenca] = {
             'train': train_metrics,
             'test': test_metrics,
-            # 'validation': validation_metrics,
+            'validation': validation_metrics,
             # 'full_dataset': full_metrics[cuenca]
         }
         print(f"      Métricas para {cuenca}:")
         print(f"        Train: {train_metrics}")
         print(f"        Test: {test_metrics}")
-        # print(f"        Validation: {validation_metrics}")
+        print(f"        Validation: {validation_metrics}")
         # print(f"        Full Dataset: {full_metrics[cuenca]}")
 
-    # all_experiment_results.append(current_experiment_results)
+    all_experiment_results.append(current_experiment_results)
 
 #%% Guardar los resultados de todos los experimentos en un archivo JSON
 results_file = 'experiment_results.json'
@@ -337,29 +341,29 @@ with open(results_file, 'w') as f:
 print(f"\nTodos los experimentos completados. Resultados guardados en '{results_file}'")
 
 # --- Análisis de resultados (Ejemplo) ---
-# print("\n--- Resumen de los mejores resultados por cuenca (basado en KGE de validación) ---")
-# best_configs_by_cuenca = {}
+print("\n--- Resumen de los mejores resultados por cuenca (basado en KGE de validación) ---")
+best_configs_by_cuenca = {}
 
-# for cuenca in cuencas_global:
-#     best_kge = -np.inf
-#     best_config = None
-#     best_metrics = None
+for cuenca in cuencas_global:
+    best_kge = -np.inf
+    best_config = None
+    best_metrics = None
 
-#     for exp_result in all_experiment_results:
-#         metrics = exp_result['metrics_by_cuenca'][cuenca]
-#         if metrics['validation']['KGE'] > best_kge:
-#             best_kge = metrics['validation']['KGE']
-#             best_config = exp_result['params']
-#             best_metrics = metrics
+    for exp_result in all_experiment_results:
+        metrics = exp_result['metrics_by_cuenca'][cuenca]
+        if metrics['validation']['KGE'] > best_kge:
+            best_kge = metrics['validation']['KGE']
+            best_config = exp_result['params']
+            best_metrics = metrics
 
-#     best_configs_by_cuenca[cuenca] = {
-#         'best_params': best_config,
-#         'best_validation_kge': best_kge,
-#         'all_metrics': best_metrics
-#     }
-#     print(f"\nCuenca: {cuenca}")
-#     print(f"  Mejor KGE de Validación: {best_configs_by_cuenca[cuenca]['best_validation_kge']:.3f}")
-#     print(f"  Mejores Parámetros: {best_configs_by_cuenca[cuenca]['best_params']}")
-#     print(f"  Métricas Completas para la mejor configuración:")
-#     for key, val in best_configs_by_cuenca[cuenca]['all_metrics'].items():
-        # print(f"    {key}: {val}")
+    best_configs_by_cuenca[cuenca] = {
+        'best_params': best_config,
+        'best_validation_kge': best_kge,
+        'all_metrics': best_metrics
+    }
+    print(f"\nCuenca: {cuenca}")
+    print(f"  Mejor KGE de Validación: {best_configs_by_cuenca[cuenca]['best_validation_kge']:.3f}")
+    print(f"  Mejores Parámetros: {best_configs_by_cuenca[cuenca]['best_params']}")
+    print(f"  Métricas Completas para la mejor configuración:")
+    for key, val in best_configs_by_cuenca[cuenca]['all_metrics'].items():
+        print(f"    {key}: {val}")
