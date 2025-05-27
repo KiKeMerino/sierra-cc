@@ -368,3 +368,60 @@ Métricas conjunto de 'test' para uncompahgre-ridgway: {'R2': 0.9632518023648534
 Métricas conjunto de 'validation' (modo prediccion) para uncompahgre-ridgway: {'R2': 0.9069058683397624, 'MAE': 57.11412298191705, 'NSE': 0.9069058683397624, 'KGE': 0.7919199726871856}
 Métricas en todo el conjunto de datos (modo prediccion) para uncompahgre-ridgway: R2=0.967, MAE=28.815, NSE=0.967, KGE=0.933
 
+
+
+NARX_MODELS3
+n_lags = 3
+nº capas = 2
+nº neuronas = 10
+epochs = 50
+exog_cols = []
+
+Métricas conjunto de 'train' para adda-bornio: {'R2': 0.983896928781121, 'MAE': 9.984483335148319, 'NSE': 0.9838286063487955, 'KGE': 0.9906455358066028}
+Métricas conjunto de 'test' para adda-bornio: {'R2': 0.9868272719726697, 'MAE': 11.037597709314099, 'NSE': 0.9863796193093345, 'KGE': 0.9741758082931852}
+Métricas conjunto de 'validation' (modo prediccion) para adda-bornio: {'R2': 0.9810848261327887, 'MAE': 21.710144965615772, 'NSE': 0.9735983402015059, 'KGE': 0.9149646889945594}
+
+Métricas conjunto de 'train' para genil-dilar: {'R2': 0.9306792392506685, 'MAE': 7.9688175711235605, 'NSE': 0.9281303393939707, 'KGE': 0.9072669403619928}
+Métricas conjunto de 'test' para genil-dilar: {'R2': 0.8886086828869324, 'MAE': 7.90095319449694, 'NSE': 0.885240370788977, 'KGE': 0.8717586951125884}
+Métricas conjunto de 'validation' (modo prediccion) para genil-dilar: {'R2': 0.83808972411395, 'MAE': 9.856877204207503, 'NSE': 0.8211626925405389, 'KGE': 0.7689465648331342}
+
+Métricas conjunto de 'train' para indrawati-melamchi: {'R2': 0.925226360314113, 'MAE': 9.752870546073991, 'NSE': 0.9234139626139061, 'KGE': 0.9107661483885414}
+Métricas conjunto de 'test' para indrawati-melamchi: {'R2': 0.9139605707866065, 'MAE': 12.163987529341346, 'NSE': 0.9104019289065044, 'KGE': 0.8874103412660206}
+Métricas conjunto de 'validation' (modo prediccion) para indrawati-melamchi: {'R2': 0.8951894759943265, 'MAE': 13.769391539611773, 'NSE': 0.8857620633136292, 'KGE': 0.8398893330119777}
+Métricas conjunto de 'train' para mapocho-almendros: {'R2': 0.9687613169315186, 'MAE': 17.41535955671052, 'NSE': 0.9683272712543375, 'KGE': 0.9821808789695055}
+Métricas conjunto de 'test' para mapocho-almendros: {'R2': 0.9496353883982969, 'MAE': 19.19984458163843, 'NSE': 0.9493967711816299, 'KGE': 0.9724970658853499}
+Métricas conjunto de 'validation' (modo prediccion) para mapocho-almendros: {'R2': 0.9170475630707088, 'MAE': 27.834043270863862, 'NSE': 0.9155256777639986, 'KGE': 0.9466252256910129}
+
+Métricas conjunto de 'train' para nenskra-enguri: {'R2': 0.988450519604748, 'MAE': 13.740912433579512, 'NSE': 0.9880487647629842, 'KGE': 0.974271577981626}
+Métricas conjunto de 'test' para nenskra-enguri: {'R2': 0.9899208347332757, 'MAE': 16.311982585026936, 'NSE': 0.9887155287547571, 'KGE': 0.9599238315088925}
+Métricas conjunto de 'validation' (modo prediccion) para nenskra-enguri: {'R2': 0.9810525031739796, 'MAE': 22.991866949298153, 'NSE': 0.9787100869255537, 'KGE': 0.9418894257840128}
+
+Métricas conjunto de 'train' para uncompahgre-ridgway: {'R2': 0.9787107197622111, 'MAE': 21.260291045045623, 'NSE': 0.9770844158181049, 'KGE': 0.948112210895693}
+Métricas conjunto de 'test' para uncompahgre-ridgway: {'R2': 0.9692931936091792, 'MAE': 23.595801304086564, 'NSE': 0.9679568244811299, 'KGE': 0.9457212314151618}
+Métricas conjunto de 'validation' (modo prediccion) para uncompahgre-ridgway: {'R2': 0.9644473528129811, 'MAE': 27.324829916991494, 'NSE': 0.9632503364089781, 'KGE': 0.9444897178026497}
+
+
+NARX_MODELS4
+n_lags = 5
+nº capas = 2
+nº neuronas = 10
+epochs = 50
+
+Métricas conjunto de 'train' para adda-bornio: {'R2': 0.9820846827872115, 'MAE': 12.893192004901827, 'NSE': 0.9820846827872115, 'KGE': 0.9534747566935462}
+Métricas conjunto de 'test' para adda-bornio: {'R2': 0.9812962456932167, 'MAE': 15.915939906803802, 'NSE': 0.9812962456932167, 'KGE': 0.931203661399069}
+Métricas conjunto de 'validation' (modo prediccion) para adda-bornio: {'R2': 0.9386193620371159, 'MAE': 36.05853805520503, 'NSE': 0.9386193620371159, 'KGE': 0.813688754477179}
+Métricas conjunto de 'train' para genil-dilar: {'R2': 0.9289521307357114, 'MAE': 8.490814755384001, 'NSE': 0.9289521307357114, 'KGE': 0.9392181653395031}
+Métricas conjunto de 'test' para genil-dilar: {'R2': 0.885534233784013, 'MAE': 8.746894863961257, 'NSE': 0.885534233784013, 'KGE': 0.9309578399512246}
+Métricas conjunto de 'validation' (modo prediccion) para genil-dilar: {'R2': 0.790829718304547, 'MAE': 10.810780294886086, 'NSE': 0.790829718304547, 'KGE': 0.8902251067242253}
+Métricas conjunto de 'train' para indrawati-melamchi: {'R2': 0.9231350814661871, 'MAE': 9.5669904235215, 'NSE': 0.9231350814661871, 'KGE': 0.9313539695531252}
+Métricas conjunto de 'test' para indrawati-melamchi: {'R2': 0.9197610049607043, 'MAE': 11.532130098411919, 'NSE': 0.9197610049607043, 'KGE': 0.8979314014991887}
+Métricas conjunto de 'validation' (modo prediccion) para indrawati-melamchi: {'R2': 0.8891431582559741, 'MAE': 12.373115100692113, 'NSE': 0.8891431582559741, 'KGE': 0.8235581944747713}
+Métricas conjunto de 'train' para mapocho-almendros: {'R2': 0.9671307300472386, 'MAE': 19.20412861460158, 'NSE': 0.9671307300472386, 'KGE': 0.9412410697886805}
+Métricas conjunto de 'test' para mapocho-almendros: {'R2': 0.9353768960834933, 'MAE': 23.31079145471893, 'NSE': 0.9353768960834933, 'KGE': 0.9166084632285502}
+Métricas conjunto de 'validation' (modo prediccion) para mapocho-almendros: {'R2': 0.8514949213688723, 'MAE': 40.98742988767195, 'NSE': 0.8514949213688723, 'KGE': 0.8884135561344264}
+Métricas conjunto de 'train' para nenskra-enguri: {'R2': 0.987589113533836, 'MAE': 15.563624099154744, 'NSE': 0.987589113533836, 'KGE': 0.9609391196072835}
+Métricas conjunto de 'test' para nenskra-enguri: {'R2': 0.9875359562974575, 'MAE': 17.828940113225045, 'NSE': 0.9875359562974575, 'KGE': 0.9590691195970918}
+Métricas conjunto de 'validation' (modo prediccion) para nenskra-enguri: {'R2': 0.9721606625437359, 'MAE': 27.21677833724709, 'NSE': 0.9721606625437359, 'KGE': 0.9371025660431993}
+Métricas conjunto de 'train' para uncompahgre-ridgway: {'R2': 0.9761929957776784, 'MAE': 24.0877531291725, 'NSE': 0.9761929957776784, 'KGE': 0.9380140938568112}
+Métricas conjunto de 'test' para uncompahgre-ridgway: {'R2': 0.9642104807892068, 'MAE': 28.98467881019145, 'NSE': 0.9642104807892068, 'KGE': 0.9135946558675531}
+Métricas conjunto de 'validation' (modo prediccion) para uncompahgre-ridgway: {'R2': 0.9422694801174687, 'MAE': 42.53896359503632, 'NSE': 0.9422694801174687, 'KGE': 0.8452213790866914}

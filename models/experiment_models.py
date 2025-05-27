@@ -126,7 +126,7 @@ def evaluate_model(model, X, y_true, scaler_area):
 
     r2 = r2_score(y_true_original, y_pred_original)
     mae = mean_absolute_error(y_true_original, y_pred_original)
-    nse = nash_sutcliffe_efficiency(y_true_original, y_true_original) # Corrected: Use y_true_original for denominator
+    nse = nash_sutcliffe_efficiency(y_true_original, y_pred_original) # Corrected: Use y_true_original for denominator
     kge = kling_gupta_efficiency(y_true_original, y_pred_original)
 
     return {'R2': r2, 'MAE': mae, 'NSE': nse, 'KGE': kge}, y_pred_original, y_true_original
@@ -216,6 +216,7 @@ exog_cols_original = ['temperatura', 'precipitacion', 'dias_sin_precip'] # Para 
 n_features = 1 + len(exog_cols_scaled)
 
 #%% Hiperparámetros a probar
+# probar con menos neuronas
 param_grid = {
     'n_lags_area': [3, 5],
     'n_units_lstm': [32, 50, 64],

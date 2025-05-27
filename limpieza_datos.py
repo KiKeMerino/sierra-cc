@@ -1,4 +1,4 @@
-#%%
+#%% IMPORTS
 import os
 import pandas as pd
 import geopandas as gpd
@@ -12,7 +12,7 @@ import numpy as np
 external_disk = "E:/"
 data_path = os.path.join(external_disk, "data/")
 
-#%%
+#%% DEFINICIÓN DE FUNCIONES
 def process_var_exog(input_file, output_path, save=False):
 
     try:
@@ -81,7 +81,6 @@ def process_var_exog(input_file, output_path, save=False):
     else:
         return df_final
 
-#%%
 def calculate_area(snow_cover, basin):
     if basin == "adda-bornio":
         snow_cover = snow_cover.rio.reproject("EPSG:25832")
@@ -156,6 +155,7 @@ def process_hdf(basin, area, archivo):
         return {'fecha': fecha, 'area_nieve': calculate_area(snow_cover, basin)}
     else:
         return None
+
 def process_basin(basin):
     """
     Procesa los archivos hdf y crea un archivo de areas para cada cuenca
@@ -205,7 +205,6 @@ def process_basin(basin):
     else:
         print(f"/nNo valid snow cover data found for basin {basin}.")
 
-#%%
 def join_areas(areas_path, output_path='.', save=False):
     """
     Junta los 6 csv de areas para crear un unico dataframe con una nueva columna  identificando de que área se trata cada registro
@@ -223,16 +222,13 @@ def join_areas(areas_path, output_path='.', save=False):
     else:
         return df_final
 
-#%%
 def merge_areas_exog(areas_file, exog_file, save=False):
     areas = pd.read_csv(areas_file, index_col=0)
     exog = pd.read_csv(exog_file, index_col = 0)
 
     df = pd.merge(areas, exog, how='inner', on=['fecha', 'cuenca'])
     df['fecha'] = pd.to_datetime(df["fecha"])
-    df['year'] = df['fecha'].dt.year
-    df['month'] = df['fecha'].dt.month
-    del df['fecha']
+    df['day'] = df['fecha'].dt.day_of_year
 
     # Calculo de dias transcurridos desde la última precipitacion
     df['dias_sin_precip'] = 0
@@ -250,7 +246,6 @@ def merge_areas_exog(areas_file, exog_file, save=False):
     else:
         return df
 
-#%%
 def cleaning_exogenous_variables(excel_file):
     series_futuras = pd.read_excel(excel_file, sheet_name=None)
     adda_bornio = pd.concat(series_futuras['Genil ssp 245 2051-2070'], series_futuras['Genil ssp 245 2081-2100'])
@@ -268,13 +263,25 @@ def cleaning_exogenous_variables(excel_file):
     uncompahgre_ridgway.to_csv("./predicted_exog/uncompahgre-ridgway.csv")
 
 
-#%%
-join_areas("E:/data/csv/areas", '', True)
-
-#%%
+#%% --- MAIN EXECUTION ---
+# join_areas("E:/data/csv/areas", '', True)
 # process_var_exog('E:/data/csv/Series_historicas_agregadas_ERA5Land.csv', '.')
+# merge_areas_exog('areas_total.csv', './v_exog_hist.csv', save=True)
+
+df = pd.read_csv("df_all.csv", index_col=0)
+df.head(50)
 
 #%%
-merge_areas_exog('areas_total.csv', './v_exog_hist.csv', save=True)
+df.dias_sin_precip.value_counts()
+# %%
+df.drop(columns=['cuenca', 'fecha'], inplace=True)
+df
+# %%
+sns.relplot(x="dia_sen", y = 'area_nieve', data = df)
 
 #%%
+corr_matrix = df.corr()
+plt.figure(figsize=(12, 10))
+sns.heatmap(corr_matrix, annot=True, cmap='coolwarm', fmt=".1f")
+plt.title('Correlation Matrix of Numerical Features')
+plt.show()
