@@ -228,37 +228,6 @@ NUEVO MODELO NARX (Red Neuronal Auto-Regresiva con Variables Exógenas) implemen
     - La capa LSTM procesa esta secuencia de entrada, aprendiendo las relaciones temporales entre el área de nieve pasada y las variables exógenas pasadas para entender cómo influyen en el valor futuro del área de nieve.
 
 
-Métricas conjunto de 'train' para adda-bornio: {'R2': 0.9841177450777601, 'MAE': 10.54553345032225, 'NSE': 0.9841177450777601, 'KGE': 0.9698584488088482}
-Métricas conjunto de 'test' para adda-bornio: {'R2': 0.9858470369670861, 'MAE': 10.73206148625898, 'NSE': 0.9858470369670861, 'KGE': 0.9673529671629062}
-Métricas conjunto de 'validation' (modo prediccion) para adda-bornio: {'R2': 0.7563844177771055, 'MAE': 72.30012986340141, 'NSE': 0.7563844177771055, 'KGE': 0.6762539448332815}
-Métricas en todo el conjunto de datos (modo prediccion) para adda-bornio: R2=0.811, MAE=63.246, NSE=0.811, KGE=0.717
-
-Métricas conjunto de 'train' para genil-dilar: {'R2': 0.9296348450461472, 'MAE': 7.3944132279862185, 'NSE': 0.9296348450461472, 'KGE': 0.8957372075123364}
-Métricas conjunto de 'test' para genil-dilar: {'R2': 0.8951661809883981, 'MAE': 7.030168435421019, 'NSE': 0.8951661809883981, 'KGE': 0.8968190264881305}
-Métricas conjunto de 'validation' (modo prediccion) para genil-dilar: {'R2': 0.24856697729693666, 'MAE': 28.169192683917696, 'NSE': 0.24856697729693666, 'KGE': 0.35094503823660084}
-Métricas en todo el conjunto de datos (modo prediccion) para genil-dilar: R2=0.487, MAE=30.155, NSE=0.487, KGE=0.446
-
-Métricas conjunto de 'train' para indrawati-melamchi: {'R2': 0.9248574420598481, 'MAE': 9.112193985405703, 'NSE': 0.9248574420598481, 'KGE': 0.9305120457255507}
-Métricas conjunto de 'test' para indrawati-melamchi: {'R2': 0.9179178682963512, 'MAE': 10.536969623654578, 'NSE': 0.9179178682963512, 'KGE': 0.913456707965113}
-Métricas conjunto de 'validation' (modo prediccion) para indrawati-melamchi: {'R2': 0.5623453093850601, 'MAE': 29.66755398277173, 'NSE': 0.5623453093850601, 'KGE': 0.44246558002169234}
-Métricas en todo el conjunto de datos (modo prediccion) para indrawati-melamchi: R2=0.632, MAE=26.357, NSE=0.632, KGE=0.631
-
-Métricas conjunto de 'train' para mapocho-almendros: {'R2': 0.969472524226134, 'MAE': 16.77330507876308, 'NSE': 0.969472524226134, 'KGE': 0.9725103476181967}
-Métricas conjunto de 'test' para mapocho-almendros: {'R2': 0.9484543725445741, 'MAE': 17.46058055761427, 'NSE': 0.9484543725445741, 'KGE': 0.940657736292907}
-Métricas conjunto de 'validation' (modo prediccion) para mapocho-almendros: {'R2': 0.2191022075862199, 'MAE': 99.29130034802725, 'NSE': 0.2191022075862199, 'KGE': 0.24717099755789784}
-Métricas en todo el conjunto de datos (modo prediccion) para mapocho-almendros: R2=0.522, MAE=82.000, NSE=0.522, KGE=0.582
-
-Métricas conjunto de 'train' para nenskra-enguri: {'R2': 0.987605172656895, 'MAE': 15.8249146683379, 'NSE': 0.987605172656895, 'KGE': 0.9557532036540093}
-Métricas conjunto de 'test' para nenskra-enguri: {'R2': 0.9891162712771787, 'MAE': 15.696199299727915, 'NSE': 0.9891162712771787, 'KGE': 0.9565282885706232}
-Métricas conjunto de 'validation' (modo prediccion) para nenskra-enguri: {'R2': 0.8829395871633829, 'MAE': 60.786487872681164, 'NSE': 0.8829395871633829, 'KGE': 0.7380100213134291}
-Métricas en todo el conjunto de datos (modo prediccion) para nenskra-enguri: R2=0.893, MAE=62.420, NSE=0.893, KGE=0.739
-
-Métricas conjunto de 'train' para uncompahgre-ridgway: {'R2': 0.9773677587032614, 'MAE': 20.512550422433243, 'NSE': 0.9773677587032614, 'KGE': 0.9446418074765338}
-Métricas conjunto de 'test' para uncompahgre-ridgway: {'R2': 0.9688159511634374, 'MAE': 21.556014278926497, 'NSE': 0.9688159511634374, 'KGE': 0.94049778280746}
-Métricas conjunto de 'validation' (modo prediccion) para uncompahgre-ridgway: {'R2': 0.8594611102424274, 'MAE': 56.796209398082276, 'NSE': 0.8594611102424274, 'KGE': 0.725263908874157}
-Métricas en todo el conjunto de datos (modo prediccion) para uncompahgre-ridgway: R2=0.816, MAE=68.140, NSE=0.816, KGE=0.681
-
-
 
 
 
@@ -337,91 +306,52 @@ El rendimiento del modelo se evalúa utilizando cuatro métricas clave en difere
     * **Propósito:** Proporciona una visión global del rendimiento del modelo a lo largo de todo el período de datos disponibles, ofreciendo un resumen consolidado en modo predicción.
 
 
-
-Métricas conjunto de 'train' para adda-bornio: {'R2': 0.9848937273869058, 'MAE': 11.422625820357998, 'NSE': 0.9848937273869058, 'KGE': 0.9624158664471593}
-Métricas conjunto de 'test' para adda-bornio: {'R2': 0.9808589956700315, 'MAE': 16.239473269537907, 'NSE': 0.9808589956700315, 'KGE': 0.9319888470111187}
-Métricas conjunto de 'validation' (modo prediccion) para adda-bornio: {'R2': 0.96176474349375, 'MAE': 27.495538347091667, 'NSE': 0.96176474349375, 'KGE': 0.8498673087573136}
-Métricas en todo el conjunto de datos (modo prediccion) para adda-bornio: R2=0.975, MAE=18.631, NSE=0.975, KGE=0.918
-
-Métricas conjunto de 'train' para genil-dilar: {'R2': 0.9372259290592876, 'MAE': 8.388898751050093, 'NSE': 0.9372259290592876, 'KGE': 0.9406776634295443}
-Métricas conjunto de 'test' para genil-dilar: {'R2': 0.860898100779585, 'MAE': 9.80432326462139, 'NSE': 0.860898100779585, 'KGE': 0.9200870924496527}
-Métricas conjunto de 'validation' (modo prediccion) para genil-dilar: {'R2': 0.7303075303975746, 'MAE': 11.821146186536254, 'NSE': 0.7303075303975746, 'KGE': 0.8532709931938088}
-Métricas en todo el conjunto de datos (modo prediccion) para genil-dilar: R2=0.880, MAE=12.508, NSE=0.880, KGE=0.885
-
-Métricas conjunto de 'train' para indrawati-melamchi: {'R2': 0.9283167874697322, 'MAE': 8.958353898516156, 'NSE': 0.9283167874697322, 'KGE': 0.9481170501100785}
-Métricas conjunto de 'test' para indrawati-melamchi: {'R2': 0.9210991782576825, 'MAE': 11.0904753786496, 'NSE': 0.9210991782576825, 'KGE': 0.9412663442053899}
-Métricas conjunto de 'validation' (modo prediccion) para indrawati-melamchi: {'R2': 0.8882975583638146, 'MAE': 13.332796983608887, 'NSE': 0.8882975583638146, 'KGE': 0.9056586564238376}
-Métricas en todo el conjunto de datos (modo prediccion) para indrawati-melamchi: R2=0.911, MAE=11.681, NSE=0.911, KGE=0.916
-
-Métricas conjunto de 'train' para mapocho-almendros: {'R2': 0.9727379819072993, 'MAE': 17.60963005973425, 'NSE': 0.9727379819072993, 'KGE': 0.9615460278682817}
-Métricas conjunto de 'test' para mapocho-almendros: {'R2': 0.9123884970799073, 'MAE': 24.618680508312146, 'NSE': 0.9123884970799073, 'KGE': 0.9419058778028343}
-Métricas conjunto de 'validation' (modo prediccion) para mapocho-almendros: {'R2': 0.6282104632977037, 'MAE': 51.83852656097493, 'NSE': 0.6282104632977037, 'KGE': 0.7822081792919674}
-Métricas en todo el conjunto de datos (modo prediccion) para mapocho-almendros: R2=0.927, MAE=26.784, NSE=0.927, KGE=0.936
-
-Métricas conjunto de 'train' para nenskra-enguri: {'R2': 0.9893086966386203, 'MAE': 13.608720571033052, 'NSE': 0.9893086966386203, 'KGE': 0.9789563247566387}
-Métricas conjunto de 'test' para nenskra-enguri: {'R2': 0.9748549207615304, 'MAE': 26.48993988811659, 'NSE': 0.9748549207615304, 'KGE': 0.9137027447412311}
-Métricas conjunto de 'validation' (modo prediccion) para nenskra-enguri: {'R2': 0.861020025044487, 'MAE': 67.64532442089283, 'NSE': 0.861020025044487, 'KGE': 0.757474385856627}
-Métricas en todo el conjunto de datos (modo prediccion) para nenskra-enguri: R2=0.969, MAE=26.365, NSE=0.969, KGE=0.931
-
-Métricas conjunto de 'train' para uncompahgre-ridgway: {'R2': 0.9833959855837182, 'MAE': 17.978890962681497, 'NSE': 0.9833959855837182, 'KGE': 0.9792152268951854}
-Métricas conjunto de 'test' para uncompahgre-ridgway: {'R2': 0.9632518023648534, 'MAE': 28.907755022417238, 'NSE': 0.9632518023648534, 'KGE': 0.9209165460237245}
-Métricas conjunto de 'validation' (modo prediccion) para uncompahgre-ridgway: {'R2': 0.9069058683397624, 'MAE': 57.11412298191705, 'NSE': 0.9069058683397624, 'KGE': 0.7919199726871856}
-Métricas en todo el conjunto de datos (modo prediccion) para uncompahgre-ridgway: R2=0.967, MAE=28.815, NSE=0.967, KGE=0.933
+NARX_MODELS1
+n_lags_area = 3
+n_layers = 2
+n_neuronas = 50
+epochs = 30
+Métricas en todo el conjunto de datos (modo prediccion) para adda-bornio: R2=0.981, MAE=12.538, NSE=0.981, KGE=0.988
+Métricas en todo el conjunto de datos (modo prediccion) para genil-dilar: R2=0.894, MAE=12.702, NSE=0.888, KGE=0.856
+Métricas en todo el conjunto de datos (modo prediccion) para indrawati-melamchi: R2=0.909, MAE=11.563, NSE=0.907, KGE=0.902
+Métricas en todo el conjunto de datos (modo prediccion) para mapocho-almendros: R2=0.960, MAE=23.306, NSE=0.958, KGE=0.934
+Métricas en todo el conjunto de datos (modo prediccion) para nenskra-enguri: R2=0.986, MAE=23.997, NSE=0.978, KGE=0.922
+Métricas en todo el conjunto de datos (modo prediccion) para uncompahgre-ridgway: R2=0.973, MAE=25.597, NSE=0.971, KGE=0.948
 
 
+NARX_MODELS2
+n_lags_area = 5
+n_layers = 2
+n_neuronas = 10
+epochs = 50
+Métricas en todo el conjunto de datos (modo prediccion) para adda-bornio: R2=0.979, MAE=14.011, NSE=0.979, KGE=0.963
+Métricas en todo el conjunto de datos (modo prediccion) para genil-dilar: R2=0.905, MAE=9.650, NSE=0.901, KGE=0.880
+Métricas en todo el conjunto de datos (modo prediccion) para indrawati-melamchi: R2=0.904, MAE=13.242, NSE=0.892, KGE=0.834        
+Métricas en todo el conjunto de datos (modo prediccion) para mapocho-almendros: R2=0.957, MAE=21.176, NSE=0.956, KGE=0.948
+Métricas en todo el conjunto de datos (modo prediccion) para nenskra-enguri: R2=0.986, MAE=19.675, NSE=0.984, KGE=0.949
+Métricas en todo el conjunto de datos (modo prediccion) para uncompahgre-ridgway: R2=0.969, MAE=33.148, NSE=0.962, KGE=0.899 
 
 NARX_MODELS3
-n_lags = 3
-nº capas = 2
-nº neuronas = 10
+n_lags_area = 3
+n_layers = 2
+n_neuronas = 10
 epochs = 50
-exog_cols = []
-
-Métricas conjunto de 'train' para adda-bornio: {'R2': 0.983896928781121, 'MAE': 9.984483335148319, 'NSE': 0.9838286063487955, 'KGE': 0.9906455358066028}
-Métricas conjunto de 'test' para adda-bornio: {'R2': 0.9868272719726697, 'MAE': 11.037597709314099, 'NSE': 0.9863796193093345, 'KGE': 0.9741758082931852}
-Métricas conjunto de 'validation' (modo prediccion) para adda-bornio: {'R2': 0.9810848261327887, 'MAE': 21.710144965615772, 'NSE': 0.9735983402015059, 'KGE': 0.9149646889945594}
-
-Métricas conjunto de 'train' para genil-dilar: {'R2': 0.9306792392506685, 'MAE': 7.9688175711235605, 'NSE': 0.9281303393939707, 'KGE': 0.9072669403619928}
-Métricas conjunto de 'test' para genil-dilar: {'R2': 0.8886086828869324, 'MAE': 7.90095319449694, 'NSE': 0.885240370788977, 'KGE': 0.8717586951125884}
-Métricas conjunto de 'validation' (modo prediccion) para genil-dilar: {'R2': 0.83808972411395, 'MAE': 9.856877204207503, 'NSE': 0.8211626925405389, 'KGE': 0.7689465648331342}
-
-Métricas conjunto de 'train' para indrawati-melamchi: {'R2': 0.925226360314113, 'MAE': 9.752870546073991, 'NSE': 0.9234139626139061, 'KGE': 0.9107661483885414}
-Métricas conjunto de 'test' para indrawati-melamchi: {'R2': 0.9139605707866065, 'MAE': 12.163987529341346, 'NSE': 0.9104019289065044, 'KGE': 0.8874103412660206}
-Métricas conjunto de 'validation' (modo prediccion) para indrawati-melamchi: {'R2': 0.8951894759943265, 'MAE': 13.769391539611773, 'NSE': 0.8857620633136292, 'KGE': 0.8398893330119777}
-Métricas conjunto de 'train' para mapocho-almendros: {'R2': 0.9687613169315186, 'MAE': 17.41535955671052, 'NSE': 0.9683272712543375, 'KGE': 0.9821808789695055}
-Métricas conjunto de 'test' para mapocho-almendros: {'R2': 0.9496353883982969, 'MAE': 19.19984458163843, 'NSE': 0.9493967711816299, 'KGE': 0.9724970658853499}
-Métricas conjunto de 'validation' (modo prediccion) para mapocho-almendros: {'R2': 0.9170475630707088, 'MAE': 27.834043270863862, 'NSE': 0.9155256777639986, 'KGE': 0.9466252256910129}
-
-Métricas conjunto de 'train' para nenskra-enguri: {'R2': 0.988450519604748, 'MAE': 13.740912433579512, 'NSE': 0.9880487647629842, 'KGE': 0.974271577981626}
-Métricas conjunto de 'test' para nenskra-enguri: {'R2': 0.9899208347332757, 'MAE': 16.311982585026936, 'NSE': 0.9887155287547571, 'KGE': 0.9599238315088925}
-Métricas conjunto de 'validation' (modo prediccion) para nenskra-enguri: {'R2': 0.9810525031739796, 'MAE': 22.991866949298153, 'NSE': 0.9787100869255537, 'KGE': 0.9418894257840128}
-
-Métricas conjunto de 'train' para uncompahgre-ridgway: {'R2': 0.9787107197622111, 'MAE': 21.260291045045623, 'NSE': 0.9770844158181049, 'KGE': 0.948112210895693}
-Métricas conjunto de 'test' para uncompahgre-ridgway: {'R2': 0.9692931936091792, 'MAE': 23.595801304086564, 'NSE': 0.9679568244811299, 'KGE': 0.9457212314151618}
-Métricas conjunto de 'validation' (modo prediccion) para uncompahgre-ridgway: {'R2': 0.9644473528129811, 'MAE': 27.324829916991494, 'NSE': 0.9632503364089781, 'KGE': 0.9444897178026497}
+Métricas en todo el conjunto de datos (modo prediccion) para adda-bornio: R2=0.980, MAE=20.908, NSE=0.972, KGE=0.900
+Métricas en todo el conjunto de datos (modo prediccion) para genil-dilar: R2=0.905, MAE=11.562, NSE=0.886, KGE=0.806
+Métricas en todo el conjunto de datos (modo prediccion) para indrawati-melamchi: R2=0.886, MAE=15.502, NSE=0.865, KGE=0.791        
+Métricas en todo el conjunto de datos (modo prediccion) para mapocho-almendros: R2=0.959, MAE=20.509, NSE=0.959, KGE=0.952
+Métricas en todo el conjunto de datos (modo prediccion) para nenskra-enguri: R2=0.986, MAE=20.466, NSE=0.983, KGE=0.943
+Métricas en todo el conjunto de datos (modo prediccion) para uncompahgre-ridgway: R2=0.969, MAE=36.939, NSE=0.952, KGE=0.855
 
 
 NARX_MODELS4
-n_lags = 5
-nº capas = 2
-nº neuronas = 10
-epochs = 50
-
-Métricas conjunto de 'train' para adda-bornio: {'R2': 0.9820846827872115, 'MAE': 12.893192004901827, 'NSE': 0.9820846827872115, 'KGE': 0.9534747566935462}
-Métricas conjunto de 'test' para adda-bornio: {'R2': 0.9812962456932167, 'MAE': 15.915939906803802, 'NSE': 0.9812962456932167, 'KGE': 0.931203661399069}
-Métricas conjunto de 'validation' (modo prediccion) para adda-bornio: {'R2': 0.9386193620371159, 'MAE': 36.05853805520503, 'NSE': 0.9386193620371159, 'KGE': 0.813688754477179}
-Métricas conjunto de 'train' para genil-dilar: {'R2': 0.9289521307357114, 'MAE': 8.490814755384001, 'NSE': 0.9289521307357114, 'KGE': 0.9392181653395031}
-Métricas conjunto de 'test' para genil-dilar: {'R2': 0.885534233784013, 'MAE': 8.746894863961257, 'NSE': 0.885534233784013, 'KGE': 0.9309578399512246}
-Métricas conjunto de 'validation' (modo prediccion) para genil-dilar: {'R2': 0.790829718304547, 'MAE': 10.810780294886086, 'NSE': 0.790829718304547, 'KGE': 0.8902251067242253}
-Métricas conjunto de 'train' para indrawati-melamchi: {'R2': 0.9231350814661871, 'MAE': 9.5669904235215, 'NSE': 0.9231350814661871, 'KGE': 0.9313539695531252}
-Métricas conjunto de 'test' para indrawati-melamchi: {'R2': 0.9197610049607043, 'MAE': 11.532130098411919, 'NSE': 0.9197610049607043, 'KGE': 0.8979314014991887}
-Métricas conjunto de 'validation' (modo prediccion) para indrawati-melamchi: {'R2': 0.8891431582559741, 'MAE': 12.373115100692113, 'NSE': 0.8891431582559741, 'KGE': 0.8235581944747713}
-Métricas conjunto de 'train' para mapocho-almendros: {'R2': 0.9671307300472386, 'MAE': 19.20412861460158, 'NSE': 0.9671307300472386, 'KGE': 0.9412410697886805}
-Métricas conjunto de 'test' para mapocho-almendros: {'R2': 0.9353768960834933, 'MAE': 23.31079145471893, 'NSE': 0.9353768960834933, 'KGE': 0.9166084632285502}
-Métricas conjunto de 'validation' (modo prediccion) para mapocho-almendros: {'R2': 0.8514949213688723, 'MAE': 40.98742988767195, 'NSE': 0.8514949213688723, 'KGE': 0.8884135561344264}
-Métricas conjunto de 'train' para nenskra-enguri: {'R2': 0.987589113533836, 'MAE': 15.563624099154744, 'NSE': 0.987589113533836, 'KGE': 0.9609391196072835}
-Métricas conjunto de 'test' para nenskra-enguri: {'R2': 0.9875359562974575, 'MAE': 17.828940113225045, 'NSE': 0.9875359562974575, 'KGE': 0.9590691195970918}
-Métricas conjunto de 'validation' (modo prediccion) para nenskra-enguri: {'R2': 0.9721606625437359, 'MAE': 27.21677833724709, 'NSE': 0.9721606625437359, 'KGE': 0.9371025660431993}
-Métricas conjunto de 'train' para uncompahgre-ridgway: {'R2': 0.9761929957776784, 'MAE': 24.0877531291725, 'NSE': 0.9761929957776784, 'KGE': 0.9380140938568112}
-Métricas conjunto de 'test' para uncompahgre-ridgway: {'R2': 0.9642104807892068, 'MAE': 28.98467881019145, 'NSE': 0.9642104807892068, 'KGE': 0.9135946558675531}
-Métricas conjunto de 'validation' (modo prediccion) para uncompahgre-ridgway: {'R2': 0.9422694801174687, 'MAE': 42.53896359503632, 'NSE': 0.9422694801174687, 'KGE': 0.8452213790866914}
+n_lags_area = 3
+n_layers = 1
+n_neuronas = 10
+epochs = 30
+Métricas en todo el conjunto de datos (modo prediccion) para adda-bornio: R2=0.975, MAE=17.537, NSE=0.972, KGE=0.948
+Métricas en todo el conjunto de datos (modo prediccion) para genil-dilar: R2=0.883, MAE=11.271, NSE=0.879, KGE=0.859
+Métricas en todo el conjunto de datos (modo prediccion) para indrawati-melamchi: R2=0.897, MAE=14.110, NSE=0.879, KGE=0.807        
+Métricas en todo el conjunto de datos (modo prediccion) para mapocho-almendros: R2=0.955, MAE=27.237, NSE=0.943, KGE=0.867
+Métricas en todo el conjunto de datos (modo prediccion) para nenskra-enguri: R2=0.985, MAE=23.549, NSE=0.979, KGE=0.920
+Métricas en todo el conjunto de datos (modo prediccion) para uncompahgre-ridgway: R2=0.965, MAE=27.839, NSE=0.964, KGE=0.953

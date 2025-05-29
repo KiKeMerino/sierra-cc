@@ -1,4 +1,4 @@
-#%% imports
+#%% IMPORTS
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
 import numpy as np
@@ -11,7 +11,7 @@ import os
 import seaborn as sns
 from scipy.stats import pearsonr
 import matplotlib.pyplot as plt
-#%%
+#%% FUNCIONES
 def nash_sutcliffe_efficiency(y_true, y_pred):
     numerator = np.sum((y_true - y_pred)**2)
     denominator = np.sum((y_true - np.mean(y_true))**2)
@@ -25,7 +25,10 @@ def kling_gupta_efficiency(y_true, y_pred):
     beta = np.mean(y_pred) / np.mean(y_true)
     return 1 - np.sqrt(((r - 1)**2) + ((alpha - 1)**2) + ((beta - 1)**2))
 
-def preprocess_data(df, train_size=0.7, test_size=0.2):
+def preprocess_data(df, exog_features, train_size=0.7, test_size=0.2):
+    """
+        Función para escalar los datos de area_nieve y exog_features
+    """
     cuencas = df['cuenca'].unique()
     df_por_cuenca = {cuenca: df[df['cuenca'] == cuenca].copy() for cuenca in cuencas}
     scaled_data = {}
@@ -42,7 +45,7 @@ def preprocess_data(df, train_size=0.7, test_size=0.2):
 
         scaler_area = StandardScaler()
         scaler_exog = StandardScaler()
-        exog_features = ['temperatura', 'precipitacion', 'dias_sin_precip' , 'dia_sen', 'year', 'month']
+        # exog_features = ['temperatura', 'precipitacion', 'dias_sin_precip' , 'dia_sen', 'year', 'month']
 
         scaler_area.fit(df_cuenca.iloc[train_idx]['area_nieve'].values.reshape(-1, 1))
         scaler_exog.fit(df_cuenca.iloc[train_idx][exog_features])
@@ -74,21 +77,31 @@ def create_sequences(data, n_lags, exog_cols_scaled, target_col_scaled='area_nie
         y.append(data[target_col_scaled].iloc[i + n_lags])
     return np.array(X), np.array(y).reshape(-1, 1)
 
-def create_narx_model(n_lags, n_features, n_units_lstm=50):
-    model = Sequential([
-        LSTM(n_units_lstm, activation='relu', input_shape=(n_lags, n_features), return_sequences=True), # Añadimos return_sequences para la siguiente capa LSTM
-        LSTM(n_units_lstm, activation='relu'),
-        Dropout(0.1), # Añadimos una capa Dropout
-        Dense(1)
-    ])
+def create_narx_model(n_lags, n_layers, n_units_lstm, n_features):
+    model = Sequential()
 
+    if n_layers > 1:
+        model.add(LSTM(n_units_lstm, activation='relu', input_shape=(n_lags, n_features), return_sequences=True))
+    else:
+        model.add(LSTM(n_units_lstm, activation='relu', input_shape=(n_lags, n_features)))
+
+    # Capas LSTM adicionales
+    for _ in range(1, n_layers):
+        if _ == n_layers - 1: # Si es la última capa LSTM, no devuelve secuencias
+            model.add(LSTM(n_units_lstm, activation='relu'))
+        else:
+            model.add(LSTM(n_units_lstm, activation='relu', return_sequences=True))
+
+    model.add(Dropout(0.1)) # Añadimos una capa Dropout
+    model.add(Dense(1))
+    
     # Optimizador con recorte de gradientes
     optimizer = tf.keras.optimizers.Adam(learning_rate=0.001, clipnorm=1.0) # clipnorm para el recorte
     model.compile(optimizer=optimizer, loss='mse')
 
     return model
 
-def create_train_models(sequences_data, n_lags_area, exog_cols_scaled, cuencas, save, models_dir='narx_models'):
+def create_train_models(sequences_data, n_lags_area, layers, units, epochs, exog_cols_scaled, cuencas, save, models_dir='narx_models'):
     models = {}
     history = {}
     n_features = 1 + len(exog_cols_scaled)
@@ -96,14 +109,16 @@ def create_train_models(sequences_data, n_lags_area, exog_cols_scaled, cuencas, 
         os.makedirs(models_dir)
 
     for cuenca in cuencas:
-        model = create_narx_model(n_lags_area, n_features, n_units_lstm=10)
+        model = create_narx_model(n_lags_area, layers, units, n_features)
         X_train = sequences_data[cuenca]['X_train']
         y_train = sequences_data[cuenca]['y_train']
-        model_history = model.fit(X_train, y_train, epochs=50, verbose=0, validation_split=0.1)
+        model_history = model.fit(X_train, y_train, epochs=epochs, verbose=0, validation_split=0.1)
         models[cuenca] = model
         history[cuenca] = model_history
         model_path = os.path.join(models_dir, f'narx_model_{cuenca}.h5')
         if save:
+            if not os.path.exists(models_dir):
+                os.makedirs(models_dir)
             model.save(model_path)
             print(f"Modelo entrenado y guardado para la cuenca: {cuenca} en {model_path}")
         else:
@@ -166,7 +181,7 @@ def evaluate_validation(model, df_val_scaled, scaler_area, exog_cols, n_lags_are
 
     return {'R2': r2_val, 'MAE': mae_val, 'NSE': nse_val, 'KGE': kge_val}, y_val_pred_original, y_val_true
 
-def evaluate_full_dataset(models, scaled_data, scalers, cuencas, n_lags_area, exog_cols_scaled, graph=False):
+def evaluate_full_dataset(models, scaled_data, scalers, cuencas, n_lags_area, exog_cols_scaled, graph=None):
     full_metrics = {}
 
     for cuenca in cuencas:
@@ -174,7 +189,6 @@ def evaluate_full_dataset(models, scaled_data, scalers, cuencas, n_lags_area, ex
         scaler_area = scalers[cuenca]['area']
         
         # Recuperar el DataFrame completo escalado para esta cuenca
-        # Es crucial usar todo el DataFrame escalado de la cuenca, no solo los sets divididos.
         df_full_scaled_cuenca = scaled_data[cuenca]['df'].copy()
 
         n_exog_features = len(exog_cols_scaled)
@@ -218,29 +232,36 @@ def evaluate_full_dataset(models, scaled_data, scalers, cuencas, n_lags_area, ex
         full_metrics[cuenca] = {'R2': r2_full, 'MAE': mae_full, 'NSE': nse_full, 'KGE': kge_full}
         print(f"Métricas en todo el conjunto de datos (modo prediccion) para {cuenca}: R2={r2_full:.3f}, MAE={mae_full:.3f}, NSE={nse_full:.3f}, KGE={kge_full:.3f}")
 
-        if graph:
-            try:
-                fechas_path = os.path.join('E:','data', 'csv', 'areas', f'{cuenca}.csv')
-            except FileNotFoundError:
-                print(f"Error: areas file not found for '{cuenca}'")
-            fechas = pd.read_csv(fechas_path)
-            fechas = fechas[:len(y_full_pred_original)]
-            fechas['fecha'] = pd.to_datetime(fechas['fecha'], format='%Y-%m-%d')
-            fechas['fecha'] = fechas['fecha'].dt.day_of_year
-            fechas_grouped = fechas.groupby('fecha')['area_nieve'].mean()
-            predicciones = pd.DataFrame(y_full_pred_original)
+        if graph != None:
+            real_plot = df_full_scaled_cuenca.iloc[n_lags_area:][['fecha','area_nieve']]
+            y_full_pred_df = pd.DataFrame(y_full_pred_original, columns=['area_nieve_pred'], index=real_plot.index)
+            df_plot = pd.concat([real_plot, y_full_pred_df], axis=1)
+            df_plot.fecha = pd.to_datetime(df_plot.fecha, format='%Y-%m-%d')
+            if graph == 'per_day':
+                df_plot.fecha = df_plot.fecha.dt.day_of_year
+                plt.xlabel("Day")
+                plt.xlim(right=366)
+            elif graph == 'per_month':
+                df_plot.fecha = df_plot.fecha.dt.day_of_year
+                plt.xlabel("Month")
+                plt.xlim(right=12)
+            df_plot_grouped = df_plot.groupby('fecha').agg(
+                area_nieve_real = ('area_nieve', 'mean'),
+                area_nieve_pred=('area_nieve_pred', 'mean')
+            )
 
-            sns.lineplot(x=fechas_grouped.fecha, y=fechas_grouped.area_nieve, label='Valor real')
-            sns.lineplot(x=fechas_grouped.fecha, y=y_full_pred_original.flatten(), label='Predicción')
-            plt.title('Predicción vs Real')
-            plt.xlabel("Indice temporal")
-            plt.ylabel("Area de nieve")
+            sns.lineplot(x=df_plot_grouped.index, y=df_plot_grouped.area_nieve_real, label='Real area')
+            sns.lineplot(x=df_plot_grouped.index, y=df_plot_grouped.area_nieve_pred, label='Prediction')
+            plt.xlim(left=0)
+            plt.title('Prediction vs Real')
+            plt.ylabel("Snow area Km2")
             plt.legend()
-            plt.grid=True
-            output_path = 'img/models_predictions/per_day/'
+            plt.grid(True)
+            output_path = f'img/models_predictions/narx_model2/{graph}'
             if not os.path.exists(output_path):
                 os.makedirs(output_path)
-            plt.save(output_path)
+            plt.savefig(os.path.join(output_path, cuenca))
+            plt.close()
     
     return full_metrics
 
@@ -249,17 +270,16 @@ def evaluate_full_dataset(models, scaled_data, scalers, cuencas, n_lags_area, ex
 
 df = pd.read_csv('df_all.csv', index_col=0)
 df
-#%%
-# Parámetros
+#%% PARÁMETROS DEL MODELO
 n_lags_area = 3
-n_layers = 2
+n_layers = 1
 n_neuronas = 10
-epochs = 50
-exog_cols = ['dia_sen_scaled','temperatura_scaled','precipitacion_scaled','precipitacion_bool_scaled','year_scaled','month_scaled','dias_sin_precip_scaled']
+epochs = 30
+exog_cols = ['dia_sen','temperatura','precipitacion','precipitacion_bool', 'dias_sin_precip']
 
-scaled_data, scalers, cuencas = preprocess_data(df)
+scaled_data, scalers, cuencas = preprocess_data(df, exog_cols)
 exog_cols_scaled = [col for col in scaled_data['adda-bornio']['df'].columns if col.endswith('_scaled')]
-exog_cols_scaled = ['temperatura_scaled', 'precipitacion_scaled', 'dias_sin_precip_scaled', 'dia_sen_scaled', 'year_scaled', 'month_scaled']
+# exog_cols_scaled = ['temperatura_scaled', 'precipitacion_scaled', 'dias_sin_precip_scaled', 'dia_sen_scaled', 'year_scaled', 'month_scaled']
 
 #%% Crear las secuencias
 sequences_data = {}
@@ -277,13 +297,12 @@ for cuenca, data_indices in scaled_data.items():
         'y_test': create_sequences(test_data, n_lags_area, exog_cols_scaled)[1],
     }
 
+model_dir = os.path.join("D:", "models")
 # Entrenar y guardar los modelos
-models1 = create_train_models(sequences_data, n_lags_area, exog_cols_scaled, cuencas, True, models_dir='narx_models1/')
-models2 = create_train_models(sequences_data, n_lags_area, exog_cols_scaled, cuencas, True, models_dir='narx_models2/')
-models3 = create_train_models(sequences_data, n_lags_area, exog_cols_scaled, cuencas, True, models_dir='narx_models3/')
+models = create_train_models(sequences_data, n_lags_area, n_layers, n_neuronas, epochs, exog_cols_scaled, cuencas, True, models_dir=os.path.join(model_dir, 'narx_models4/'))
 
 # O cargar los modelos si ya están entrenados
-# models = load_models(cuencas, models_dir='narx_models3')
+# models = load_models(cuencas, os.path.join(model_dir,'narx_models3'))
 
 # Evaluar los modelos
 # train_metrics = {}
@@ -306,4 +325,4 @@ models3 = create_train_models(sequences_data, n_lags_area, exog_cols_scaled, cue
 #     print(f"Métricas conjunto de 'validation' (modo prediccion) para {cuenca}: {validation_metrics[cuenca]}")
 
 # Evaluar en todo el conjunto de datos
-# evaluate_full_dataset(models, scaled_data, scalers, cuencas, n_lags_area, exog_cols_scaled, False)
+evaluate_full_dataset(models, scaled_data, scalers, cuencas, n_lags_area, exog_cols_scaled, 'per_day')
