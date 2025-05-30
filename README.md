@@ -311,12 +311,6 @@ n_lags_area = 3
 n_layers = 2
 n_neuronas = 50
 epochs = 30
-Métricas en todo el conjunto de datos (modo prediccion) para adda-bornio: R2=0.981, MAE=12.538, NSE=0.981, KGE=0.988
-Métricas en todo el conjunto de datos (modo prediccion) para genil-dilar: R2=0.894, MAE=12.702, NSE=0.888, KGE=0.856
-Métricas en todo el conjunto de datos (modo prediccion) para indrawati-melamchi: R2=0.909, MAE=11.563, NSE=0.907, KGE=0.902
-Métricas en todo el conjunto de datos (modo prediccion) para mapocho-almendros: R2=0.960, MAE=23.306, NSE=0.958, KGE=0.934
-Métricas en todo el conjunto de datos (modo prediccion) para nenskra-enguri: R2=0.986, MAE=23.997, NSE=0.978, KGE=0.922
-Métricas en todo el conjunto de datos (modo prediccion) para uncompahgre-ridgway: R2=0.973, MAE=25.597, NSE=0.971, KGE=0.948
 
 
 NARX_MODELS2
@@ -324,34 +318,23 @@ n_lags_area = 5
 n_layers = 2
 n_neuronas = 10
 epochs = 50
-Métricas en todo el conjunto de datos (modo prediccion) para adda-bornio: R2=0.979, MAE=14.011, NSE=0.979, KGE=0.963
-Métricas en todo el conjunto de datos (modo prediccion) para genil-dilar: R2=0.905, MAE=9.650, NSE=0.901, KGE=0.880
-Métricas en todo el conjunto de datos (modo prediccion) para indrawati-melamchi: R2=0.904, MAE=13.242, NSE=0.892, KGE=0.834        
-Métricas en todo el conjunto de datos (modo prediccion) para mapocho-almendros: R2=0.957, MAE=21.176, NSE=0.956, KGE=0.948
-Métricas en todo el conjunto de datos (modo prediccion) para nenskra-enguri: R2=0.986, MAE=19.675, NSE=0.984, KGE=0.949
-Métricas en todo el conjunto de datos (modo prediccion) para uncompahgre-ridgway: R2=0.969, MAE=33.148, NSE=0.962, KGE=0.899 
+
 
 NARX_MODELS3
 n_lags_area = 3
 n_layers = 2
 n_neuronas = 10
 epochs = 50
-Métricas en todo el conjunto de datos (modo prediccion) para adda-bornio: R2=0.980, MAE=20.908, NSE=0.972, KGE=0.900
-Métricas en todo el conjunto de datos (modo prediccion) para genil-dilar: R2=0.905, MAE=11.562, NSE=0.886, KGE=0.806
-Métricas en todo el conjunto de datos (modo prediccion) para indrawati-melamchi: R2=0.886, MAE=15.502, NSE=0.865, KGE=0.791        
-Métricas en todo el conjunto de datos (modo prediccion) para mapocho-almendros: R2=0.959, MAE=20.509, NSE=0.959, KGE=0.952
-Métricas en todo el conjunto de datos (modo prediccion) para nenskra-enguri: R2=0.986, MAE=20.466, NSE=0.983, KGE=0.943
-Métricas en todo el conjunto de datos (modo prediccion) para uncompahgre-ridgway: R2=0.969, MAE=36.939, NSE=0.952, KGE=0.855
 
 
-NARX_MODELS4
+NARX_MODELS4 
 n_lags_area = 3
 n_layers = 1
 n_neuronas = 10
 epochs = 30
-Métricas en todo el conjunto de datos (modo prediccion) para adda-bornio: R2=0.975, MAE=17.537, NSE=0.972, KGE=0.948
-Métricas en todo el conjunto de datos (modo prediccion) para genil-dilar: R2=0.883, MAE=11.271, NSE=0.879, KGE=0.859
-Métricas en todo el conjunto de datos (modo prediccion) para indrawati-melamchi: R2=0.897, MAE=14.110, NSE=0.879, KGE=0.807        
-Métricas en todo el conjunto de datos (modo prediccion) para mapocho-almendros: R2=0.955, MAE=27.237, NSE=0.943, KGE=0.867
-Métricas en todo el conjunto de datos (modo prediccion) para nenskra-enguri: R2=0.985, MAE=23.549, NSE=0.979, KGE=0.920
-Métricas en todo el conjunto de datos (modo prediccion) para uncompahgre-ridgway: R2=0.965, MAE=27.839, NSE=0.964, KGE=0.953
+
+NARX_MODELS5
+n_lags_area = 4
+n_layers = 3
+n_neuronas = 20
+epochs = 40

@@ -11,6 +11,8 @@ import os
 import seaborn as sns
 from scipy.stats import pearsonr
 import matplotlib.pyplot as plt
+import json
+from keras.callbacks import EarlyStopping
 #%% FUNCIONES
 def nash_sutcliffe_efficiency(y_true, y_pred):
     numerator = np.sum((y_true - y_pred)**2)
@@ -96,7 +98,7 @@ def create_narx_model(n_lags, n_layers, n_units_lstm, n_features):
     model.add(Dense(1))
     
     # Optimizador con recorte de gradientes
-    optimizer = tf.keras.optimizers.Adam(learning_rate=0.001, clipnorm=1.0) # clipnorm para el recorte
+    optimizer = tf.keras.optimizers.Adam(learning_rate=0.0005, clipnorm=5.0) # clipnorm para el recorte
     model.compile(optimizer=optimizer, loss='mse')
 
     return model
@@ -108,13 +110,25 @@ def create_train_models(sequences_data, n_lags_area, layers, units, epochs, exog
     if not os.path.exists(models_dir):
         os.makedirs(models_dir)
 
+    # Configurar EarlyStopping
+    # monitor='val_loss': La métrica a monitorear para la mejora (pérdida en el conjunto de validación interno del fit)
+    # patience=20: Número de épocas sin mejora después de las cuales el entrenamiento se detendrá
+    # restore_best_weights=True: Restaura los pesos del modelo a los de la época con el mejor 'val_loss'
+    early_stopping_callback = EarlyStopping(
+        monitor='val_loss',
+        patience=20,  # Puedes ajustar este valor. 20 es un buen punto de partida.
+        restore_best_weights=True,
+        verbose=1     # Muestra mensajes cuando el entrenamiento se detiene temprano
+    )
+
     for cuenca in cuencas:
-        model = create_narx_model(n_lags_area, layers, units, n_features)
+        model = create_narx_model(n_lags_area = n_lags_area, n_layers=layers, n_units_lstm=units, n_features=n_features)
         X_train = sequences_data[cuenca]['X_train']
         y_train = sequences_data[cuenca]['y_train']
-        model_history = model.fit(X_train, y_train, epochs=epochs, verbose=0, validation_split=0.1)
+        model_history = model.fit(X_train, y_train, epochs=epochs, verbose=0, validation_split=0.1, callbacks=[early_stopping_callback])
         models[cuenca] = model
         history[cuenca] = model_history
+        
         model_path = os.path.join(models_dir, f'narx_model_{cuenca}.h5')
         if save:
             if not os.path.exists(models_dir):
@@ -157,6 +171,7 @@ def evaluate_validation(model, df_val_scaled, scaler_area, exog_cols, n_lags_are
     y_val_true = df_val_scaled['area_nieve'].values[n_lags_area:].reshape(-1, 1)
     y_val_pred_scaled = []
 
+    # Cojo las 3 primeras filas del dataframe real para empezar
     first_sequence = df_val_scaled[['area_nieve_scaled'] + [col + '_scaled' for col in exog_cols]].iloc[:n_lags_area].values.reshape(1, n_lags_area, -1)
     last_sequence = first_sequence.copy()
 
@@ -181,7 +196,7 @@ def evaluate_validation(model, df_val_scaled, scaler_area, exog_cols, n_lags_are
 
     return {'R2': r2_val, 'MAE': mae_val, 'NSE': nse_val, 'KGE': kge_val}, y_val_pred_original, y_val_true
 
-def evaluate_full_dataset(models, scaled_data, scalers, cuencas, n_lags_area, exog_cols_scaled, graph=None):
+def evaluate_full_dataset(models, scaled_data, scalers, cuencas, n_lags_area, exog_cols_scaled, graph=None, model_dir='./'):
     full_metrics = {}
 
     for cuenca in cuencas:
@@ -257,7 +272,7 @@ def evaluate_full_dataset(models, scaled_data, scalers, cuencas, n_lags_area, ex
             plt.ylabel("Snow area Km2")
             plt.legend()
             plt.grid(True)
-            output_path = f'img/models_predictions/narx_model2/{graph}'
+            output_path = os.path.join(model_dir, graph)
             if not os.path.exists(output_path):
                 os.makedirs(output_path)
             plt.savefig(os.path.join(output_path, cuenca))
@@ -267,21 +282,21 @@ def evaluate_full_dataset(models, scaled_data, scalers, cuencas, n_lags_area, ex
 
 
 #%% --- Main execution ---
-
 df = pd.read_csv('df_all.csv', index_col=0)
 df
 #%% PARÁMETROS DEL MODELO
-n_lags_area = 3
-n_layers = 1
-n_neuronas = 10
-epochs = 30
+name = 'narx_models5'
+n_lags_area = 4
+n_layers = 3
+n_neuronas = 20
+epochs = 40
 exog_cols = ['dia_sen','temperatura','precipitacion','precipitacion_bool', 'dias_sin_precip']
 
+model_dir = os.path.join("D:", "models")
 scaled_data, scalers, cuencas = preprocess_data(df, exog_cols)
-exog_cols_scaled = [col for col in scaled_data['adda-bornio']['df'].columns if col.endswith('_scaled')]
-# exog_cols_scaled = ['temperatura_scaled', 'precipitacion_scaled', 'dias_sin_precip_scaled', 'dia_sen_scaled', 'year_scaled', 'month_scaled']
+exog_cols_scaled = [col + '_scaled' for col in exog_cols]
 
-#%% Crear las secuencias
+#%% Crear la secuencias
 sequences_data = {}
 for cuenca, data_indices in scaled_data.items():
     train_data = data_indices['df'].iloc[data_indices['train_idx']]
@@ -297,32 +312,35 @@ for cuenca, data_indices in scaled_data.items():
         'y_test': create_sequences(test_data, n_lags_area, exog_cols_scaled)[1],
     }
 
-model_dir = os.path.join("D:", "models")
-# Entrenar y guardar los modelos
-models = create_train_models(sequences_data, n_lags_area, n_layers, n_neuronas, epochs, exog_cols_scaled, cuencas, True, models_dir=os.path.join(model_dir, 'narx_models4/'))
 
+#%% Entrenar y guardar los modelos
+models = create_train_models(sequences_data, n_lags_area, n_layers, n_neuronas, epochs, exog_cols_scaled, cuencas, True, models_dir=os.path.join(model_dir, name))
 # O cargar los modelos si ya están entrenados
-# models = load_models(cuencas, os.path.join(model_dir,'narx_models3'))
+# models = load_models(cuencas, os.path.join(model_dir, name))
 
-# Evaluar los modelos
-# train_metrics = {}
-# test_metrics = {}
-# validation_metrics = {}
-
-# for cuenca, model in models.items():
-#     scaler_area = scalers[cuenca]['area']
-
-#     train_sequences = {'X': sequences_data[cuenca]['X_train'], 'y': sequences_data[cuenca]['y_train']}
-#     train_metrics[cuenca], _, _ = evaluate_model(model, train_sequences, scaler_area)
-#     print(f"Métricas conjunto de 'train' para {cuenca}: {train_metrics[cuenca]}")
-
-#     test_sequences = {'X': sequences_data[cuenca]['X_test'], 'y': sequences_data[cuenca]['y_test']}
-#     test_metrics[cuenca], _, _ = evaluate_model(model, test_sequences, scaler_area)
-#     print(f"Métricas conjunto de 'test' para {cuenca}: {test_metrics[cuenca]}")
-
-#     df_val_scaled = scaled_data[cuenca]['df'].iloc[scaled_data[cuenca]['val_idx']].copy()
-#     validation_metrics[cuenca], _, _ = evaluate_validation(model, df_val_scaled, scaler_area, [col.replace('_scaled', '') for col in exog_cols_scaled], n_lags_area)
-#     print(f"Métricas conjunto de 'validation' (modo prediccion) para {cuenca}: {validation_metrics[cuenca]}")
+#%% Evaluar los modelos
+metrics = {}
+archivo_json = os.path.join(model_dir, name, 'metrics.json')
 
 # Evaluar en todo el conjunto de datos
-evaluate_full_dataset(models, scaled_data, scalers, cuencas, n_lags_area, exog_cols_scaled, 'per_day')
+results = evaluate_full_dataset(models, scaled_data, scalers, cuencas, n_lags_area, exog_cols_scaled, 'per_day', os.path.join(model_dir,name))
+
+for cuenca, model in models.items():
+    scaler_area = scalers[cuenca]['area']
+
+    train_sequences = {'X': sequences_data[cuenca]['X_train'], 'y': sequences_data[cuenca]['y_train']}
+    metrics[cuenca + ' (train)'], _, _ = evaluate_model(model, train_sequences, scaler_area)
+    print(f"Métricas conjunto de 'train' para {cuenca}: {metrics[cuenca + ' (train)']}")
+
+    test_sequences = {'X': sequences_data[cuenca]['X_test'], 'y': sequences_data[cuenca]['y_test']}
+    metrics[cuenca + ' (test)'], _, _ = evaluate_model(model, test_sequences, scaler_area)
+    print(f"Métricas conjunto de 'test' para {cuenca}: {metrics[cuenca + ' (test)']}")
+
+    df_val_scaled = scaled_data[cuenca]['df'].iloc[scaled_data[cuenca]['val_idx']].copy()
+    metrics[cuenca + ' (val)'], _, _ = evaluate_validation(model, df_val_scaled, scaler_area, exog_cols, n_lags_area)
+    print(f"Métricas conjunto de 'validation' (modo prediccion) para {cuenca}: {metrics[cuenca + ' (val)']}")
+
+    metrics[cuenca + ' (full dataset)'] = results[cuenca]
+
+    with open(archivo_json, 'w', encoding='utf-8') as f:
+        json.dump(metrics, f, indent=4)
