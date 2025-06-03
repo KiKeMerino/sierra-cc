@@ -13,6 +13,7 @@ from scipy.stats import pearsonr
 import matplotlib.pyplot as plt
 import json
 from keras.callbacks import EarlyStopping
+
 #%% FUNCIONES
 def nash_sutcliffe_efficiency(y_true, y_pred):
     numerator = np.sum((y_true - y_pred)**2)
@@ -118,11 +119,11 @@ def create_train_models(sequences_data, n_lags_area, layers, units, epochs, exog
         monitor='val_loss',
         patience=20,  # Puedes ajustar este valor. 20 es un buen punto de partida.
         restore_best_weights=True,
-        verbose=1     # Muestra mensajes cuando el entrenamiento se detiene temprano
+        verbose=0  # Muestra mensajes cuando el entrenamiento se detiene temprano
     )
 
     for cuenca in cuencas:
-        model = create_narx_model(n_lags_area = n_lags_area, n_layers=layers, n_units_lstm=units, n_features=n_features)
+        model = create_narx_model(n_lags=n_lags_area, n_layers=layers, n_units_lstm=units, n_features=n_features)
         X_train = sequences_data[cuenca]['X_train']
         y_train = sequences_data[cuenca]['y_train']
         model_history = model.fit(X_train, y_train, epochs=epochs, verbose=0, validation_split=0.1, callbacks=[early_stopping_callback])
@@ -134,9 +135,9 @@ def create_train_models(sequences_data, n_lags_area, layers, units, epochs, exog
             if not os.path.exists(models_dir):
                 os.makedirs(models_dir)
             model.save(model_path)
-            print(f"Modelo entrenado y guardado para la cuenca: {cuenca} en {model_path}")
-        else:
-            print(f'Modelo entrenado para la cuenca {cuenca}')
+            # print(f"Modelo entrenado y guardado para la cuenca: {cuenca} en {model_path}")
+        # else:
+            # print(f'Modelo entrenado para la cuenca {cuenca}')
     return models
 
 def load_models(cuencas, models_dir='models'):
@@ -145,7 +146,7 @@ def load_models(cuencas, models_dir='models'):
         model_path = os.path.join(models_dir, f'narx_model_{cuenca}.h5')
         if os.path.exists(model_path):
             loaded_models[cuenca] = keras.models.load_model(model_path)
-            print(f"Modelo cargado para la cuenca: {cuenca} desde {model_path}")
+            # print(f"Modelo cargado para la cuenca: {cuenca} desde {model_path}")
         else:
             print(f"No se encontró el modelo para la cuenca: {cuenca} en {model_path}")
     return loaded_models
@@ -156,7 +157,6 @@ def evaluate_model(model, sequences, scaler_area):
     y_pred_scaled = model.predict(X, verbose=0)
     y_pred_original = scaler_area.inverse_transform(y_pred_scaled)
     y_true_original = scaler_area.inverse_transform(y_true)
-
 
     r2 = pearsonr(y_true_original.flatten(), y_pred_original.flatten())
     r2 = r2.statistic**2
@@ -186,7 +186,19 @@ def evaluate_validation(model, df_val_scaled, scaler_area, exog_cols, n_lags_are
         updated_exog_sequence = np.concatenate([last_sequence[:, 1:, 1:], next_exog_scaled], axis=1)
         last_sequence = np.concatenate([updated_area_sequence, updated_exog_sequence], axis=2)
 
-    y_val_pred_original = scaler_area.inverse_transform(np.array(y_val_pred_scaled).reshape(-1, 1))
+    try:
+        y_val_pred_original = scaler_area.inverse_transform(np.array(y_val_pred_scaled).reshape(-1, 1))
+    except ValueError as e:
+        # Si hay un error de ValueError, retornamos métricas NaN para indicar el fallo
+        print(f"ERROR: {e} - Probablemente valores NaN/inf en las predicciones. Retornando NaN para las métricas.")
+        return {'R2': np.nan, 'MAE': np.nan, 'NSE': -np.inf, 'KGE': np.nan}, None, None # Usar -np.inf para NSE lo descarta en la búsqueda
+
+    # También es una buena práctica verificar si las predicciones resultantes (después de inverse_transform)
+    # aún contienen NaN o inf, lo que podría indicar un problema posterior o que el try-except no atrapó todo.
+    if np.isnan(y_val_pred_original).any() or np.isinf(y_val_pred_original).any():
+        print("ADVERTENCIA: Las predicciones originales (después de inverse_transform) contienen NaN/inf. Retornando NaN para las métricas.")
+        return {'R2': np.nan, 'MAE': np.nan, 'NSE': -np.inf, 'KGE': np.nan}, None, None
+
 
     r2_val = pearsonr(y_val_true.flatten(), y_val_pred_original.flatten())
     r2_val = r2_val.statistic**2
@@ -245,7 +257,7 @@ def evaluate_full_dataset(models, scaled_data, scalers, cuencas, n_lags_area, ex
         kge_full = kling_gupta_efficiency(y_full_true_original, y_full_pred_original)
 
         full_metrics[cuenca] = {'R2': r2_full, 'MAE': mae_full, 'NSE': nse_full, 'KGE': kge_full}
-        print(f"Métricas en todo el conjunto de datos (modo prediccion) para {cuenca}: R2={r2_full:.3f}, MAE={mae_full:.3f}, NSE={nse_full:.3f}, KGE={kge_full:.3f}")
+        # print(f"Métricas en todo el conjunto de datos (modo prediccion) para {cuenca}: R2={r2_full:.3f}, MAE={mae_full:.3f}, NSE={nse_full:.3f}, KGE={kge_full:.3f}")
 
         if graph != None:
             real_plot = df_full_scaled_cuenca.iloc[n_lags_area:][['fecha','area_nieve']]
@@ -257,11 +269,9 @@ def evaluate_full_dataset(models, scaled_data, scalers, cuencas, n_lags_area, ex
                 plt.xlabel("Day")
                 plt.xlim(right=366)
             elif graph == 'per_month':
-                df_plot.fecha = df_plot.fecha.dt.day_of_year
+                df_plot.fecha = df_plot.fecha.dt.month # Cambiado a mes
                 plt.xlabel("Month")
                 plt.xlim(right=12)
-            elif graph == 'all_days':
-                pass
             df_plot_grouped = df_plot.groupby('fecha').agg(
                 area_nieve_real = ('area_nieve', 'mean'),
                 area_nieve_pred=('area_nieve_pred', 'mean')
@@ -282,74 +292,150 @@ def evaluate_full_dataset(models, scaled_data, scalers, cuencas, n_lags_area, ex
     
     return full_metrics
 
+## Bucle de Optimización de Hiperparámetros
 
 #%% --- Main execution ---
 df = pd.read_csv('df_all.csv', index_col=0)
-df
-# PARÁMETROS DEL MODELO
-name = 'narx_models4'
-n_lags_area = 3
-n_layers = 1
-n_neuronas = 10
-epochs = 30
-exog_cols = ['dia_sen','temperatura','precipitacion','precipitacion_bool', 'dias_sin_precip']
 
-model_dir = os.path.join("D:", "models")
-scaled_data, scalers, cuencas = preprocess_data(df, exog_cols)
-exog_cols_scaled = [col + '_scaled' for col in exog_cols]
+# Definir las combinaciones de parámetros a probar
+# Puedes ajustar estos rangos y valores según tus necesidades.
+param_combinations = []
 
-# Crear la secuencias
-sequences_data = {}
-for cuenca, data_indices in scaled_data.items():
-    train_data = data_indices['df'].iloc[data_indices['train_idx']]
-    val_data = data_indices['df'].iloc[data_indices['val_idx']]
-    test_data = data_indices['df'].iloc[data_indices['test_idx']]
+# Prueba con diferentes lags de área
+for n_lags_area in [3, 5, 7]: 
+    # Prueba con diferentes números de capas LSTM
+    for n_layers in [1, 2]: 
+        # Prueba con diferentes unidades LSTM
+        for n_neuronas in [30, 50, 70]: 
+            # Prueba con diferentes conjuntos de características exógenas
+            exog_options = [
+                ['dia_sen', 'temperatura', 'precipitacion'],
+                ['dia_sen', 'temperatura', 'precipitacion', 'dias_sin_precip'],
+                ['dia_sen', 'temperatura', 'precipitacion', 'precipitacion_bool', 'dias_sin_precip']
+            ]
+            for exog_cols in exog_options:
+                param_combinations.append({
+                    'n_lags_area': n_lags_area,
+                    'n_layers': n_layers,
+                    'n_neuronas': n_neuronas,
+                    'exog_cols': exog_cols
+                })
 
-    sequences_data[cuenca] = {
-        'X_train': create_sequences(train_data, n_lags_area, exog_cols_scaled)[0],
-        'y_train': create_sequences(train_data, n_lags_area, exog_cols_scaled)[1],
-        'X_val': create_sequences(val_data, n_lags_area, exog_cols_scaled)[0],
-        'y_val': create_sequences(val_data, n_lags_area, exog_cols_scaled)[1],
-        'X_test': create_sequences(test_data, n_lags_area, exog_cols_scaled)[0],
-        'y_test': create_sequences(test_data, n_lags_area, exog_cols_scaled)[1],
+epochs = 30 # Las épocas se mantienen fijas para esta búsqueda
+base_model_dir = os.path.join("D:", "models")
+
+# Diccionario para almacenar los mejores modelos y métricas por cuenca
+best_models_per_cuenca = {cuenca: {'metrics': {'NSE': -np.inf}, 'params': None, 'path': None} for cuenca in df['cuenca'].unique()}
+
+
+for i, params in enumerate(param_combinations):
+    n_lags_area = params['n_lags_area']
+    n_layers = params['n_layers']
+    n_neuronas = params['n_neuronas']
+    exog_cols = params['exog_cols']
+
+    # Generar un nombre único para esta combinación de parámetros
+    param_name = f"lags_{n_lags_area}_layers_{n_layers}_units_{n_neuronas}_exog_{'_'.join(exog_cols)}"
+    current_model_dir = os.path.join(base_model_dir, param_name)
+    
+    print(f"\n--- Probando combinación {i+1}/{len(param_combinations)}: {param_name} ---")
+
+    scaled_data, scalers, cuencas = preprocess_data(df, exog_cols)
+    exog_cols_scaled = [col + '_scaled' for col in exog_cols]
+
+    # Crear las secuencias
+    sequences_data = {}
+    for cuenca, data_indices in scaled_data.items():
+        train_data = data_indices['df'].iloc[data_indices['train_idx']]
+        val_data = data_indices['df'].iloc[data_indices['val_idx']]
+        test_data = data_indices['df'].iloc[data_indices['test_idx']]
+
+        sequences_data[cuenca] = {
+            'X_train': create_sequences(train_data, n_lags_area, exog_cols_scaled)[0],
+            'y_train': create_sequences(train_data, n_lags_area, exog_cols_scaled)[1],
+            'X_val': create_sequences(val_data, n_lags_area, exog_cols_scaled)[0],
+            'y_val': create_sequences(val_data, n_lags_area, exog_cols_scaled)[1],
+            'X_test': create_sequences(test_data, n_lags_area, exog_cols_scaled)[0],
+            'y_test': create_sequences(test_data, n_lags_area, exog_cols_scaled)[1],
+        }
+
+    # Entrenar y guardar los modelos para esta combinación
+    # Siempre guardamos los modelos para poder recuperarlos después si son los mejores
+    models = create_train_models(sequences_data, n_lags_area, n_layers, n_neuronas, epochs, exog_cols_scaled, cuencas, True, models_dir=current_model_dir)
+
+    # Evaluar los modelos en el conjunto de validación y actualizar los mejores por cuenca
+    current_metrics = {}
+    for cuenca, model in models.items():
+        scaler_area = scalers[cuenca]['area']
+
+        # Evaluar en el conjunto de validación (modo predicción autorregresiva)
+        df_val_scaled = scaled_data[cuenca]['df'].iloc[scaled_data[cuenca]['val_idx']].copy()
+        val_metrics, _, _ = evaluate_validation(model, df_val_scaled, scaler_area, exog_cols, n_lags_area)
+        current_metrics[cuenca] = val_metrics
+
+        print(f"Cuenca: {cuenca} - Métricas (Val): R2={val_metrics['R2']:.3f}, MAE={val_metrics['MAE']:.3f}, NSE={val_metrics['NSE']:.3f}, KGE={val_metrics['KGE']:.3f}")
+
+        # Comparar con el mejor modelo actual para esta cuenca (usando NSE como métrica principal)
+        if val_metrics['NSE'] > best_models_per_cuenca[cuenca]['metrics']['NSE']:
+            best_models_per_cuenca[cuenca]['metrics'] = val_metrics
+            best_models_per_cuenca[cuenca]['params'] = params
+            best_models_per_cuenca[cuenca]['path'] = os.path.join(current_model_dir, f'narx_model_{cuenca}.h5')
+            print(f"  --> ¡Nueva mejor configuración para {cuenca}!")
+
+# Guardar los resultados de los mejores modelos por cuenca
+output_best_models_path = os.path.join(base_model_dir, 'best_models_summary.json')
+# Convertir objetos Path a cadenas de texto para JSON
+best_models_json_friendly = {}
+for cuenca, data in best_models_per_cuenca.items():
+    best_models_json_friendly[cuenca] = {
+        'metrics': data['metrics'],
+        'params': data['params'],
+        'path': data['path']
     }
 
+with open(output_best_models_path, 'w', encoding='utf-8') as f:
+    json.dump(best_models_json_friendly, f, indent=4)
 
+print("\n--- Resumen de los mejores modelos por cuenca ---")
+for cuenca, data in best_models_per_cuenca.items():
+    print(f"\nCuenca: {cuenca}")
+    print(f"  Mejores Parámetros: {data['params']}")
+    print(f"  Mejores Métricas (Val): {data['metrics']}")
+    print(f"  Ruta del Modelo: {data['path']}")
 
-# Entrenar y guardar los modelos
-# models = create_train_models(sequences_data, n_lags_area, n_layers, n_neuronas, epochs, exog_cols_scaled, cuencas, True, models_dir=os.path.join(model_dir, name))
-# O cargar los modelos si ya están entrenados
-models = load_models(cuencas, os.path.join(model_dir, name))
+# Opcional: Cargar los mejores modelos y generar gráficos para ellos
+print("\n--- Generando gráficos para los mejores modelos ---")
+for cuenca, data in best_models_per_cuenca.items():
+    if data['path'] and os.path.exists(data['path']):
+        print(f"Cargando y evaluando el mejor modelo para {cuenca} desde {data['path']}")
+        # Necesitamos cargar el modelo y también el scaler_area y los exog_cols correctos
+        # que se usaron para ese modelo específico.
+        # Para simplificar, asumimos que 'scaled_data' y 'scalers' ya están disponibles
+        # con la configuración de la última iteración que fue la mejor para esa cuenca.
+        # En una implementación más robusta, deberías cargar los scalers también.
+        
+        # Para la demostración, usaremos los scalers de la última combinación si no tienes una forma de persistirlos por combinación.
+        # Lo ideal sería que `preprocess_data` se ejecutara con los `exog_cols` de la combinación ganadora
+        # para asegurar que los scalers son los correctos.
 
+        # Volvemos a procesar los datos con los parámetros del mejor modelo para obtener los scalers correctos
+        params_best_cuenca = data['params']
+        scaled_data_best, scalers_best, _ = preprocess_data(df, params_best_cuenca['exog_cols'], train_size=0.7, test_size=0.2)
+        exog_cols_scaled_best = [col + '_scaled' for col in params_best_cuenca['exog_cols']]
 
-# Evaluar los modelos
-metrics = {}
-archivo_json = os.path.join(model_dir, name, 'metrics.json')
-
-# Evaluar en todo el conjunto de datos
-results = evaluate_full_dataset(models, scaled_data, scalers, cuencas, n_lags_area, exog_cols_scaled, 'per_day', os.path.join(model_dir,name))
-
-for cuenca, model in models.items():
-    scaler_area = scalers[cuenca]['area']
-
-    train_sequences = {'X': sequences_data[cuenca]['X_train'], 'y': sequences_data[cuenca]['y_train']}
-    metrics[cuenca + ' (train)'], _, _ = evaluate_model(model, train_sequences, scaler_area)
-    print(f"Métricas conjunto de 'train' para {cuenca}: {metrics[cuenca + ' (train)']}")
-
-    test_sequences = {'X': sequences_data[cuenca]['X_test'], 'y': sequences_data[cuenca]['y_test']}
-    metrics[cuenca + ' (test)'], _, _ = evaluate_model(model, test_sequences, scaler_area)
-    print(f"Métricas conjunto de 'test' para {cuenca}: {metrics[cuenca + ' (test)']}")
-
-    df_val_scaled = scaled_data[cuenca]['df'].iloc[scaled_data[cuenca]['val_idx']].copy()
-    metrics[cuenca + ' (val)'], _, _ = evaluate_validation(model, df_val_scaled, scaler_area, exog_cols, n_lags_area)
-    print(f"Métricas conjunto de 'validation' (modo prediccion) para {cuenca}: {metrics[cuenca + ' (val)']}")
-
-    metrics[cuenca + ' (full dataset)'] = results[cuenca]
-
-    with open(archivo_json, 'w', encoding='utf-8') as f:
-        json.dump(metrics, f, indent=4)
-
-
-# Automatizar experimentos con un bucle
-# Añadir gráfica dia a dia
-# Seleccionar el mejor modelo para cada cuenca
+        model_best = keras.models.load_model(data['path'])
+        
+        # Generar gráficos para el mejor modelo de cada cuenca
+        # El directorio para los gráficos estará dentro del directorio de la combinación ganadora
+        best_model_graph_dir = os.path.dirname(data['path'])
+        evaluate_full_dataset(
+            {cuenca: model_best}, # Pasamos solo el modelo de la cuenca actual
+            scaled_data_best, 
+            scalers_best, 
+            [cuenca], # Solo la cuenca actual
+            params_best_cuenca['n_lags_area'], 
+            exog_cols_scaled_best, 
+            'per_day', 
+            best_model_graph_dir
+        )
+        print(f"Gráfico generado para {cuenca} en {os.path.join(best_model_graph_dir, 'per_day', cuenca)}")
