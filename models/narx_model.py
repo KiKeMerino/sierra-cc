@@ -47,7 +47,6 @@ def preprocess_data(df, exog_features, train_size=0.7, test_size=0.2):
 
         scaler_area = StandardScaler()
         scaler_exog = StandardScaler()
-        # exog_features = ['temperatura', 'precipitacion', 'dias_sin_precip' , 'dia_sen', 'year', 'month']
 
         scaler_area.fit(df_cuenca.iloc[train_idx]['area_nieve'].values.reshape(-1, 1))
         scaler_exog.fit(df_cuenca.iloc[train_idx][exog_features])
@@ -98,7 +97,7 @@ def create_narx_model(n_lags, n_layers, n_units_lstm, n_features):
     model.add(Dense(1))
     
     # Optimizador con recorte de gradientes
-    optimizer = tf.keras.optimizers.Adam(learning_rate=0.0005, clipnorm=5.0) # clipnorm para el recorte
+    optimizer = tf.keras.optimizers.Adam(learning_rate=0.0007902151611033951, clipnorm=5.0) # clipnorm para el recorte
     model.compile(optimizer=optimizer, loss='mse')
 
     return model
@@ -122,7 +121,7 @@ def create_train_models(sequences_data, n_lags_area, layers, units, epochs, exog
     )
 
     for cuenca in cuencas:
-        model = create_narx_model(n_lags_area = n_lags_area, n_layers=layers, n_units_lstm=units, n_features=n_features)
+        model = create_narx_model(n_lags = n_lags_area, n_layers=layers, n_units_lstm=units, n_features=n_features)
         X_train = sequences_data[cuenca]['X_train']
         y_train = sequences_data[cuenca]['y_train']
         model_history = model.fit(X_train, y_train, epochs=epochs, verbose=0, validation_split=0.1, callbacks=[early_stopping_callback])
@@ -287,12 +286,12 @@ def evaluate_full_dataset(models, scaled_data, scalers, cuencas, n_lags_area, ex
 df = pd.read_csv('df_all.csv', index_col=0)
 df
 # PARÁMETROS DEL MODELO
-name = 'narx_models4'
-n_lags_area = 3
+name = 'narx_models_adda'
+n_lags_area = 5
 n_layers = 1
-n_neuronas = 10
-epochs = 30
-exog_cols = ['dia_sen','temperatura','precipitacion','precipitacion_bool', 'dias_sin_precip']
+n_neuronas = 34
+epochs = 40
+exog_cols = ['dia_sen','temperatura','precipitacion', 'dias_sin_precip']
 
 model_dir = os.path.join("D:", "models")
 scaled_data, scalers, cuencas = preprocess_data(df, exog_cols)
@@ -327,7 +326,7 @@ metrics = {}
 archivo_json = os.path.join(model_dir, name, 'metrics.json')
 
 # Evaluar en todo el conjunto de datos
-results = evaluate_full_dataset(models, scaled_data, scalers, cuencas, n_lags_area, exog_cols_scaled, 'per_day', os.path.join(model_dir,name))
+# results = evaluate_full_dataset(models, scaled_data, scalers, cuencas, n_lags_area, exog_cols_scaled, 'per_day', os.path.join(model_dir,name))
 
 for cuenca, model in models.items():
     scaler_area = scalers[cuenca]['area']
@@ -344,7 +343,7 @@ for cuenca, model in models.items():
     metrics[cuenca + ' (val)'], _, _ = evaluate_validation(model, df_val_scaled, scaler_area, exog_cols, n_lags_area)
     print(f"Métricas conjunto de 'validation' (modo prediccion) para {cuenca}: {metrics[cuenca + ' (val)']}")
 
-    metrics[cuenca + ' (full dataset)'] = results[cuenca]
+    # metrics[cuenca + ' (full dataset)'] = results[cuenca]
 
     with open(archivo_json, 'w', encoding='utf-8') as f:
         json.dump(metrics, f, indent=4)
