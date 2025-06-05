@@ -13,6 +13,7 @@ from scipy.stats import pearsonr
 import matplotlib.pyplot as plt
 import json
 from keras.callbacks import EarlyStopping
+import gc
 
 #%% FUNCIONES
 def nash_sutcliffe_efficiency(y_true, y_pred):
@@ -111,34 +112,63 @@ def create_train_models(sequences_data, n_lags_area, layers, units, epochs, exog
     if not os.path.exists(models_dir):
         os.makedirs(models_dir)
 
-    # Configurar EarlyStopping
-    # monitor='val_loss': La métrica a monitorear para la mejora (pérdida en el conjunto de validación interno del fit)
-    # patience=20: Número de épocas sin mejora después de las cuales el entrenamiento se detendrá
-    # restore_best_weights=True: Restaura los pesos del modelo a los de la época con el mejor 'val_loss'
     early_stopping_callback = EarlyStopping(
         monitor='val_loss',
-        patience=20,  # Puedes ajustar este valor. 20 es un buen punto de partida.
+        patience=20,
         restore_best_weights=True,
-        verbose=0  # Muestra mensajes cuando el entrenamiento se detiene temprano
+        verbose=0
     )
 
     for cuenca in cuencas:
-        model = create_narx_model(n_lags=n_lags_area, n_layers=layers, n_units_lstm=units, n_features=n_features)
+        model_path = os.path.join(models_dir, f'narx_model_{cuenca}.h5')
+
+        # --- Lógica para cargar modelo existente (ya la tienes) ---
+        if os.path.exists(model_path):
+            try:
+                # Es crucial liberar el modelo antes de cargar otro si la memoria es crítica
+                if cuenca in models: # Si un modelo anterior de esta cuenca estaba en el diccionario
+                    del models[cuenca]
+                    tf.keras.backend.clear_session()
+                    gc.collect()
+                
+                print(f"Cargando modelo existente para la cuenca: {cuenca} desde {model_path}")
+                model = keras.models.load_model(model_path)
+                models[cuenca] = model
+                history[cuenca] = None 
+                continue 
+            except Exception as e:
+                print(f"Error al cargar el modelo {model_path}: {e}. Re-entrenando.")
+                # Si falla al cargar, procedemos a entrenar
+
+        # Si el modelo no existe o hubo un error al cargar, entrenar
+        model = create_narx_model(n_lags = n_lags_area, n_layers=layers, n_units_lstm=units, n_features=n_features)
         X_train = sequences_data[cuenca]['X_train']
         y_train = sequences_data[cuenca]['y_train']
+        
+        if X_train.shape[0] == 0:
+            print(f"Advertencia: No hay suficientes datos para crear secuencias de entrenamiento para la cuenca {cuenca}. Saltando entrenamiento.")
+            # Es importante asegurarse de que el modelo no se añade a 'models' si no se entrena
+            if cuenca in models: del models[cuenca] # Limpiar si existe por algún error anterior
+            continue 
+
+        print(f"Entrenando modelo para la cuenca: {cuenca}...")
         model_history = model.fit(X_train, y_train, epochs=epochs, verbose=0, validation_split=0.1, callbacks=[early_stopping_callback])
         models[cuenca] = model
         history[cuenca] = model_history
 
-        model_path = os.path.join(models_dir, f'narx_model_{cuenca}.h5')
         if save:
-            if not os.path.exists(models_dir):
-                os.makedirs(models_dir)
             model.save(model_path)
             # print(f"Modelo entrenado y guardado para la cuenca: {cuenca} en {model_path}")
-        # else:
-            # print(f'Modelo entrenado para la cuenca {cuenca}')
+        
+        # --- Liberar memoria después de cada entrenamiento/carga de modelo de cuenca ---
+        del model # Elimina la referencia al objeto del modelo
+        tf.keras.backend.clear_session() # Limpia el grafo de Keras
+        gc.collect() # Fuerza la recolección de basura
+        # Puedes añadir este print para ver la liberación
+        # print(f"Memoria liberada después de procesar cuenca {cuenca}")
+
     return models
+
 
 def load_models(cuencas, models_dir='models'):
     loaded_models = {}
@@ -306,7 +336,7 @@ for n_lags_area in [3, 5, 7]:
     # Prueba con diferentes números de capas LSTM
     for n_layers in [1, 2]: 
         # Prueba con diferentes unidades LSTM
-        for n_neuronas in [30, 50, 70]: 
+        for n_neuronas in [5, 10, 15, 30]: 
             # Prueba con diferentes conjuntos de características exógenas
             exog_options = [
                 ['dia_sen', 'temperatura', 'precipitacion'],
@@ -322,11 +352,36 @@ for n_lags_area in [3, 5, 7]:
                 })
 
 epochs = 30 # Las épocas se mantienen fijas para esta búsqueda
-base_model_dir = os.path.join("D:", "models")
+base_model_dir = os.path.join("E:", "models")
 
 # Diccionario para almacenar los mejores modelos y métricas por cuenca
 best_models_per_cuenca = {cuenca: {'metrics': {'NSE': -np.inf}, 'params': None, 'path': None} for cuenca in df['cuenca'].unique()}
 
+processed_combinations_file = os.path.join(base_model_dir, 'processed_combinations_log.json')
+if os.path.exists(processed_combinations_file):
+    with open(processed_combinations_file, 'r', encoding='utf-8') as f:
+        processed_combinations_log = json.load(f)
+    print(f"Cargado el progreso anterior desde {processed_combinations_file}")
+else:
+    processed_combinations_log = {}
+
+# Si tienes un archivo best_models_summary.json previo, cárgalo también
+output_best_models_path = os.path.join(base_model_dir, 'best_models_summary.json')
+if os.path.exists(output_best_models_path):
+    with open(output_best_models_path, 'r', encoding='utf-8') as f:
+        loaded_best_models = json.load(f)
+        # Reconstruir best_models_per_cuenca desde lo cargado
+        for cuenca, data in loaded_best_models.items():
+            # Asegúrate de que 'metrics' tenga 'NSE' y que 'path' sea una cadena si lo era antes
+            if 'NSE' in data['metrics'] and data['metrics']['NSE'] is not None: # Verifica que NSE no sea null
+                best_models_per_cuenca[cuenca] = {
+                    'metrics': data['metrics'],
+                    'params': data['params'],
+                    'path': data['path']
+                }
+            else: # Si NSE es null o no existe, inicializa con -inf
+                best_models_per_cuenca[cuenca] = {'metrics': {'NSE': -np.inf}, 'params': None, 'path': None}
+    print(f"Cargado el resumen de mejores modelos anterior desde {output_best_models_path}")
 
 for i, params in enumerate(param_combinations):
     n_lags_area = params['n_lags_area']
@@ -334,23 +389,38 @@ for i, params in enumerate(param_combinations):
     n_neuronas = params['n_neuronas']
     exog_cols = params['exog_cols']
 
-    # Generar un nombre único para esta combinación de parámetros
     param_name = f"lags_{n_lags_area}_layers_{n_layers}_units_{n_neuronas}_exog_{'_'.join(exog_cols)}"
     current_model_dir = os.path.join(base_model_dir, param_name)
-    
+
+    # --- Saltar si ya se procesó ---
+    if param_name in processed_combinations_log:
+        print(f"--- Saltando combinación {i+1}/{len(param_combinations)} ({param_name}): Ya procesada ---")
+        continue # Pasa a la siguiente combinación
+
     print(f"\n--- Probando combinación {i+1}/{len(param_combinations)}: {param_name} ---")
 
     scaled_data, scalers, cuencas = preprocess_data(df, exog_cols)
     exog_cols_scaled = [col + '_scaled' for col in exog_cols]
 
-    # Crear las secuencias
     sequences_data = {}
-    for cuenca, data_indices in scaled_data.items():
-        train_data = data_indices['df'].iloc[data_indices['train_idx']]
-        val_data = data_indices['df'].iloc[data_indices['val_idx']]
-        test_data = data_indices['df'].iloc[data_indices['test_idx']]
+    for cuenca_name in cuencas: # Usar cuenca_name para evitar conflicto con la variable global 'cuencas'
+        train_data = scaled_data[cuenca_name]['df'].iloc[scaled_data[cuenca_name]['train_idx']]
+        val_data = scaled_data[cuenca_name]['df'].iloc[scaled_data[cuenca_name]['val_idx']]
+        test_data = scaled_data[cuenca_name]['df'].iloc[scaled_data[cuenca_name]['test_idx']]
 
-        sequences_data[cuenca] = {
+        # Asegurarse de que hay suficientes datos para crear secuencias antes de intentar
+        if len(train_data) <= n_lags_area or len(val_data) <= n_lags_area or len(test_data) <= n_lags_area:
+            print(f"Advertencia: No hay suficientes datos para crear secuencias con n_lags_area={n_lags_area} para la cuenca {cuenca_name}. Saltando esta cuenca para esta combinación.")
+            # Si no hay suficientes datos para una cuenca, registramos métricas inválidas para ella
+            # y pasamos a la siguiente cuenca o combinación si todas fallan.
+            sequences_data[cuenca_name] = { # Todavía necesitamos la entrada para la cuenca en sequences_data
+                'X_train': np.array([]), 'y_train': np.array([]),
+                'X_val': np.array([]), 'y_val': np.array([]),
+                'X_test': np.array([]), 'y_test': np.array([])
+            }
+            continue # Pasa a la siguiente cuenca en este bucle interno
+
+        sequences_data[cuenca_name] = {
             'X_train': create_sequences(train_data, n_lags_area, exog_cols_scaled)[0],
             'y_train': create_sequences(train_data, n_lags_area, exog_cols_scaled)[1],
             'X_val': create_sequences(val_data, n_lags_area, exog_cols_scaled)[0],
@@ -360,41 +430,62 @@ for i, params in enumerate(param_combinations):
         }
 
     # Entrenar y guardar los modelos para esta combinación
-    # Siempre guardamos los modelos para poder recuperarlos después si son los mejores
     models = create_train_models(sequences_data, n_lags_area, n_layers, n_neuronas, epochs, exog_cols_scaled, cuencas, True, models_dir=current_model_dir)
 
     # Evaluar los modelos en el conjunto de validación y actualizar los mejores por cuenca
     current_metrics = {}
-    for cuenca, model in models.items():
-        scaler_area = scalers[cuenca]['area']
+    for cuenca_name in cuencas: # Usar cuenca_name para evitar conflicto
+        # Si no hay modelo para la cuenca (ej. no se pudo entrenar por falta de datos)
+        if cuenca_name not in models:
+            current_metrics[cuenca_name] = {'R2': np.nan, 'MAE': np.nan, 'NSE': -np.inf, 'KGE': np.nan}
+            print(f"Cuenca: {cuenca_name} - Modelo no disponible para esta combinación. Saltando evaluación.")
+            continue
+
+        model = models[cuenca_name]
+        scaler_area = scalers[cuenca_name]['area']
 
         # Evaluar en el conjunto de validación (modo predicción autorregresiva)
-        df_val_scaled = scaled_data[cuenca]['df'].iloc[scaled_data[cuenca]['val_idx']].copy()
+        df_val_scaled = scaled_data[cuenca_name]['df'].iloc[scaled_data[cuenca_name]['val_idx']].copy()
         val_metrics, _, _ = evaluate_validation(model, df_val_scaled, scaler_area, exog_cols, n_lags_area)
-        current_metrics[cuenca] = val_metrics
+        current_metrics[cuenca_name] = val_metrics
 
-        print(f"Cuenca: {cuenca} - Métricas (Val): R2={val_metrics['R2']:.3f}, MAE={val_metrics['MAE']:.3f}, NSE={val_metrics['NSE']:.3f}, KGE={val_metrics['KGE']:.3f}")
+        # Verificar si las métricas son válidas antes de comparar
+        if np.isnan(val_metrics['NSE']): # Si NSE es NaN, el modelo fue inestable
+            print(f"Cuenca: {cuenca_name} - Modelo inestable (NaN/inf predicciones). Saltando evaluación.")
+            continue # Salta esta cuenca para esta combinación, no la considerará como la mejor
+
+        print(f"Cuenca: {cuenca_name} - Métricas (Val): R2={val_metrics['R2']:.3f}, MAE={val_metrics['MAE']:.3f}, NSE={val_metrics['NSE']:.3f}, KGE={val_metrics['KGE']:.3f}")
 
         # Comparar con el mejor modelo actual para esta cuenca (usando NSE como métrica principal)
-        if val_metrics['NSE'] > best_models_per_cuenca[cuenca]['metrics']['NSE']:
-            best_models_per_cuenca[cuenca]['metrics'] = val_metrics
-            best_models_per_cuenca[cuenca]['params'] = params
-            best_models_per_cuenca[cuenca]['path'] = os.path.join(current_model_dir, f'narx_model_{cuenca}.h5')
-            print(f"  --> ¡Nueva mejor configuración para {cuenca}!")
+        if val_metrics['NSE'] > best_models_per_cuenca[cuenca_name]['metrics']['NSE']:
+            best_models_per_cuenca[cuenca_name]['metrics'] = val_metrics
+            best_models_per_cuenca[cuenca_name]['params'] = params
+            best_models_per_cuenca[cuenca_name]['path'] = os.path.join(current_model_dir, f'narx_model_{cuenca_name}.h5')
+            print(f"  --> ¡Nueva mejor configuración para {cuenca_name}!")
 
-# Guardar los resultados de los mejores modelos por cuenca
-output_best_models_path = os.path.join(base_model_dir, 'best_models_summary.json')
-# Convertir objetos Path a cadenas de texto para JSON
-best_models_json_friendly = {}
-for cuenca, data in best_models_per_cuenca.items():
-    best_models_json_friendly[cuenca] = {
-        'metrics': data['metrics'],
-        'params': data['params'],
-        'path': data['path']
-    }
+    # --- Liberar memoria después de CADA COMBINACIÓN de parámetros ---
+    tf.keras.backend.clear_session()
+    gc.collect()
+    print(f"Memoria liberada después de procesar la combinación: {param_name}")
 
-with open(output_best_models_path, 'w', encoding='utf-8') as f:
-    json.dump(best_models_json_friendly, f, indent=4)
+    # Guardar las métricas de esta combinación para todas las cuencas
+    # Esto indica que esta combinación ha sido evaluada (incluso si falló en alguna cuenca)
+    processed_combinations_log[param_name] = current_metrics
+    with open(processed_combinations_file, 'w', encoding='utf-8') as f:
+        json.dump(processed_combinations_log, f, indent=4)
+
+    # Guardar el resumen de los mejores modelos en cada iteración por si vuelve a fallar
+    best_models_json_friendly = {}
+    for c, data in best_models_per_cuenca.items():
+        best_models_json_friendly[c] = {
+            'metrics': data['metrics'],
+            'params': data['params'],
+            'path': data['path']
+        }
+
+    with open(output_best_models_path, 'w', encoding='utf-8') as f:
+        json.dump(best_models_json_friendly, f, indent=4)
+
 
 print("\n--- Resumen de los mejores modelos por cuenca ---")
 for cuenca, data in best_models_per_cuenca.items():
@@ -405,37 +496,36 @@ for cuenca, data in best_models_per_cuenca.items():
 
 # Opcional: Cargar los mejores modelos y generar gráficos para ellos
 print("\n--- Generando gráficos para los mejores modelos ---")
-for cuenca, data in best_models_per_cuenca.items():
+for cuenca_name, data in best_models_per_cuenca.items():
     if data['path'] and os.path.exists(data['path']):
-        print(f"Cargando y evaluando el mejor modelo para {cuenca} desde {data['path']}")
-        # Necesitamos cargar el modelo y también el scaler_area y los exog_cols correctos
-        # que se usaron para ese modelo específico.
-        # Para simplificar, asumimos que 'scaled_data' y 'scalers' ya están disponibles
-        # con la configuración de la última iteración que fue la mejor para esa cuenca.
-        # En una implementación más robusta, deberías cargar los scalers también.
-        
-        # Para la demostración, usaremos los scalers de la última combinación si no tienes una forma de persistirlos por combinación.
-        # Lo ideal sería que `preprocess_data` se ejecutara con los `exog_cols` de la combinación ganadora
-        # para asegurar que los scalers son los correctos.
+        print(f"Cargando y evaluando el mejor modelo para {cuenca_name} desde {data['path']}")
 
-        # Volvemos a procesar los datos con los parámetros del mejor modelo para obtener los scalers correctos
         params_best_cuenca = data['params']
+        # Asegúrate de que los exog_cols existen en params_best_cuenca
+        if 'exog_cols' not in params_best_cuenca or params_best_cuenca['exog_cols'] is None:
+            print(f"No se pudieron encontrar las columnas exógenas para la cuenca {cuenca_name}. Saltando gráficos.")
+            continue
+
         scaled_data_best, scalers_best, _ = preprocess_data(df, params_best_cuenca['exog_cols'], train_size=0.7, test_size=0.2)
         exog_cols_scaled_best = [col + '_scaled' for col in params_best_cuenca['exog_cols']]
 
         model_best = keras.models.load_model(data['path'])
-        
-        # Generar gráficos para el mejor modelo de cada cuenca
-        # El directorio para los gráficos estará dentro del directorio de la combinación ganadora
+
         best_model_graph_dir = os.path.dirname(data['path'])
+        # Asegúrate de que el directorio del gráfico exista antes de llamar
+        if not os.path.exists(os.path.join(best_model_graph_dir, 'per_day')):
+            os.makedirs(os.path.join(best_model_graph_dir, 'per_day'))
+
         evaluate_full_dataset(
-            {cuenca: model_best}, # Pasamos solo el modelo de la cuenca actual
+            {cuenca_name: model_best}, 
             scaled_data_best, 
             scalers_best, 
-            [cuenca], # Solo la cuenca actual
+            [cuenca_name], 
             params_best_cuenca['n_lags_area'], 
             exog_cols_scaled_best, 
             'per_day', 
             best_model_graph_dir
         )
-        print(f"Gráfico generado para {cuenca} en {os.path.join(best_model_graph_dir, 'per_day', cuenca)}")
+        print(f"Gráfico generado para {cuenca_name} en {os.path.join(best_model_graph_dir, 'per_day', cuenca_name)}")
+    else:
+        print(f"No se encontró un mejor modelo guardado para la cuenca {cuenca_name} o la ruta no es válida.")
