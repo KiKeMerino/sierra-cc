@@ -1,4 +1,4 @@
-#%% IMPORTS
+# IMPORTS
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
 import numpy as np
@@ -13,7 +13,8 @@ from scipy.stats import pearsonr
 import matplotlib.pyplot as plt
 import json
 from keras.callbacks import EarlyStopping
-#%% FUNCIONES
+
+# FUNCIONES
 def nash_sutcliffe_efficiency(y_true, y_pred):
     numerator = np.sum((y_true - y_pred)**2)
     denominator = np.sum((y_true - np.mean(y_true))**2)
@@ -69,6 +70,9 @@ def preprocess_data(df, exog_features, train_size=0.7, test_size=0.2):
     return scaled_data, scalers, cuencas
 
 def create_sequences(data, n_lags, exog_cols_scaled, target_col_scaled='area_nieve_scaled'):
+    """
+        Crea secuencias de n_lags para el caracter autoregresivo
+    """
     X, y = [], []
     for i in range(len(data) - n_lags):
         seq_area = data[target_col_scaled].iloc[i : i + n_lags].values
@@ -139,6 +143,9 @@ def create_train_models(sequences_data, n_lags_area, layers, units, epochs, exog
     return models
 
 def load_models(cuencas, models_dir='models'):
+    """
+        Carga los modelos en un diccionario de cuencas
+    """
     loaded_models = {}
     for cuenca in cuencas:
         model_path = os.path.join(models_dir, f'narx_model_{cuenca}.h5')
@@ -195,7 +202,7 @@ def evaluate_validation(model, df_val_scaled, scaler_area, exog_cols, n_lags_are
 
     return {'R2': r2_val, 'MAE': mae_val, 'NSE': nse_val, 'KGE': kge_val}, y_val_pred_original, y_val_true
 
-def evaluate_full_dataset(models, scaled_data, scalers, cuencas, n_lags_area, exog_cols_scaled, graph=None, model_dir='./'):
+def evaluate_full_dataset(models, scaled_data, scalers, cuencas, n_lags_area, exog_cols_scaled, graph=False, model_dir='./'):
     full_metrics = {}
 
     for cuenca in cuencas:
@@ -246,56 +253,75 @@ def evaluate_full_dataset(models, scaled_data, scalers, cuencas, n_lags_area, ex
         full_metrics[cuenca] = {'R2': r2_full, 'MAE': mae_full, 'NSE': nse_full, 'KGE': kge_full}
         print(f"Métricas en todo el conjunto de datos (modo prediccion) para {cuenca}: R2={r2_full:.3f}, MAE={mae_full:.3f}, NSE={nse_full:.3f}, KGE={kge_full:.3f}")
 
-        if graph != None:
-            real_plot = df_full_scaled_cuenca.iloc[n_lags_area:][['fecha','area_nieve']]
-            y_full_pred_df = pd.DataFrame(y_full_pred_original, columns=['area_nieve_pred'], index=real_plot.index)
-            df_plot = pd.concat([real_plot, y_full_pred_df], axis=1)
-            df_plot.fecha = pd.to_datetime(df_plot.fecha, format='%Y-%m-%d')
-            if graph == 'per_day':
-                df_plot.fecha = df_plot.fecha.dt.day_of_year
-                plt.xlabel("Day")
-                plt.xlim(right=366)
-            elif graph == 'per_month':
-                df_plot.fecha = df_plot.fecha.dt.day_of_year
-                plt.xlabel("Month")
-                plt.xlim(right=12)
-            elif graph == 'all_days':
-                pass
-            df_plot_grouped = df_plot.groupby('fecha').agg(
-                area_nieve_real = ('area_nieve', 'mean'),
-                area_nieve_pred=('area_nieve_pred', 'mean')
-            )
+        if graph == True:
+            graph_types = ['per_day', 'per_month', 'all_days']
+            for graph_type in graph_types:
+                real_plot = df_full_scaled_cuenca.iloc[n_lags_area:][['fecha','area_nieve']]
+                y_full_pred_df = pd.DataFrame(y_full_pred_original, columns=['area_nieve_pred'], index=real_plot.index)
+                df_plot = pd.concat([real_plot, y_full_pred_df], axis=1)
+                df_plot['fecha'] = pd.to_datetime(df_plot['fecha'], format='%Y-%m-%d')
 
-            sns.lineplot(x=df_plot_grouped.index, y=df_plot_grouped.area_nieve_real, label='Real area')
-            sns.lineplot(x=df_plot_grouped.index, y=df_plot_grouped.area_nieve_pred, label='Prediction')
-            plt.xlim(left=0)
-            plt.title(f'Prediction vs Real {cuenca}')
-            plt.ylabel("Snow area Km2")
-            plt.legend()
-            plt.grid(True)
-            output_path = os.path.join(model_dir, graph)
-            if not os.path.exists(output_path):
-                os.makedirs(output_path)
-            plt.savefig(os.path.join(output_path, cuenca))
-            plt.close()
+                xlabel_text = ""
+                groupby_col = 'fecha' # Columna por defecto para agrupar
+                if graph_type == 'per_day':
+                    df_plot['fecha_agrupada'] = df_plot['fecha'].dt.day_of_year
+                    xlabel_text = "Day of Year"
+                    groupby_col = 'fecha_agrupada'
+                    title_suffix = " (Average per day of the year)"
+                elif graph == 'per_month':
+                    df_plot['fecha_agrupada'] = df_plot['fecha'].dt.month
+                    xlabel_text = 'Month'
+                    groupby_col = 'fecha_agrupada'
+                    title_suffix = " (Average per month)"
+                elif graph == 'all_days': 
+                    xlabel_text = "Date"
+                    title_suffix = " (Serie temporal completa)"
+
+                df_plot_grouped = df_plot.groupby(groupby_col).agg(
+                    area_nieve_real = ('area_nieve', 'mean'),
+                    area_nieve_pred=('area_nieve_pred', 'mean')
+                ).reset_index()
+
+                plt.figure(figsize=(15,6))
+
+                if graph_type in ['per_day', 'per_month']:
+                    plt.xlim(left=min(df_plot_grouped[groupby_col]), right=(max(df_plot_grouped[groupby_col])))
+
+                sns.lineplot(x=df_plot_grouped[groupby_col], y=df_plot_grouped.area_nieve_real, label='Real area')
+                sns.lineplot(x=df_plot_grouped[groupby_col], y=df_plot_grouped.area_nieve_pred, label='Prediction')
+
+                plt.title(f'Prediction vs Real {cuenca.upper()}{title_suffix}')
+                plt.xlabel(xlabel_text)
+                plt.ylabel("Snow area Km2")
+                plt.legend()
+                plt.grid(True)
+                
+                output_path = os.path.join(model_dir, f'graphs_{cuenca}')
+                if not os.path.exists(output_path):
+                    os.makedirs(output_path)
+                plt.savefig(os.path.join(output_path, graph_type))
+                plt.close()
     
     return full_metrics
 
 
-#%% --- Main execution ---
-df = pd.read_csv('df_all.csv', index_col=0)
-df
+# --- Main execution ---
+df = pd.read_csv('csv/df_all.csv', index_col=0)
+
 # PARÁMETROS DEL MODELO
-name = 'narx_models_adda'
+name = 'lags_5_layers_1_units_10_exog_dia_sen_temperatura_precipitacion_dias_sin_precip\\'
+
 n_lags_area = 5
 n_layers = 1
-n_neuronas = 34
-epochs = 40
-exog_cols = ['dia_sen','temperatura','precipitacion', 'dias_sin_precip']
+n_neuronas = 10
+exog_cols = ["dia_sen","temperatura","precipitacion", "dias_sin_precip"]
 
+# PREPROCESAMIENTO DE DATOS
 model_dir = os.path.join("D:", "models")
 scaled_data, scalers, cuencas = preprocess_data(df, exog_cols)
 exog_cols_scaled = [col + '_scaled' for col in exog_cols]
+
+cuencas = ['uncompahgre-ridgway']
 
 # Crear la secuencias
 sequences_data = {}
@@ -321,12 +347,12 @@ for cuenca, data_indices in scaled_data.items():
 models = load_models(cuencas, os.path.join(model_dir, name))
 
 
-# Evaluar los modelos
+# EVALUAR LOS MODELOS
 metrics = {}
 archivo_json = os.path.join(model_dir, name, 'metrics.json')
 
 # Evaluar en todo el conjunto de datos
-# results = evaluate_full_dataset(models, scaled_data, scalers, cuencas, n_lags_area, exog_cols_scaled, 'per_day', os.path.join(model_dir,name))
+results = evaluate_full_dataset(models, scaled_data, scalers, cuencas, n_lags_area, exog_cols_scaled, True, os.path.join(model_dir,name))
 
 for cuenca, model in models.items():
     scaler_area = scalers[cuenca]['area']
@@ -343,12 +369,7 @@ for cuenca, model in models.items():
     metrics[cuenca + ' (val)'], _, _ = evaluate_validation(model, df_val_scaled, scaler_area, exog_cols, n_lags_area)
     print(f"Métricas conjunto de 'validation' (modo prediccion) para {cuenca}: {metrics[cuenca + ' (val)']}")
 
-    # metrics[cuenca + ' (full dataset)'] = results[cuenca]
+    metrics[cuenca + ' (full dataset)'] = results[cuenca]
 
     with open(archivo_json, 'w', encoding='utf-8') as f:
         json.dump(metrics, f, indent=4)
-
-
-# Automatizar experimentos con un bucle
-# Añadir gráfica dia a dia
-# Seleccionar el mejor modelo para cada cuenca
