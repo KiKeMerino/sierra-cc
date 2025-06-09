@@ -8,15 +8,19 @@ import seaborn as sns
 df_all = pd.read_csv('csv\df_all.csv',index_col=0)
 df_genil = pd.read_csv('csv\csv_split\genil-dilar_merged.csv')
 #%%
-areas = pd.read_csv('areas_total.csv', index_col=0)
+areas = pd.read_csv('csv/areas_total.csv', index_col=0)
 areas = areas[areas.cuenca=='genil-dilar']
 #%%
 data = pd.DataFrame(df_all.loc[df_all.cuenca=='adda-bornio']['area_nieve'])
 #%%
-df_genil.set_index('fecha')
-df_genil['area_nieve'].plot()
+areas.set_index('fecha')
+
 #%%
-data
+plt.figure(figsize=(15,6))
+areas['area_nieve'].plot()
+#%%
+areas
 # %%
 corr = df_all.corr(numeric_only=True)
 corr['area_nieve'].sort_values()
+

@@ -1,11 +1,11 @@
 #%% IMPORTS
 import os
 import pandas as pd
-import geopandas as gpd
+# import geopandas as gpd
 from pathlib import Path
 import re
 import datetime
-import rioxarray as rxr
+# import rioxarray as rxr
 import concurrent.futures
 import numpy as np
 
@@ -13,6 +13,32 @@ external_disk = "E:/"
 data_path = os.path.join(external_disk, "data/")
 
 #%% DEFINICIÓN DE FUNCIONES
+def calculate_area(snow_cover, basin):
+    if basin == "adda-bornio":
+        snow_cover = snow_cover.rio.reproject("EPSG:25832")
+    elif basin == "genil-dilar":
+        snow_cover = snow_cover.rio.reproject("EPSG:25830")
+    elif basin == "indrawati-melamchi":
+        snow_cover = snow_cover.rio.reproject("EPSG:32645")
+    elif basin == "mapocho-almendros":
+        snow_cover = snow_cover.rio.reproject("EPSG:32719")
+    elif basin == "nenskra-Enguri":
+        snow_cover = snow_cover.rio.reproject("EPSG:32638")
+    elif basin == "uncompahgre-ridgway":
+        snow_cover = snow_cover.rio.reproject("EPSG:32613")
+    else:
+        raise ValueError(f"Unsupported basin: {basin}. Supported basins are: "
+                         "'adda-bornio', 'genil-dilar', 'indrawati-melamchi', "
+                         "'mapocho-almendros', 'nenskra-Enguri', 'uncompahgre-ridgway'")
+
+    df = pd.DataFrame(snow_cover["CGF_NDSI_Snow_Cover"])
+
+    n_pixeles_nieve = ((df >= 40) & (df <= 100)).sum().sum()
+    area_pixel_nieve = abs(snow_cover.rio.resolution()[0] * snow_cover.rio.resolution()[1])
+
+    return (area_pixel_nieve * n_pixeles_nieve) / 1e6
+
+# v_exog_hist.csv
 def process_var_exog(input_file, output_path, save=False):
 
     try:
@@ -81,31 +107,7 @@ def process_var_exog(input_file, output_path, save=False):
     else:
         return df_final
 
-def calculate_area(snow_cover, basin):
-    if basin == "adda-bornio":
-        snow_cover = snow_cover.rio.reproject("EPSG:25832")
-    elif basin == "genil-dilar":
-        snow_cover = snow_cover.rio.reproject("EPSG:25830")
-    elif basin == "indrawati-melamchi":
-        snow_cover = snow_cover.rio.reproject("EPSG:32645")
-    elif basin == "mapocho-almendros":
-        snow_cover = snow_cover.rio.reproject("EPSG:32719")
-    elif basin == "nenskra-Enguri":
-        snow_cover = snow_cover.rio.reproject("EPSG:32638")
-    elif basin == "uncompahgre-ridgway":
-        snow_cover = snow_cover.rio.reproject("EPSG:32613")
-    else:
-        raise ValueError(f"Unsupported basin: {basin}. Supported basins are: "
-                         "'adda-bornio', 'genil-dilar', 'indrawati-melamchi', "
-                         "'mapocho-almendros', 'nenskra-Enguri', 'uncompahgre-ridgway'")
-
-    df = pd.DataFrame(snow_cover["CGF_NDSI_Snow_Cover"])
-
-    n_pixeles_nieve = ((df >= 40) & (df <= 100)).sum().sum()
-    area_pixel_nieve = abs(snow_cover.rio.resolution()[0] * snow_cover.rio.resolution()[1])
-
-    return (area_pixel_nieve * n_pixeles_nieve) / 1e6
-
+# data/csv/areas/(6)
 def process_hdf(basin, area, archivo):
     """
     Processes a single HDF file to extract snow cover area for a specific basin.
@@ -155,7 +157,6 @@ def process_hdf(basin, area, archivo):
         return {'fecha': fecha, 'area_nieve': calculate_area(snow_cover, basin)}
     else:
         return None
-
 def process_basin(basin):
     """
     Procesa los archivos hdf y crea un archivo de areas para cada cuenca
@@ -205,6 +206,7 @@ def process_basin(basin):
     else:
         print(f"/nNo valid snow cover data found for basin {basin}.")
 
+# Eliminar, no queremos las areas juntas
 def join_areas(areas_path, output_path='.', save=False):
     """
     Junta los 6 csv de areas para crear un unico dataframe con una nueva columna  identificando de que área se trata cada registro
@@ -222,6 +224,7 @@ def join_areas(areas_path, output_path='.', save=False):
     else:
         return df_final
 
+# df_all.csv
 def merge_areas_exog(areas_file, exog_file, save=False):
     areas = pd.read_csv(areas_file, index_col=0)
     exog = pd.read_csv(exog_file, index_col = 0)
@@ -246,21 +249,70 @@ def merge_areas_exog(areas_file, exog_file, save=False):
     else:
         return df
 
-def cleaning_exogenous_variables(excel_file):
-    series_futuras = pd.read_excel(excel_file, sheet_name=None)
-    adda_bornio = pd.concat(series_futuras['Genil ssp 245 2051-2070'], series_futuras['Genil ssp 245 2081-2100'])
-    genil_dilar = pd.concat(series_futuras['Adda ssp 245 2051-2070'], series_futuras['Adda ssp 245 2081-2100'])
-    indrawati_melamchi = pd.concat(series_futuras['Genil ssp 245 2051-2070'], series_futuras['Genil ssp 245 2081-2100'])
-    mapocho_almendros = pd.concat(series_futuras['Genil ssp 245 2051-2070'], series_futuras['Genil ssp 245 2081-2100'])
-    nenskra_enguri = pd.concat(series_futuras['Genil ssp 245 2051-2070'], series_futuras['Genil ssp 245 2081-2100'])
-    uncompahgre_ridgway = pd.concat(series_futuras['Genil ssp 245 2051-2070'], series_futuras['Genil ssp 245 2081-2100'])
+def cleaning_future_series(input_data_path, output_data_path, cuencas):
+    """
+    Procesa datos de cuencas, limpia y formatea archivos CSV, y guarda los resultados.
 
-    adda_bornio.to_csv("./predicted_exog/adda-bornio.csv")
-    genil_dilar.to_csv("./predicted_exog/genil-dilar.csv")
-    indrawati_melamchi.to_csv("./predicted_exog/indrawati-melamchi.csv")
-    mapocho_almendros.to_csv("./predicted_exog/mapocho-almendros.csv")
-    nenskra_enguri.to_csv("./predicted_exog/nenskra-enguri.csv")
-    uncompahgre_ridgway.to_csv("./predicted_exog/uncompahgre-ridgway.csv")
+    Args:
+        input_data_path (str): La ruta al directorio de entrada que contiene los datos de las cuencas.
+        output_data_path (str): La ruta al directorio de salida donde se guardarán los archivos procesados.
+        cuencas (list): Una lista de nombres de cuencas a procesar.
+    """
+    for cuenca in cuencas:
+        # Crea el directorio de salida si no existe
+        os.makedirs(os.path.join(output_data_path, cuenca), exist_ok=True)
+        
+        escenarios = os.listdir(os.path.join(input_data_path, cuenca))
+        for escenario in escenarios:
+            try:
+                df = pd.read_csv(os.path.join(input_data_path, cuenca, escenario))
+            except FileNotFoundError:
+                print(f"No se ha encontrado el archivo '{os.path.join(input_data_path, cuenca, escenario)}'")
+                continue # Continúa con el siguiente escenario si el archivo no se encuentra
+
+            df = df.loc[1:, :'Unnamed: 22']
+
+            # Arreglamos la fecha con las 3 primeras columnas que tienen el formato AÑO -- DIA JULIANO -- MES
+            # Y establecemos fecha como indice del dataset
+            year = escenario.split('-')[0][-4:]
+            df['fecha'] = df.apply(lambda x: str(int(x['Unnamed: 0']) + int(year)) + '-' + str(x['Unnamed: 2']) + '-' + str(x['Unnamed: 1']), axis=1)
+            df.set_index(pd.to_datetime(df['fecha'], format='%Y-%m-%j'), inplace=True)
+            df.drop(columns=['Unnamed: 0', 'Unnamed: 2', 'Unnamed: 1', 'fecha'], inplace=True)
+
+            # Iteramos sobre cada modelo y dividimos los datasets quedandonos con las columnas de precipitacion y temperatura exclusivamente
+            models = [col for col in df.columns if not col.startswith('Unnamed')]
+            for model in models:
+                start_index = df.columns.get_loc(model)
+                df_model = df.iloc[:, start_index:start_index+4].copy()
+                df_model = df_model.iloc[:,2:]
+                df_model.columns = ['precipitacion', 'temperatura']
+
+                file_name = escenario[:-4] + '_clean.csv'
+                df_model.to_csv(os.path.join(output_data_path, cuenca, file_name))
+
+def join_area_exog(exog_file, areas_path, output_path = './datasets', save=False):
+    exogs = pd.read_csv(exog_file, index_col=0)
+
+    cuencas = exogs['cuenca'].unique()
+    for cuenca in cuencas:
+        df_area = pd.read_csv(os.path.join(areas_path, cuenca + '.csv'))
+        dataset = pd.merge(left=df_area, right = exogs[exogs['cuenca'] == cuenca], how='inner', on='fecha')
+        dataset.drop(columns=['cuenca'], inplace=True)
+
+        dataset['dias_sin_precip'] = 0
+        dias_transcurridos = 0
+        for index, row in dataset.iterrows():
+            if row['precipitacion_bool'] == 1:
+                dias_transcurridos = 0  # reinicia el contador si ha llovido
+            else:
+                dias_transcurridos += 1
+
+            dataset.loc[index, 'dias_sin_precip'] = dias_transcurridos
+
+        if save:
+            dataset.to_csv(os.path.join(output_path, f'{cuenca}.csv'))
+        else:
+            return dataset
 
 
 #%% --- MAIN EXECUTION ---
@@ -268,20 +320,21 @@ def cleaning_exogenous_variables(excel_file):
 # process_var_exog('E:/data/csv/Series_historicas_agregadas_ERA5Land.csv', '.')
 # merge_areas_exog('areas_total.csv', './v_exog_hist.csv', save=True)
 
-df = pd.read_csv("df_all.csv", index_col=0)
-df.head(50)
+exog_file = os.path.join('D:/data/csv/v_exog_hist.csv')
+areas_path = os.path.join('D:/data/csv/areas/')
+join_area_exog(exog_file,areas_path,'datasets/', True)
 
-#%%
-df.dias_sin_precip.value_counts()
-# %%
-df.drop(columns=['cuenca', 'fecha'], inplace=True)
-df
-# %%
-sns.relplot(x="dia_sen", y = 'area_nieve', data = df)
+# #%%
+# df.dias_sin_precip.value_counts()
+# # %%
+# df.drop(columns=['cuenca', 'fecha'], inplace=True)
+# df
+# # %%
+# sns.relplot(x="dia_sen", y = 'area_nieve', data = df)
 
-#%%
-corr_matrix = df.corr()
-plt.figure(figsize=(12, 10))
-sns.heatmap(corr_matrix, annot=True, cmap='coolwarm', fmt=".1f")
-plt.title('Correlation Matrix of Numerical Features')
-plt.show()
+# #%%
+# corr_matrix = df.corr()
+# plt.figure(figsize=(12, 10))
+# sns.heatmap(corr_matrix, annot=True, cmap='coolwarm', fmt=".1f")
+# plt.title('Correlation Matrix of Numerical Features')
+# plt.show()

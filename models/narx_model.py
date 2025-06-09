@@ -268,12 +268,12 @@ def evaluate_full_dataset(models, scaled_data, scalers, cuencas, n_lags_area, ex
                     xlabel_text = "Day of Year"
                     groupby_col = 'fecha_agrupada'
                     title_suffix = " (Average per day of the year)"
-                elif graph == 'per_month':
+                elif graph_type == 'per_month':
                     df_plot['fecha_agrupada'] = df_plot['fecha'].dt.month
                     xlabel_text = 'Month'
                     groupby_col = 'fecha_agrupada'
                     title_suffix = " (Average per month)"
-                elif graph == 'all_days': 
+                elif graph_type == 'all_days': 
                     xlabel_text = "Date"
                     title_suffix = " (Serie temporal completa)"
 
@@ -309,11 +309,11 @@ def evaluate_full_dataset(models, scaled_data, scalers, cuencas, n_lags_area, ex
 df = pd.read_csv('csv/df_all.csv', index_col=0)
 
 # PARÁMETROS DEL MODELO
-name = 'lags_5_layers_1_units_10_exog_dia_sen_temperatura_precipitacion_dias_sin_precip\\'
+name = 'lags_7_layers_2_units_15_exog_dia_sen_temperatura_precipitacion_dias_sin_precip\\'
 
-n_lags_area = 5
-n_layers = 1
-n_neuronas = 10
+n_lags_area = 7
+n_layers = 2
+n_neuronas = 15
 exog_cols = ["dia_sen","temperatura","precipitacion", "dias_sin_precip"]
 
 # PREPROCESAMIENTO DE DATOS
@@ -321,7 +321,7 @@ model_dir = os.path.join("D:", "models")
 scaled_data, scalers, cuencas = preprocess_data(df, exog_cols)
 exog_cols_scaled = [col + '_scaled' for col in exog_cols]
 
-cuencas = ['uncompahgre-ridgway']
+cuencas = ['adda-bornio']
 
 # Crear la secuencias
 sequences_data = {}
@@ -330,16 +330,15 @@ for cuenca, data_indices in scaled_data.items():
     val_data = data_indices['df'].iloc[data_indices['val_idx']]
     test_data = data_indices['df'].iloc[data_indices['test_idx']]
 
-    sequences_data[cuenca] = {
-        'X_train': create_sequences(train_data, n_lags_area, exog_cols_scaled)[0],
-        'y_train': create_sequences(train_data, n_lags_area, exog_cols_scaled)[1],
-        'X_val': create_sequences(val_data, n_lags_area, exog_cols_scaled)[0],
-        'y_val': create_sequences(val_data, n_lags_area, exog_cols_scaled)[1],
-        'X_test': create_sequences(test_data, n_lags_area, exog_cols_scaled)[0],
-        'y_test': create_sequences(test_data, n_lags_area, exog_cols_scaled)[1],
-    }
-
-
+    X_train, y_train = create_sequences(train_data, n_lags_area, exog_cols_scaled)
+    X_test, y_test = create_sequences(train_data, n_lags_area, exog_cols_scaled)
+    X_val, y_val = create_sequences(train_data, n_lags_area, exog_cols_scaled)
+    sequences_data[cuenca]['X_train'] = X_train
+    sequences_data[cuenca]['y_train'] = y_train
+    sequences_data[cuenca]['X_test'] = X_test
+    sequences_data[cuenca]['y_test'] = y_test
+    sequences_data[cuenca]['X_val'] = X_val
+    sequences_data[cuenca]['y_val'] = y_val
 
 # Entrenar y guardar los modelos
 # models = create_train_models(sequences_data, n_lags_area, n_layers, n_neuronas, epochs, exog_cols_scaled, cuencas, True, models_dir=os.path.join(model_dir, name))
