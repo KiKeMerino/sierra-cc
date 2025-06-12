@@ -1,6 +1,6 @@
-# IMPORTS
+# IMPORTS (asegúrate de que todos los imports necesarios estén al principio del script completo)
 import pandas as pd
-from sklearn.preprocessing import StandardScaler # or MinMaxScaler
+from sklearn.preprocessing import StandardScaler
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
@@ -17,6 +17,11 @@ import optuna
 from functools import partial
 
 # FUNCIONES (Estas funciones no necesitan cambios internos significativos)
+# Asegúrate de que todas las funciones auxiliares (nash_sutcliffe_efficiency, kling_gupta_efficiency,
+# preprocess_data, create_sequences, create_narx_model, load_model_for_basin, evaluate_model,
+# evaluate_validation) estén definidas antes de esta sección.
+# La función 'evaluate_full_dataset' necesita una pequeña modificación para recibir 'cuenca_name'.
+
 def nash_sutcliffe_efficiency(y_true, y_pred):
     numerator = np.sum((y_true - y_pred)**2)
     denominator = np.sum((y_true - np.mean(y_true))**2)
@@ -71,8 +76,6 @@ def preprocess_data(df_basin, exog_features, train_size=0.7, test_size=0.2):
         'area': scaler_area,
         'exog': scaler_exog
     }
-    # print(f"Cuenca processed: Train: {len(train_idx)}, Test: {len(test_idx)}, Val: {len(val_idx)}")
-
     return basin_data, basin_scalers
 
 def create_sequences(data, n_lags, exog_cols_scaled, target_col_scaled='area_nieve_scaled'):
@@ -94,7 +97,7 @@ def create_sequences(data, n_lags, exog_cols_scaled, target_col_scaled='area_nie
 
 def create_narx_model(n_lags, n_layers, n_units_lstm, n_features, learning_rate, dropout_rate):
     model = Sequential()
-    lstm_activation = 'tanh' # Prefer tanh for stability
+    lstm_activation = 'tanh'
 
     if n_layers > 1:
         model.add(LSTM(n_units_lstm, activation=lstm_activation, input_shape=(n_lags, n_features), return_sequences=True))
@@ -110,7 +113,7 @@ def create_narx_model(n_lags, n_layers, n_units_lstm, n_features, learning_rate,
     model.add(Dropout(dropout_rate))
     model.add(Dense(1))
 
-    optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate, clipnorm=0.5) # Stronger clipnorm
+    optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate, clipnorm=0.5)
     model.compile(optimizer=optimizer, loss='mse')
 
     return model
@@ -131,13 +134,11 @@ def evaluate_model(model, sequences, scaler_area):
     y_true = sequences['y']
     
     if X.shape[0] == 0:
-        # print("Warning: Empty sequences for evaluation.")
         return {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan}, None, None
 
     y_pred_scaled = model.predict(X, verbose=0)
 
     if np.any(np.isnan(y_pred_scaled)) or np.any(np.isinf(y_pred_scaled)):
-        # print("Warning: Model predicted NaN/inf values. Returning NaN for metrics.")
         return {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan}, None, None
 
     y_pred_original = scaler_area.inverse_transform(y_pred_scaled)
@@ -155,7 +156,6 @@ def evaluate_validation(model, df_val_scaled, scaler_area, exog_cols, n_lags_are
     n_exog_features = len(exog_cols)
 
     if len(df_val_scaled) < n_lags_area + 1:
-        # print(f"Warning: Validation data for walk-forward ({len(df_val_scaled)}) is too short for n_lags={n_lags_area}. Returning NaN.")
         return {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan}, None, None
 
     y_val_true_original = df_val_scaled['area_nieve'].values[n_lags_area:].reshape(-1, 1)
@@ -166,14 +166,12 @@ def evaluate_validation(model, df_val_scaled, scaler_area, exog_cols, n_lags_are
 
     for i in range(len(df_val_scaled) - n_lags_area):
         if np.any(np.isnan(last_sequence)) or np.any(np.isinf(last_sequence)):
-            # print(f"Warning: Input sequence for prediction contains NaN/inf at step {i}. Stopping prediction.")
             y_val_pred_scaled = [np.nan] * (len(df_val_scaled) - n_lags_area)
             break
 
         pred_scaled = model.predict(last_sequence, verbose=0)
 
         if np.any(np.isnan(pred_scaled)) or np.any(np.isinf(pred_scaled)):
-            # print(f"Warning: Model predicted NaN/inf at step {i}. Stopping prediction.")
             y_val_pred_scaled.append(np.nan)
             y_val_pred_scaled.extend([np.nan] * (len(df_val_scaled) - n_lags_area - (i + 1)))
             break
@@ -193,7 +191,6 @@ def evaluate_validation(model, df_val_scaled, scaler_area, exog_cols, n_lags_are
     y_val_pred_original = scaler_area.inverse_transform(np.array(y_val_pred_scaled).reshape(-1, 1))
 
     if np.any(np.isnan(y_val_pred_original)) or np.any(np.isinf(y_val_pred_original)):
-        # print("Warning: Inverse transformed predictions contain NaN/inf. Returning NaN for metrics.")
         return {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan}, None, None
 
     r2_val = pearsonr(y_val_true_original.flatten(), y_val_pred_original.flatten())
@@ -204,137 +201,132 @@ def evaluate_validation(model, df_val_scaled, scaler_area, exog_cols, n_lags_are
 
     return {'R2': r2_val, 'MAE': mae_val, 'NSE': nse_val, 'KGE': kge_val}, y_val_pred_original, y_val_true_original
 
-# evaluate_full_dataset will now iterate over specific models that have been trained and saved
-def evaluate_full_dataset(best_models_dict, all_basins_preprocessed_data, exog_cols_scaled, graph=False, base_model_dir='./'):
+# Modificación en la función evaluate_full_dataset:
+def evaluate_full_dataset(model, df_full_scaled_cuenca, scaler_area, exog_cols_scaled, n_lags_area, graph=False, output_dir='./', cuenca_name=""):
+    """
+    Evalúa un modelo específico en el conjunto de datos completo (modo predicción).
+    Ahora toma 'output_dir' para guardar gráficos y el nombre de la cuenca.
+    """
     full_metrics = {}
 
-    # Iterate only through the basins for which a best model was found
-    for cuenca_name, model_info in best_models_dict.items():
-        model = model_info['model']
-        best_n_lags_area = model_info['best_n_lags_area'] # Get lags specific to this model
+    if model is None:
+        print(f"Skipping full dataset evaluation for {cuenca_name}: No model provided.")
+        return {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan}
 
-        if model is None:
-            print(f"Skipping full dataset evaluation for {cuenca_name}: No best model found.")
-            full_metrics[cuenca_name] = {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan}
-            continue
+    n_exog_features = len(exog_cols_scaled)
 
-        scaler_area = all_basins_preprocessed_data[cuenca_name]['scalers']['area']
-        df_full_scaled_cuenca = all_basins_preprocessed_data[cuenca_name]['data']['df'].copy()
-        n_exog_features = len(exog_cols_scaled)
+    if len(df_full_scaled_cuenca) < n_lags_area + 1:
+        print(f"Warning: Full dataset for {cuenca_name} is too short for n_lags={n_lags_area}. Skipping full evaluation.")
+        return {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan}
 
-        if len(df_full_scaled_cuenca) < best_n_lags_area + 1:
-            print(f"Warning: Full dataset for {cuenca_name} is too short for n_lags={best_n_lags_area}. Skipping full evaluation.")
-            full_metrics[cuenca_name] = {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan}
-            continue
+    y_full_true_original = df_full_scaled_cuenca['area_nieve'].values[n_lags_area:].reshape(-1, 1)
+    y_full_pred_scaled = []
 
-        y_full_true_original = df_full_scaled_cuenca['area_nieve'].values[best_n_lags_area:].reshape(-1, 1)
-        y_full_pred_scaled = []
+    first_sequence_full = df_full_scaled_cuenca[['area_nieve_scaled'] + exog_cols_scaled].iloc[:n_lags_area].values.reshape(1, n_lags_area, -1)
+    last_sequence_full = first_sequence_full.copy()
 
-        first_sequence_full = df_full_scaled_cuenca[['area_nieve_scaled'] + exog_cols_scaled].iloc[:best_n_lags_area].values.reshape(1, best_n_lags_area, -1)
-        last_sequence_full = first_sequence_full.copy()
+    for i in range(len(df_full_scaled_cuenca) - n_lags_area):
+        if np.any(np.isnan(last_sequence_full)) or np.any(np.isinf(last_sequence_full)):
+            print(f"Warning: Input sequence for prediction contains NaN/inf at step {i} for {cuenca_name}. Stopping full prediction.")
+            y_full_pred_scaled.extend([np.nan] * (len(df_full_scaled_cuenca) - n_lags_area - i))
+            break
 
-        for i in range(len(df_full_scaled_cuenca) - best_n_lags_area):
-            if np.any(np.isnan(last_sequence_full)) or np.any(np.isinf(last_sequence_full)):
-                print(f"Warning: Input sequence for prediction contains NaN/inf at step {i} for {cuenca_name}. Stopping full prediction.")
-                y_full_pred_scaled.extend([np.nan] * (len(df_full_scaled_cuenca) - best_n_lags_area - i))
-                break
+        pred_scaled = model.predict(last_sequence_full, verbose=0)
 
-            pred_scaled = model.predict(last_sequence_full, verbose=0)
+        if np.any(np.isnan(pred_scaled)) or np.any(np.isinf(pred_scaled)):
+            print(f"Warning: Model predicted NaN/inf at step {i} for {cuenca_name}. Stopping full prediction.")
+            y_full_pred_scaled.append(np.nan)
+            y_full_pred_scaled.extend([np.nan] * (len(df_full_scaled_cuenca) - n_lags_area - (i + 1)))
+            break
 
-            if np.any(np.isnan(pred_scaled)) or np.any(np.isinf(pred_scaled)):
-                print(f"Warning: Model predicted NaN/inf at step {i} for {cuenca_name}. Stopping full prediction.")
-                y_full_pred_scaled.append(np.nan)
-                y_full_pred_scaled.extend([np.nan] * (len(df_full_scaled_cuenca) - best_n_lags_area - (i + 1)))
-                break
+        y_full_pred_scaled.append(pred_scaled[0, 0])
 
-            y_full_pred_scaled.append(pred_scaled[0, 0])
+        next_area_scaled = pred_scaled.reshape(1, 1, 1)
+        next_exog_scaled = df_full_scaled_cuenca[exog_cols_scaled].iloc[n_lags_area + i].values.reshape(1, 1, n_exog_features)
 
-            next_area_scaled = pred_scaled.reshape(1, 1, 1)
-            next_exog_scaled = df_full_scaled_cuenca[exog_cols_scaled].iloc[best_n_lags_area + i].values.reshape(1, 1, n_exog_features)
+        updated_area_sequence = np.concatenate([last_sequence_full[:, 1:, 0].reshape(1, n_lags_area - 1, 1), next_area_scaled], axis=1)
+        updated_exog_sequence = np.concatenate([last_sequence_full[:, 1:, 1:], next_exog_scaled], axis=1)
+        last_sequence_full = np.concatenate([updated_area_sequence, updated_exog_sequence], axis=2)
+    
+    if not y_full_pred_scaled or np.any(np.isnan(y_full_pred_scaled)) or np.any(np.isinf(y_full_pred_scaled)):
+        print(f"Warning: Final predictions for {cuenca_name} contain NaN/inf. Skipping metric calculation and plotting.")
+        return {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan}
 
-            updated_area_sequence = np.concatenate([last_sequence_full[:, 1:, 0].reshape(1, best_n_lags_area - 1, 1), next_area_scaled], axis=1)
-            updated_exog_sequence = np.concatenate([last_sequence_full[:, 1:, 1:], next_exog_scaled], axis=1)
-            last_sequence_full = np.concatenate([updated_area_sequence, updated_exog_sequence], axis=2)
-        
-        if not y_full_pred_scaled or np.any(np.isnan(y_full_pred_scaled)) or np.any(np.isinf(y_full_pred_scaled)):
-            print(f"Warning: Final predictions for {cuenca_name} contain NaN/inf. Skipping metric calculation and plotting.")
-            full_metrics[cuenca_name] = {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan}
-            continue
+    y_full_pred_original = scaler_area.inverse_transform(np.array(y_full_pred_scaled).reshape(-1, 1))
 
-        y_full_pred_original = scaler_area.inverse_transform(np.array(y_full_pred_scaled).reshape(-1, 1))
+    if np.any(np.isnan(y_full_pred_original)) or np.any(np.isinf(y_full_pred_original)):
+        print(f"Warning: Inverse transformed predictions for {cuenca_name} contain NaN/inf. Skipping metric calculation and plotting.")
+        return {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan}
 
-        if np.any(np.isnan(y_full_pred_original)) or np.any(np.isinf(y_full_pred_original)):
-            print(f"Warning: Inverse transformed predictions for {cuenca_name} contain NaN/inf. Skipping metric calculation and plotting.")
-            full_metrics[cuenca_name] = {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan}
-            continue
+    r2_full = pearsonr(y_full_true_original.flatten(), y_full_pred_original.flatten())
+    r2_full = r2_full.statistic**2
+    mae_full = mean_absolute_error(y_full_true_original, y_full_pred_original)
+    nse_full = nash_sutcliffe_efficiency(y_full_true_original, y_full_pred_original)
+    kge_full = kling_gupta_efficiency(y_full_true_original, y_full_pred_original)
 
-        r2_full = pearsonr(y_full_true_original.flatten(), y_full_pred_original.flatten())
-        r2_full = r2_full.statistic**2
-        mae_full = mean_absolute_error(y_full_true_original, y_full_pred_original)
-        nse_full = nash_sutcliffe_efficiency(y_full_true_original, y_full_pred_original)
-        kge_full = kling_gupta_efficiency(y_full_true_original, y_full_pred_original)
+    full_metrics = {'R2': r2_full, 'MAE': mae_full, 'NSE': nse_full, 'KGE': kge_full}
+    print(f"Métricas en todo el conjunto de datos (modo prediccion) para {cuenca_name}: R2={r2_full:.3f}, MAE={mae_full:.3f}, NSE={nse_full:.3f}, KGE={kge_full:.3f}")
 
-        full_metrics[cuenca_name] = {'R2': r2_full, 'MAE': mae_full, 'NSE': nse_full, 'KGE': kge_full}
-        print(f"Métricas en todo el conjunto de datos (modo prediccion) para {cuenca_name}: R2={r2_full:.3f}, MAE={mae_full:.3f}, NSE={nse_full:.3f}, KGE={kge_full:.3f}")
+    if graph == True:
+        graph_types = ['per_day', 'per_month', 'all_days']
+        # Asegúrate de que el directorio de salida para los gráficos exista
+        output_graph_path = os.path.join(output_dir, f'graphs_{cuenca_name}')
+        os.makedirs(output_graph_path, exist_ok=True)
 
-        if graph == True:
-            graph_types = ['per_day', 'per_month', 'all_days']
-            for graph_type in graph_types:
-                real_plot = df_full_scaled_cuenca.iloc[best_n_lags_area:].copy()
-                real_plot['area_nieve'] = y_full_true_original
-                y_full_pred_df = pd.DataFrame(y_full_pred_original, columns=['area_nieve_pred'], index=real_plot.index)
-                df_plot = pd.concat([real_plot, y_full_pred_df], axis=1)
-                df_plot['fecha'] = pd.to_datetime(df_plot['fecha'])
+        for graph_type in graph_types:
+            real_plot = df_full_scaled_cuenca.iloc[n_lags_area:].copy()
+            real_plot['area_nieve'] = y_full_true_original
+            y_full_pred_df = pd.DataFrame(y_full_pred_original, columns=['area_nieve_pred'], index=real_plot.index)
+            df_plot = pd.concat([real_plot, y_full_pred_df], axis=1)
+            df_plot['fecha'] = pd.to_datetime(df_plot['fecha'])
 
-                xlabel_text = ""
-                groupby_col = 'fecha'
-                title_suffix = ""
+            xlabel_text = ""
+            groupby_col = 'fecha'
+            title_suffix = ""
 
-                if graph_type == 'per_day':
-                    df_plot['fecha_agrupada'] = df_plot['fecha'].dt.day_of_year
-                    xlabel_text = "Day of Year"
-                    groupby_col = 'fecha_agrupada'
-                    title_suffix = " (Average per day of the year)"
-                elif graph_type == 'per_month':
-                    df_plot['fecha_agrupada'] = df_plot['fecha'].dt.month
-                    xlabel_text = 'Month'
-                    groupby_col = 'fecha_agrupada'
-                    title_suffix = " (Average per month)"
-                elif graph_type == 'all_days':
-                    xlabel_text = "Date"
-                    title_suffix = " (Serie temporal completa)"
+            if graph_type == 'per_day':
+                df_plot['fecha_agrupada'] = df_plot['fecha'].dt.day_of_year
+                xlabel_text = "Day of Year"
+                groupby_col = 'fecha_agrupada'
+                title_suffix = " (Average per day of the year)"
+            elif graph_type == 'per_month':
+                df_plot['fecha_agrupada'] = df_plot['fecha'].dt.month
+                xlabel_text = 'Month'
+                groupby_col = 'fecha_agrupada'
+                title_suffix = " (Average per month)"
+            elif graph_type == 'all_days':
+                xlabel_text = "Date"
+                title_suffix = " (Serie temporal completa)"
 
-                df_plot_grouped = df_plot.groupby(groupby_col).agg(
-                    area_nieve_real = ('area_nieve', 'mean'),
-                    area_nieve_pred=('area_nieve_pred', 'mean')
-                ).reset_index()
+            df_plot_grouped = df_plot.groupby(groupby_col).agg(
+                area_nieve_real = ('area_nieve', 'mean'),
+                area_nieve_pred=('area_nieve_pred', 'mean')
+            ).reset_index()
 
-                plt.figure(figsize=(15,6))
-                if graph_type in ['per_day', 'per_month']:
-                    plt.xlim(left=min(df_plot_grouped[groupby_col]), right=(max(df_plot_grouped[groupby_col])))
-                sns.lineplot(x=df_plot_grouped[groupby_col], y=df_plot_grouped.area_nieve_real, label='Real area')
-                sns.lineplot(x=df_plot_grouped[groupby_col], y=df_plot_grouped.area_nieve_pred, label='Prediction')
-                plt.title(f'Prediction vs Real {cuenca_name.upper()}{title_suffix}')
-                plt.xlabel(xlabel_text)
-                plt.ylabel("Snow area Km2")
-                plt.legend()
-                plt.grid(True)
-                output_path = os.path.join(base_model_dir, f'graphs_{cuenca_name}')
-                if not os.path.exists(output_path):
-                    os.makedirs(output_path)
-                plt.savefig(os.path.join(output_path, f'{graph_type}.png'))
-                plt.close()
+            plt.figure(figsize=(15,6))
+            if graph_type in ['per_day', 'per_month']:
+                plt.xlim(left=min(df_plot_grouped[groupby_col]), right=(max(df_plot_grouped[groupby_col])))
+            sns.lineplot(x=df_plot_grouped[groupby_col], y=df_plot_grouped.area_nieve_real, label='Real area')
+            sns.lineplot(x=df_plot_grouped[groupby_col], y=df_plot_grouped.area_nieve_pred, label='Prediction')
+            plt.title(f'Prediction vs Real {cuenca_name.upper()}{title_suffix}')
+            plt.xlabel(xlabel_text)
+            plt.ylabel("Snow area Km2")
+            plt.legend()
+            plt.grid(True)
+            plt.savefig(os.path.join(output_graph_path, f'{graph_type}.png'))
+            plt.close()
     return full_metrics
+
 
 # --- Optuna Objective Function (Optimizado para una sola cuenca) ---
 def objective_single_basin(trial, basin_data, basin_scalers, exog_cols, exog_cols_scaled):
     # 1. Suggest Hyperparameters
     n_lags_area = trial.suggest_int('n_lags_area', 2, 7)
     n_layers = trial.suggest_int('n_layers', 1, 3)
-    n_units_lstm = trial.suggest_int('n_units_lstm', 5, 30, step=5)
+    n_units_lstm = trial.suggest_int('n_units_lstm', 5, 30)
     learning_rate = trial.suggest_loguniform('learning_rate', 1e-6, 1e-2)
     dropout_rate = trial.suggest_float('dropout_rate', 0.1, 0.4)
-    epochs = trial.suggest_int('epochs', 10, 100)
+    epochs = trial.suggest_int('epochs', 15, 120)
 
     # 2. Prepare data for the current trial
     n_features = 1 + len(exog_cols_scaled)
@@ -362,11 +354,11 @@ def objective_single_basin(trial, basin_data, basin_scalers, exog_cols, exog_col
 
         # Create and train the model
         model = create_narx_model(n_lags=n_lags_area, n_layers=n_layers,
-                                  n_units_lstm=n_units_lstm, n_features=n_features,
-                                  learning_rate=learning_rate, dropout_rate=dropout_rate)
+                                    n_units_lstm=n_units_lstm, n_features=n_features,
+                                    learning_rate=learning_rate, dropout_rate=dropout_rate)
         
         model.fit(X_train, y_train, epochs=epochs, verbose=0,
-                  validation_split=0.1, callbacks=[early_stopping_callback]) # Use internal validation split for early stopping
+                    validation_split=0.1, callbacks=[early_stopping_callback]) # Use internal validation split for early stopping
 
         # Evaluate on the actual validation set (walk-forward)
         df_val_scaled = basin_data['df'].iloc[basin_data['val_idx']].copy()
@@ -374,7 +366,6 @@ def objective_single_basin(trial, basin_data, basin_scalers, exog_cols, exog_col
 
         # If validation metrics contain NaN/inf, assign a very bad value
         if np.any(np.isnan(list(val_metrics.values()))) or np.any(np.isinf(list(val_metrics.values()))):
-            # print("Warning: Validation metrics contain NaN/inf. Assigning -inf NSE.")
             return -np.inf
         else:
             return val_metrics['NSE']
@@ -383,10 +374,22 @@ def objective_single_basin(trial, basin_data, basin_scalers, exog_cols, exog_col
         print(f"Trial {trial.number} failed with error: {e}. Returning -inf NSE.")
         return -np.inf # Assign a very low NSE to penalize this trial
 
+# Función auxiliar para convertir tipos de NumPy a tipos de Python nativos
+def convert_numpy_to_python(obj):
+    if isinstance(obj, np.float32) or isinstance(obj, np.float64):
+        return float(obj)
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    if isinstance(obj, dict):
+        return {k: convert_numpy_to_python(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [convert_numpy_to_python(elem) for elem in obj]
+    return obj
+
 # --- Main execution ---
 # Define the directory where your basin CSVs are located
 basins_dir = 'datasets/'
-models_dir = os.path.join("D:", "models_per_basin")
+models_dir = os.path.join("D:", "new_models")
 
 exog_cols = ["dia_sen","temperatura","precipitacion", "dias_sin_precip"]
 exog_cols_scaled = [col + '_scaled' for col in exog_cols]
@@ -415,17 +418,17 @@ cuencas_to_process = list(all_basins_preprocessed_data.keys())
 
 # Dictionary to store the best trial/model info for each basin
 best_models_per_basin = {}
-all_final_metrics = {} # To store all evaluation metrics for all basins
+cuencas_to_process = ['adda-bornio', 'genil-dilar']
 
-# --- Loop through each basin for separate Optuna optimization ---
+# --- Loop through each basin for separate Optuna optimization and evaluation ---
 for cuenca_name in cuencas_to_process:
     print(f"\n--- Starting Optuna Optimization for Cuenca: {cuenca_name} ---")
 
-    # Define the output directory for this specific basin's best model
+    # Define the output directory for this specific basin's best model and metrics
     basin_output_dir = os.path.join(models_dir, cuenca_name)
-    model_path = os.path.join(models_dir, cuenca_name, f'narx_model_best_{cuenca_name}.h5')
+    model_path = os.path.join(basin_output_dir, f'narx_model_best_{cuenca_name}.h5')
     
-    os.makedirs(basin_output_dir, exist_ok=True)
+    os.makedirs(basin_output_dir, exist_ok=True) # Asegura que el directorio de la cuenca exista
 
     # Create a partial objective function for the current basin
     objective_for_this_basin = partial(objective_single_basin,
@@ -436,16 +439,19 @@ for cuenca_name in cuencas_to_process:
 
     # Create an Optuna study for this specific basin
     study_basin = optuna.create_study(direction='maximize',
-                                      sampler=optuna.samplers.TPESampler(),
-                                      pruner=optuna.pruners.MedianPruner(n_startup_trials=5, n_warmup_steps=10),
-                                      study_name=f"basin_optimization_{cuenca_name}")
+                                       sampler=optuna.samplers.TPESampler(),
+                                       pruner=optuna.pruners.MedianPruner(n_startup_trials=5, n_warmup_steps=10),
+                                       study_name=f"basin_optimization_{cuenca_name}")
 
     # Run the optimization for this basin
-    n_trials_per_basin = 20 # Adjust as needed
+    n_trials_per_basin = 40 # Adjust as needed
     study_basin.optimize(objective_for_this_basin, n_trials=n_trials_per_basin, show_progress_bar=True)
 
     print(f"\n--- Optuna Optimization Results for {cuenca_name} ---")
     print(f"Number of finished trials: {len(study_basin.trials)}")
+    
+    current_basin_metrics = {} # Diccionario para las métricas de la cuenca actual
+
     if study_basin.best_trial is not None:
         best_trial_basin = study_basin.best_trial
         print(f"  Best Value (NSE): {best_trial_basin.value:.4f}")
@@ -465,11 +471,25 @@ for cuenca_name in cuencas_to_process:
         print(f"\n--- Training final model for {cuenca_name} with best hyperparameters ---")
         basin_data_final = all_basins_preprocessed_data[cuenca_name]['data']
         X_train_final, y_train_final = create_sequences(basin_data_final['df'].iloc[basin_data_final['train_idx']],
-                                                      best_n_lags_area, exog_cols_scaled)
+                                                         best_n_lags_area, exog_cols_scaled)
 
         if X_train_final.shape[0] == 0:
             print(f"Skipping final training for {cuenca_name}: No training sequences for best_n_lags_area={best_n_lags_area}.")
             best_models_per_basin[cuenca_name] = {'model': None, 'best_n_lags_area': best_n_lags_area}
+            
+            # Asignar NaNs a las métricas si no hay entrenamiento
+            current_basin_metrics = {
+                'best_params': best_params_basin,
+                'full_dataset': {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan},
+                'train': {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan},
+                'test': {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan},
+                'val': {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan}
+            }
+            # Guardar el JSON para esta cuenca (incluso si tiene NaNs)
+            json_output_path = os.path.join(basin_output_dir, 'metrics.json')
+            with open(json_output_path, 'w', encoding='utf-8') as f:
+                json.dump(convert_numpy_to_python(current_basin_metrics), f, indent=4)
+            print(f"Métricas (con NaNs) guardadas para {cuenca_name} en {json_output_path}")
             continue # Skip to next basin
 
         model_final = create_narx_model(n_lags=best_n_lags_area, n_layers=best_n_layers,
@@ -491,7 +511,7 @@ for cuenca_name in cuencas_to_process:
         )
 
         model_final.fit(X_train_final, y_train_final, epochs=epochs_final_train, verbose=0,
-                        validation_split=0.1, callbacks=[early_stopping_callback_final, model_checkpoint_callback])
+                         validation_split=0.1, callbacks=[early_stopping_callback_final, model_checkpoint_callback])
 
         # Load the best saved model if checkpoint was used, otherwise use the one from last epoch
         final_trained_model_path = os.path.join(basin_output_dir, f'narx_model_best_{cuenca_name}.h5')
@@ -503,75 +523,70 @@ for cuenca_name in cuencas_to_process:
             print(f"No se encontró el mejor modelo guardado para {cuenca_name}, usando el de la última época.")
 
         best_models_per_basin[cuenca_name] = {'model': final_trained_model,
-                                              'best_n_lags_area': best_n_lags_area,
-                                              'best_params': best_params_basin} # Store best params too
+                                               'best_n_lags_area': best_n_lags_area,
+                                               'best_params': best_params_basin} # Store best params too
+
+        # --- Evaluación del modelo para la cuenca actual ---
+        current_scaler_area = all_basins_preprocessed_data[cuenca_name]['scalers']['area']
+        
+        # Prepara las secuencias para esta cuenca usando su mejor n_lags_area
+        basin_data_eval = all_basins_preprocessed_data[cuenca_name]['data']
+        sequences_for_eval = {
+            'train': {'X': create_sequences(basin_data_eval['df'].iloc[basin_data_eval['train_idx']], best_n_lags_area, exog_cols_scaled)[0],
+                      'y': create_sequences(basin_data_eval['df'].iloc[basin_data_eval['train_idx']], best_n_lags_area, exog_cols_scaled)[1]},
+            'test': {'X': create_sequences(basin_data_eval['df'].iloc[basin_data_eval['test_idx']], best_n_lags_area, exog_cols_scaled)[0],
+                     'y': create_sequences(basin_data_eval['df'].iloc[basin_data_eval['test_idx']], best_n_lags_area, exog_cols_scaled)[1]},
+            'val_df': basin_data_eval['df'].iloc[basin_data_eval['val_idx']].copy() # Keep as DataFrame for evaluate_validation
+        }
+
+        metrics_train, _, _ = evaluate_model(final_trained_model, sequences_for_eval['train'], current_scaler_area)
+        metrics_test, _, _ = evaluate_model(final_trained_model, sequences_for_eval['test'], current_scaler_area)
+        metrics_val, _, _ = evaluate_validation(final_trained_model, sequences_for_eval['val_df'], current_scaler_area, exog_cols, best_n_lags_area)
+        
+        # Llama a evaluate_full_dataset y pasa el directorio de salida específico de la cuenca
+        metrics_full = evaluate_full_dataset(final_trained_model, basin_data_eval['df'], current_scaler_area,
+                                             exog_cols_scaled, best_n_lags_area, graph=True,
+                                             output_dir=basin_output_dir, cuenca_name=cuenca_name)
+
+        current_basin_metrics = {
+            'best_params': best_params_basin,
+            'full_dataset': metrics_full,
+            'train': metrics_train,
+            'test': metrics_test,
+            'val': metrics_val
+        }
+        print(f"Métricas finales para {cuenca_name}:")
+        print(f"  Full Dataset (modo prediccion): {current_basin_metrics['full_dataset']}")
+        print(f"  Train: {current_basin_metrics['train']}")
+        print(f"  Test: {current_basin_metrics['test']}")
+        print(f"  Validation (modo prediccion): {current_basin_metrics['val']}")
+
+        # Guarda las métricas de esta cuenca en su propio archivo JSON
+        json_output_path = os.path.join(basin_output_dir, 'metrics.json')
+        with open(json_output_path, 'w', encoding='utf-8') as f:
+            json.dump(convert_numpy_to_python(current_basin_metrics), f, indent=4)
+        print(f"Métricas guardadas para {cuenca_name} en {json_output_path}")
+
     else:
-        print(f"No successful trials for Cuenca: {cuenca_name}. Skipping model training.")
-        best_models_per_basin[cuenca_name] = {'model': None, 'best_n_lags_area': None} # Store None if no best trial
+        print(f"No successful trials for Cuenca: {cuenca_name}. Skipping model training and evaluation.")
+        best_models_per_basin[cuenca_name] = {'model': None, 'best_n_lags_area': None}
+        # Guardar un JSON con NaNs si no hay trials exitosos
+        current_basin_metrics = {
+            'best_params': None,
+            'full_dataset': {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan},
+            'train': {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan},
+            'test': {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan},
+            'val': {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan}
+        }
+        json_output_path = os.path.join(basin_output_dir, 'metrics.json')
+        with open(json_output_path, 'w', encoding='utf-8') as f:
+            json.dump(convert_numpy_to_python(current_basin_metrics), f, indent=4)
+        print(f"Métricas (con NaNs) guardadas para {cuenca_name} en {json_output_path}")
 
-# --- Final Evaluation of all best models ---
-print("\n--- Evaluating Best Models for Each Cuenca ---")
-archivo_json_total = os.path.join(models_dir, 'all_final_metrics.json')
+# El guardado de 'all_final_metrics.json' ya no es necesario si las métricas se guardan individualmente.
+# Puedes eliminar las siguientes líneas:
+# with open(archivo_json_total, 'w', encoding='utf-8') as f:
+#     json.dump(convert_numpy_to_python(all_final_metrics), f, indent=4)
+# print(f"\nMétricas finales para todas las cuencas guardadas en {archivo_json_total}")
 
-# Evaluate on the full dataset (walk-forward prediction) for each best model
-results_full_dataset_all_basins = evaluate_full_dataset(best_models_per_basin, all_basins_preprocessed_data,
-                                                         exog_cols_scaled, True, models_dir)
-
-for cuenca_name in cuencas_to_process:
-    current_model_info = best_models_per_basin.get(cuenca_name)
-    if current_model_info is None or current_model_info['model'] is None:
-        print(f"Skipping full evaluation for {cuenca_name}: No best model available.")
-        all_final_metrics[cuenca_name] = {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan,
-                                           'train': {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan},
-                                           'test': {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan},
-                                           'val': {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan}}
-        continue
-
-    current_model = current_model_info['model']
-    current_n_lags_area = current_model_info['best_n_lags_area']
-    current_scaler_area = all_basins_preprocessed_data[cuenca_name]['scalers']['area']
-    
-    # Prepare sequences for this basin using its best n_lags_area
-    basin_data_eval = all_basins_preprocessed_data[cuenca_name]['data']
-    sequences_for_eval = {
-        'train': {'X': create_sequences(basin_data_eval['df'].iloc[basin_data_eval['train_idx']], current_n_lags_area, exog_cols_scaled)[0],
-                  'y': create_sequences(basin_data_eval['df'].iloc[basin_data_eval['train_idx']], current_n_lags_area, exog_cols_scaled)[1]},
-        'test': {'X': create_sequences(basin_data_eval['df'].iloc[basin_data_eval['test_idx']], current_n_lags_area, exog_cols_scaled)[0],
-                 'y': create_sequences(basin_data_eval['df'].iloc[basin_data_eval['test_idx']], current_n_lags_area, exog_cols_scaled)[1]},
-        'val_df': basin_data_eval['df'].iloc[basin_data_eval['val_idx']].copy() # Keep as DataFrame for evaluate_validation
-    }
-
-    metrics_train, _, _ = evaluate_model(current_model, sequences_for_eval['train'], current_scaler_area)
-    metrics_test, _, _ = evaluate_model(current_model, sequences_for_eval['test'], current_scaler_area)
-    metrics_val, _, _ = evaluate_validation(current_model, sequences_for_eval['val_df'], current_scaler_area, exog_cols, current_n_lags_area)
-
-    all_final_metrics[cuenca_name] = {
-        'best_params': current_model_info['best_params'],
-        'full_dataset': results_full_dataset_all_basins.get(cuenca_name, {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan}),
-        'train': metrics_train,
-        'test': metrics_test,
-        'val': metrics_val
-    }
-    print(f"Métricas finales para {cuenca_name}:")
-    print(f"  Full Dataset (modo prediccion): {all_final_metrics[cuenca_name]['full_dataset']}")
-    print(f"  Train: {all_final_metrics[cuenca_name]['train']}")
-    print(f"  Test: {all_final_metrics[cuenca_name]['test']}")
-    print(f"  Validation (modo prediccion): {all_final_metrics[cuenca_name]['val']}")
-
-# Save all final metrics to JSON
-with open(archivo_json_total, 'w', encoding='utf-8') as f:
-    # Convert numpy types to native Python types for JSON serialization
-    def convert_numpy_to_python(obj):
-        if isinstance(obj, np.float32) or isinstance(obj, np.float64):
-            return float(obj)
-        if isinstance(obj, np.ndarray):
-            return obj.tolist()
-        if isinstance(obj, dict):
-            return {k: convert_numpy_to_python(v) for k, v in obj.items()}
-        if isinstance(obj, list):
-            return [convert_numpy_to_python(elem) for elem in obj]
-        return obj
-    
-    json.dump(convert_numpy_to_python(all_final_metrics), f, indent=4)
-
-print(f"\nMétricas finales para todas las cuencas guardadas en {archivo_json_total}")
+print("\nProceso de optimización y evaluación por cuenca completado.")
