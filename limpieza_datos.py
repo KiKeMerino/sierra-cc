@@ -40,7 +40,11 @@ def calculate_area(snow_cover, basin):
 
 # v_exog_hist.csv
 def process_var_exog(input_file, output_path, save=False):
+    """
+        Coge el excel de series agregadas y lo convierte a csv separándolo y renombrando las columnas.
 
+        Return -> devuelve un csv con todas las variables exógenas y con una nueva columna 'cuenca' que idenfica qué cuenca es
+    """
     try:
         # Leo datos sobre variables exogenas: temperatura y precipitacion
         series_agregadas = pd.read_csv(input_file, delimiter=";")
@@ -206,24 +210,6 @@ def process_basin(basin):
     else:
         print(f"/nNo valid snow cover data found for basin {basin}.")
 
-# Eliminar, no queremos las areas juntas
-def join_areas(areas_path, output_path='.', save=False):
-    """
-    Junta los 6 csv de areas para crear un unico dataframe con una nueva columna  identificando de que área se trata cada registro
-    """
-    dfs = []
-    areas = os.listdir(areas_path)
-    for area in areas:
-        df = pd.read_csv(os.path.join(areas_path, area))
-        df['cuenca'] = area[:-4]
-        dfs.append(df)
-
-    df_final = pd.concat(dfs, axis=0)
-    if save:
-        df_final.to_csv(os.path.join(output_path, 'areas_total.csv'))
-    else:
-        return df_final
-
 # df_all.csv
 def merge_areas_exog(areas_file, exog_file, save=False):
     areas = pd.read_csv(areas_file, index_col=0)
@@ -243,13 +229,39 @@ def merge_areas_exog(areas_file, exog_file, save=False):
             dias_transcurridos += 1
 
         df.loc[index, 'dias_sin_precip'] = dias_transcurridos
-
     if save:
         df.to_csv('./df_all.csv')
     else:
         return df
 
-def cleaning_future_series(input_data_path, output_data_path, cuencas):
+
+def join_area_exog(exog_file, areas_path, output_path = './datasets', save=False):
+    """
+        Coge el archivo de areas, el archivo de variables exógenas y los junta, además de crear la nueva variable dias_sin_precip
+    """
+    exogs = pd.read_csv(exog_file, index_col=0)
+    cuencas = exogs['cuenca'].unique()
+    for cuenca in cuencas:
+        df_area = pd.read_csv(os.path.join(areas_path, cuenca + '.csv'))
+        dataset = pd.merge(left=df_area, right = exogs[exogs['cuenca'] == cuenca], how='inner', on='fecha')
+        dataset.drop(columns=['cuenca'], inplace=True)
+
+        dataset['dias_sin_precip'] = 0
+        dias_transcurridos = 0
+        for index, row in dataset.iterrows():
+            if row['precipitacion_bool'] == 1:
+                dias_transcurridos = 0  # reinicia el contador si ha llovido
+            else:
+                dias_transcurridos += 1
+
+            dataset.loc[index, 'dias_sin_precip'] = dias_transcurridos
+
+        if save:
+            dataset.to_csv(os.path.join(output_path, f'{cuenca}.csv'))
+        else:
+            return dataset
+
+def cleaning_future_series(input_data_path, output_data_path):
     """
     Procesa datos de cuencas, limpia y formatea archivos CSV, y guarda los resultados.
 
@@ -258,6 +270,7 @@ def cleaning_future_series(input_data_path, output_data_path, cuencas):
         output_data_path (str): La ruta al directorio de salida donde se guardarán los archivos procesados.
         cuencas (list): Una lista de nombres de cuencas a procesar.
     """
+    cuencas = os.listdir(input_data_path)
     for cuenca in cuencas:
         # Crea el directorio de salida si no existe
         os.makedirs(os.path.join(output_data_path, cuenca), exist_ok=True)
@@ -287,33 +300,19 @@ def cleaning_future_series(input_data_path, output_data_path, cuencas):
                 df_model = df_model.iloc[:,2:]
                 df_model.columns = ['precipitacion', 'temperatura']
 
-                file_name = escenario[:-4] + '_clean.csv'
+                # Hasta aqui tengo las variables de precipitacion y temperatura, faltan las de 'dia_sen', 'precipitacion_bool', y 'dias_sin_precip'
+                # Pasar a dia juliano normalizado
+                dia_juliano = df_model['Fecha'].dt.strftime("%j")
+                año = df_model['Year']
+                dias_año = año.apply(lambda x: 366 if x % 4 == 0 and x % 100 != 0 or x % 400 == 0 else 365)
+                dia_normalizado = dia_juliano.astype(int) / dias_año
+                dia_sen = np.sin(2 * np.pi * dia_normalizado)
+
+                df_model['dia_sen'] = dia_sen
+                df_model.rename(columns={'Fecha':'fecha'}, inplace=True)
+
+                file_name = escenario[:-4] + '_clean_processed.csv'
                 df_model.to_csv(os.path.join(output_data_path, cuenca, file_name))
-
-def join_area_exog(exog_file, areas_path, output_path = './datasets', save=False):
-    exogs = pd.read_csv(exog_file, index_col=0)
-
-    cuencas = exogs['cuenca'].unique()
-    for cuenca in cuencas:
-        df_area = pd.read_csv(os.path.join(areas_path, cuenca + '.csv'))
-        dataset = pd.merge(left=df_area, right = exogs[exogs['cuenca'] == cuenca], how='inner', on='fecha')
-        dataset.drop(columns=['cuenca'], inplace=True)
-
-        dataset['dias_sin_precip'] = 0
-        dias_transcurridos = 0
-        for index, row in dataset.iterrows():
-            if row['precipitacion_bool'] == 1:
-                dias_transcurridos = 0  # reinicia el contador si ha llovido
-            else:
-                dias_transcurridos += 1
-
-            dataset.loc[index, 'dias_sin_precip'] = dias_transcurridos
-
-        if save:
-            dataset.to_csv(os.path.join(output_path, f'{cuenca}.csv'))
-        else:
-            return dataset
-
 
 #%% --- MAIN EXECUTION ---
 # join_areas("E:/data/csv/areas", '', True)
@@ -322,7 +321,13 @@ def join_area_exog(exog_file, areas_path, output_path = './datasets', save=False
 
 exog_file = os.path.join('D:/data/csv/v_exog_hist.csv')
 areas_path = os.path.join('D:/data/csv/areas/')
-join_area_exog(exog_file,areas_path,'datasets/', True)
+future_series_path_og = 'D:\data\csv\series_futuras_og'
+future_series_path_clean = 'D:\data\csv\series_futuras_clean'
+
+
+cleaning_future_series(future_series_path_og, future_series_path_clean)
+
+# join_area_exog(exog_file,areas_path,'datasets/', True)
 
 # #%%
 # df.dias_sin_precip.value_counts()

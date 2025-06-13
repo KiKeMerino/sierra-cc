@@ -418,7 +418,7 @@ cuencas_to_process = list(all_basins_preprocessed_data.keys())
 
 # Dictionary to store the best trial/model info for each basin
 best_models_per_basin = {}
-cuencas_to_process = ['adda-bornio', 'genil-dilar']
+cuencas_to_process = ['indrawati-melamchi', 'mapocho-almendros', 'nenskra-enguri', 'uncompahgre-ridgway']
 
 # --- Loop through each basin for separate Optuna optimization and evaluation ---
 for cuenca_name in cuencas_to_process:

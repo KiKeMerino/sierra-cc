@@ -3,8 +3,8 @@ import os
 
 input_data_path = 'D:/data/csv/series_futuras_og/'
 output_data_path = 'D:/data/csv/series_futuras_clean/'
-cuencas = os.listdir(input_data_path)
 
+cuencas = os.listdir(input_data_path)
 for cuenca in cuencas:
     escenarios = os.listdir(os.path.join(input_data_path, cuenca))
     for escenario in escenarios:
