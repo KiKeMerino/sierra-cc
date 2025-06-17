@@ -298,9 +298,13 @@ def cleaning_future_series(input_data_path, output_data_path):
                 df_model = df.iloc[:, start_index:start_index+4].copy()
                 df_model = df_model.iloc[:,2:]
                 df_model.columns = ['precipitacion', 'temperatura']
+            
+                df_model['precipitacion'] = pd.to_numeric(df_model['precipitacion'])
+                df_model['temperatura'] = pd.to_numeric(df_model['temperatura'])
 
                 # Hasta aqui tengo las variables de precipitacion y temperatura, faltan las de 'dia_sen', 'precipitacion_bool', y 'dias_sin_precip'
-                # Pasar a dia juliano normalizado
+
+                # Columna 'dia_sen'
                 dia_juliano = df_model.index.strftime("%j")
                 df_model['año'] = df_model.index.year
                 año = df_model['año']
@@ -312,8 +316,24 @@ def cleaning_future_series(input_data_path, output_data_path):
                 df_model['dia_sen'] = dia_sen
                 df_model.rename(columns={'Fecha':'fecha'}, inplace=True)
 
+                # Columna precipitacion_bool
+                df_model['precipitacion_bool'] = df_model['precipitacion'].apply(lambda x: 1 if x > 0.10 else 0)
+
+                # Columna dias_sin_precip
+                df_model['dias_sin_precip'] = 0
+                dias_transcurridos = 0
+                for index, row in df_model.iterrows():
+                    if row['precipitacion_bool'] == 1:
+                        dias_transcurridos = 0  # reinicia el contador si ha llovido
+                    else:
+                        dias_transcurridos += 1
+
+                    df_model.loc[index, 'dias_sin_precip'] = dias_transcurridos
+
                 file_name = escenario[:-4] + '_clean_processed.csv'
                 df_model.to_csv(os.path.join(output_data_path, cuenca, file_name))
+
+
 
 # Probar a imputar con bfil y ffil
 def impute_outliers(df):
@@ -342,7 +362,7 @@ def impute_outliers(df):
 # merge_areas_exog('areas_total.csv', './v_exog_hist.csv', save=True)
 
 
-EXTERNAL_DISK = 'E:'
+EXTERNAL_DISK = 'D:'
 data_path = os.path.join(EXTERNAL_DISK, "data/")
 
 exog_file = os.path.join(data_path, 'csv/v_exog_hist.csv')
@@ -356,7 +376,7 @@ future_series_path_clean = os.path.join(data_path, 'csv\series_futuras_clean')
 # df_imputed.to_csv(os.path.join(areas_path, 'genil-dilar.csv'))
 cleaning_future_series(future_series_path_og, future_series_path_clean)
 
-join_area_exog(exog_file,areas_path,'datasets/', True)
+# join_area_exog(exog_file,areas_path,'datasets/', True)
 
 # #%%
 # df.dias_sin_precip.value_counts()
