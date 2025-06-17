@@ -8,9 +8,8 @@ import datetime
 # import rioxarray as rxr
 import concurrent.futures
 import numpy as np
+import matplotlib.pyplot as plt
 
-external_disk = "E:/"
-data_path = os.path.join(external_disk, "data/")
 
 #%% DEFINICIÓN DE FUNCIONES
 def calculate_area(snow_cover, basin):
@@ -176,7 +175,7 @@ def process_basin(basin):
         print(f"Processing of basin '{basin}' cancelled by user.")
         return
     
-    basin_path = Path(data_path, "basins", basin)
+    basin_path = Path(data_path, "hdfs", basin)
     archivos_hdf = [str(archivo) for archivo in basin_path.rglob("*.hdf")]
     archivos_shp = list(basin_path.glob("*.shp"))
     try:
@@ -200,7 +199,7 @@ def process_basin(basin):
     if not df_datos.empty:
         df_datos.set_index('fecha', inplace=True)
         df_datos.sort_index(inplace=True)
-        output_filepath = f"{data_path}csv/areas/{basin}.csv"
+        output_filepath = f"{data_path}csv/areas/{basin}2.csv"
         if os.path.exists(output_filepath):
             overwrite = input(f"Warning: File '{output_filepath}' already exists. Overwrite? (y/N): ".lower())
             if overwrite != 'y':
@@ -234,7 +233,7 @@ def merge_areas_exog(areas_file, exog_file, save=False):
     else:
         return df
 
-
+# ./datasets/(6)
 def join_area_exog(exog_file, areas_path, output_path = './datasets', save=False):
     """
         Coge el archivo de areas, el archivo de variables exógenas y los junta, además de crear la nueva variable dias_sin_precip
@@ -302,11 +301,13 @@ def cleaning_future_series(input_data_path, output_data_path):
 
                 # Hasta aqui tengo las variables de precipitacion y temperatura, faltan las de 'dia_sen', 'precipitacion_bool', y 'dias_sin_precip'
                 # Pasar a dia juliano normalizado
-                dia_juliano = df_model['Fecha'].dt.strftime("%j")
-                año = df_model['Year']
+                dia_juliano = df_model.index.strftime("%j")
+                df_model['año'] = df_model.index.year
+                año = df_model['año']
                 dias_año = año.apply(lambda x: 366 if x % 4 == 0 and x % 100 != 0 or x % 400 == 0 else 365)
                 dia_normalizado = dia_juliano.astype(int) / dias_año
                 dia_sen = np.sin(2 * np.pi * dia_normalizado)
+                df_model = df_model.drop('año', axis=1)
 
                 df_model['dia_sen'] = dia_sen
                 df_model.rename(columns={'Fecha':'fecha'}, inplace=True)
@@ -314,20 +315,48 @@ def cleaning_future_series(input_data_path, output_data_path):
                 file_name = escenario[:-4] + '_clean_processed.csv'
                 df_model.to_csv(os.path.join(output_data_path, cuenca, file_name))
 
+# Probar a imputar con bfil y ffil
+def impute_outliers(df):
+    df.index = pd.to_datetime(df.index)
+    q1 = df.area_nieve.quantile(0.25)
+    q3 = df.area_nieve.quantile(0.75)
+    iqr = q3-q1
+    upper_bound = q3 + 1.5 * iqr
+    outlier_mask = df.area_nieve > upper_bound
+
+    tmp_df = df['area_nieve'].copy()
+    tmp_df[outlier_mask] = np.nan
+
+    valor_medio_estacional = tmp_df.groupby(
+        [tmp_df.index.month, tmp_df.index.day]
+    ).transform('mean')
+
+    df_imputed = df.copy()
+    df_imputed.loc[outlier_mask, 'area_nieve'] = valor_medio_estacional[outlier_mask]
+
+    return df_imputed
+
 #%% --- MAIN EXECUTION ---
 # join_areas("E:/data/csv/areas", '', True)
 # process_var_exog('E:/data/csv/Series_historicas_agregadas_ERA5Land.csv', '.')
 # merge_areas_exog('areas_total.csv', './v_exog_hist.csv', save=True)
 
-exog_file = os.path.join('D:/data/csv/v_exog_hist.csv')
-areas_path = os.path.join('D:/data/csv/areas/')
-future_series_path_og = 'D:\data\csv\series_futuras_og'
-future_series_path_clean = 'D:\data\csv\series_futuras_clean'
 
+EXTERNAL_DISK = 'E:'
+data_path = os.path.join(EXTERNAL_DISK, "data/")
 
+exog_file = os.path.join(data_path, 'csv/v_exog_hist.csv')
+areas_path = os.path.join(data_path, 'csv/areas/')
+future_series_path_og = os.path.join(data_path, 'csv\series_futuras_og')
+future_series_path_clean = os.path.join(data_path, 'csv\series_futuras_clean')
+
+# df = pd.read_csv(os.path.join(areas_path, 'genil-dilar.csv'))
+# df_imputed = impute_outliers(df)
+
+# df_imputed.to_csv(os.path.join(areas_path, 'genil-dilar.csv'))
 cleaning_future_series(future_series_path_og, future_series_path_clean)
 
-# join_area_exog(exog_file,areas_path,'datasets/', True)
+join_area_exog(exog_file,areas_path,'datasets/', True)
 
 # #%%
 # df.dias_sin_precip.value_counts()
