@@ -116,8 +116,8 @@ def create_narx_model(n_lags, n_layers, n_units_lstm, n_features, learning_rate,
 def load_model_and_params_for_basin(cuenca_name, models_dir='models'):
     """Carga un modelo y sus hiperparámetros para una cuenca específica."""
     basin_output_dir = os.path.join(models_dir, cuenca_name)
-    model_path = os.path.join(basin_output_dir, f'narx_model_{cuenca_name}.h5')
-    params_path = os.path.join(basin_output_dir, f'best_params_{cuenca_name}.json')
+    model_path = os.path.join(basin_output_dir, f'narx_model_best_{cuenca_name}.h5')
+    params_path = os.path.join(basin_output_dir, f'metrics.json')
 
     loaded_model = None
     loaded_params = None
@@ -362,7 +362,7 @@ def convert_numpy_to_python(obj):
 
 if __name__ == "__main__":
     basins_dir = 'datasets/'
-    models_base_dir = os.path.join("D:", "models_per_basin") # Directorio base para todos los modelos
+    models_base_dir = os.path.join("D:", "models") # Directorio base para todos los modelos
 
     exog_cols = ["dia_sen","temperatura","precipitacion", "dias_sin_precip"]
     exog_cols_scaled = [col + '_scaled' for col in exog_cols]
@@ -408,7 +408,7 @@ if __name__ == "__main__":
         choice = input("¿Deseas cargar el modelo existente (c) o crear un nuevo modelo (n)? [c/n]: ").lower()
         if choice == 'c':
             model_to_evaluate = loaded_model
-            params_to_use = loaded_params
+            params_to_use = loaded_params.get('best_params')
             print("Cargando el modelo existente.")
         else:
             print("Creando un nuevo modelo.")
@@ -537,7 +537,7 @@ if __name__ == "__main__":
     print(f"  Full Dataset (modo predicción): {metrics_full}")
 
     # Guardar todas las métricas finales en un JSON
-    all_metrics_output_path = os.path.join(basin_output_dir, f'evaluation_metrics_{cuenca_name}.json')
+    all_metrics_output_path = os.path.join(basin_output_dir, 'metrics.json')
     final_metrics_summary = {
         'basin_name': cuenca_name,
         'hyperparameters_used': params_to_use,

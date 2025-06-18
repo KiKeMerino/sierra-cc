@@ -355,7 +355,7 @@ for cuenca_name in cuencas_a_evaluar:
     if current_model_info is None or current_model_info['model'] is None:
         print(f"Saltando la evaluación para '{cuenca_name}' (modelo no disponible/cargado).")
         all_final_metrics[cuenca_name] = {
-            'best_params': current_model_info['best_params'] if current_model_info else None,
+            'hyperparameters_used': current_model_info['best_params'] if current_model_info else None,
             'full_dataset': {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan},
             'train': {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan},
             'test': {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan},

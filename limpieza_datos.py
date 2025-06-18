@@ -1,11 +1,11 @@
 #%% IMPORTS
 import os
 import pandas as pd
-# import geopandas as gpd
+import geopandas as gpd
 from pathlib import Path
 import re
 import datetime
-# import rioxarray as rxr
+import rioxarray as rxr
 import concurrent.futures
 import numpy as np
 import matplotlib.pyplot as plt
@@ -110,64 +110,61 @@ def process_var_exog(input_file, output_path, save=False):
     else:
         return df_final
 
-# data/csv/areas/(6)
+
 def process_hdf(basin, area, archivo):
     """
     Processes a single HDF file to extract snow cover area for a specific basin.
-
-    The function reads a raster file, clips it to the area of the specified
-    basin, extracts the snow cover data (NDSI), calculates the total snow
-    cover area using the `calculate_area` function, and extracts the date
-    from the filename.
-
-    Args:
-        basin (str): The name of the basin. This is used to pass to the
-            `calculate_area` function for correct reprojection.
-        area (geopandas.GeoDataFrame): A GeoDataFrame containing the geometry
-            of the basin, used for clipping the raster data.
-        archivo (str): The absolute path to the HDF raster file to be processed.
-            The filename is expected to contain a date in the format
-            '_AYYYYDDD_', where YYYY is the year and DDD is the day of the year
-            (Julian day).
-
-    Returns:
-        dict: A dictionary containing the 'fecha' (datetime.date object)
-            extracted from the filename and the 'area_nieve' (float) in km²
-            calculated for the snow cover in the basin. Returns None if the
-            date cannot be extracted from the filename.
-
-    Example:
-        >>> import geopandas as gpd
-        >>> # Assuming 'area_guadalquivir.shp' and 'CGF_NDSI_Snow_Cover_A2023001_...' exist
-        >>> area_gdf = gpd.read_file('area_guadalquivir.shp')
-        >>> result = process_hdf('Guadalquivir', area_gdf.iloc[[0]], 'path/to/CGF_NDSI_Snow_Cover_A2023001_...')
-        >>> if result:
-        >>>     print(f"Date: {result['fecha']}, Snow Area: {result['area_nieve']:.2f} km²")
     """
-    print(f"/r{basin}: procesando {archivo}...", end="")
-    coincidencia = re.search(r"_A(/d{4})(/d{3})_", archivo)
+    print(f"\r{basin}: procesando {archivo}...", end="", flush=True) # Añadir flush=True para que se vea el progreso
+    
+    # CORRECCIÓN: Usar \d para dígitos en la expresión regular
+    coincidencia = re.search(r"_A(\d{4})(\d{3})_", archivo)
     fecha = None
     if coincidencia:
         try:
             fecha = datetime.datetime.strptime(f"{coincidencia.group(1)}-{coincidencia.group(2)}", "%Y-%j").date()
         except ValueError:
-            print(f"Warning: Could not parse date from filename '{archivo}'")
-
-    snow_cover = rxr.open_rasterio(archivo, masked=True, variable="CGF_NDSI_Snow_Cover").rio.clip(
-        area.geometry.to_list(), crs=area.crs, all_touched=False).squeeze()
-
-    if fecha:
-        return {'fecha': fecha, 'area_nieve': calculate_area(snow_cover, basin)}
+            print(f"\nWarning: Could not parse date from filename '{archivo}'") # Añadir \n para no sobreescribir
+            return None # Retornar None si la fecha no es válida
     else:
+        print(f"\nWarning: Could not find date pattern in filename '{archivo}'")
+        return None # Retornar None si no se encuentra el patrón de fecha
+
+    try:
+        # Abre el archivo HDF. Asegúrate de que 'CGF_NDSI_Snow_Cover' sea el nombre correcto del subdataset.
+        # Es común que los HDF de MODIS tengan rutas más complejas, por ejemplo:
+        # HDF4_EOS:EOS_GRID:"MOD10A1F.A2000056.h17v05.061.2020037173027.hdf":MOD_Grid_Snow_500m:CGF_NDSI_Snow_Cover
+        # Rasterio con xarray (rxr) a menudo lo maneja bien si especificas 'variable'.
+        # Si tienes problemas, podrías necesitar usar h5py para inspeccionar el HDF.
+        snow_cover = rxr.open_rasterio(archivo, masked=True, variable="CGF_NDSI_Snow_Cover").rio.clip(
+            area.geometry.to_list(), crs=area.crs, all_touched=False).squeeze()
+
+        # Verificar si hay datos válidos después del clip
+        if snow_cover.isnull().all():
+            print(f"\nWarning: No valid data after clipping for {archivo}. Basin {basin} might be outside raster extent.")
+            return None
+
+        # Asegúrate de que la función calculate_area maneja correctamente los datos nulos/masked
+        area_nieve = calculate_area(snow_cover, basin)
+
+        if fecha and area_nieve is not None: # Asegurarse de que calculate_area devuelva algo no nulo
+            return {'fecha': fecha, 'area_nieve': area_nieve}
+        else:
+            return None # Retornar None si no se puede calcular el área o la fecha es nula
+            
+    except Exception as e:
+        print(f"\nError processing {archivo} for basin {basin}: {e}")
         return None
+
+# data/csv/areas/(6) 
 def process_basin(basin):
     """
     Procesa los archivos hdf y crea un archivo de areas para cada cuenca
     """
-    if basin not in ['adda-bornio', 'genil-dilar', 'indrawati-melamchi', 'mapocho-almendros', 'nenskra-Enguri', 'uncompahgre-ridgway']:
-        raise ValueError(f"Unsupported basin: {basin}. Supported basins are: "
-                         "'adda-bornio', 'genil-dilar', 'indrawati-melamchi', "
-                         "'mapocho-almendros', 'nenskra-Enguri', 'uncompahgre-ridgway'")
+    supported_basins = ['adda-bornio', 'genil-dilar', 'indrawati-melamchi',
+                        'mapocho-almendros', 'nenskra-Enguri', 'uncompahgre-ridgway']
+    if basin not in supported_basins:
+        raise ValueError(f"Unsupported basin: {basin}. Supported basins are: {', '.join(supported_basins)}")
     
     print(f"**Warning:** Processing basin '{basin}' can take more than 1 hour to execute.")
     confirmation = input("Are you sure you want to continue? (y/N): ").lower()
@@ -175,8 +172,14 @@ def process_basin(basin):
         print(f"Processing of basin '{basin}' cancelled by user.")
         return
     
-    basin_path = Path(data_path, "hdfs", basin)
+    basin_path = data_path / "hdfs" / basin
     archivos_hdf = [str(archivo) for archivo in basin_path.rglob("*.hdf")]
+    
+    # Comprobar si hay archivos HDF
+    if not archivos_hdf:
+        print(f"Error: No HDF files found in '{basin_path}'.")
+        return
+
     archivos_shp = list(basin_path.glob("*.shp"))
     try:
         if not archivos_shp:
@@ -186,28 +189,51 @@ def process_basin(basin):
     except FileNotFoundError as e:
         print(f"Error: Could not find basin directory or shapefile for '{basin}'. {e}")
         return
+    except Exception as e: # Capturar otros errores de lectura del shapefile
+        print(f"Error reading shapefile '{area_path}' for basin '{basin}': {e}")
+        return
 
     resultados = []
-    with concurrent.futures.ThreadPoolExecutor() as executor:
+    # Usar ThreadPoolExecutor para operaciones I/O (lectura de archivos)
+    # Ajusta max_workers según tus recursos y el número de archivos.
+    with concurrent.futures.ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
         futures = [executor.submit(process_hdf, basin, area, archivo) for archivo in archivos_hdf]
-        for future in concurrent.futures.as_completed(futures):
-            result = future.result()
-            if result:
-                resultados.append(result)
+        for i, future in enumerate(concurrent.futures.as_completed(futures)):
+            try:
+                result = future.result()
+                if result:
+                    resultados.append(result)
+                # Actualizar el progreso en la misma línea
+                print(f"\r{basin}: Procesados {i+1}/{len(archivos_hdf)} archivos...", end="", flush=True)
+            except Exception as e:
+                print(f"\nError in future processing for basin {basin}: {e}") # Asegurarse de no sobreescribir el progreso
+    
+    print(f"\nFinished processing all HDF files for basin {basin}.") # Mensaje de finalización
 
     df_datos = pd.DataFrame(resultados)
     if not df_datos.empty:
         df_datos.set_index('fecha', inplace=True)
         df_datos.sort_index(inplace=True)
-        output_filepath = f"{data_path}csv/areas/{basin}2.csv"
-        if os.path.exists(output_filepath):
-            overwrite = input(f"Warning: File '{output_filepath}' already exists. Overwrite? (y/N): ".lower())
+        
+        output_dir = data_path / "csv" / "areas"
+        output_dir.mkdir(parents=True, exist_ok=True) # Asegura que el directorio exista
+        output_filepath = output_dir / f"{basin}.csv" # Nombrar el archivo sin el "2" si es una versión final
+        
+        # Corrección: El .lower() ya lo tienes en la llamada a input, pero se lo quito al mensaje
+        if output_filepath.exists():
+            overwrite = input(f"Warning: File '{output_filepath}' already exists. Overwrite? (y/N): ").lower()
             if overwrite != 'y':
                 print(f"Overwrite cancelled for basin '{basin}'")
-        df_datos.to_csv(output_filepath, index=False)
-
+                return # Salir si no se sobrescribe
+        
+        # CAMBIO: Mantener el índice 'fecha' en el CSV. Si NO quieres la columna 'fecha' en el CSV,
+        # y que el índice sea numérico, deberías usar df_datos.reset_index(inplace=True) antes de to_csv(index=False)
+        # o simplemente to_csv(index=True) para que el índice 'fecha' sea la primera columna.
+        # Asumiendo que quieres 'fecha' como primera columna:
+        df_datos.to_csv(output_filepath, index=True) # index=True por defecto, pero explícito es bueno.
+        print(f"Data for basin '{basin}' saved to '{output_filepath}'")
     else:
-        print(f"/nNo valid snow cover data found for basin {basin}.")
+        print(f"\nNo valid snow cover data found for basin {basin}. Check HDF files, regex, or calculate_area function.")
 
 # df_all.csv
 def merge_areas_exog(areas_file, exog_file, save=False):
@@ -364,31 +390,23 @@ def impute_outliers(df):
 
 EXTERNAL_DISK = 'D:'
 data_path = os.path.join(EXTERNAL_DISK, "data/")
-
+datasets_path = os.path.join('./datasets/')
 exog_file = os.path.join(data_path, 'csv/v_exog_hist.csv')
 areas_path = os.path.join(data_path, 'csv/areas/')
 future_series_path_og = os.path.join(data_path, 'csv\series_futuras_og')
 future_series_path_clean = os.path.join(data_path, 'csv\series_futuras_clean')
 
-# df = pd.read_csv(os.path.join(areas_path, 'genil-dilar.csv'))
+# df = pd.read_csv(os.path.join(datasets_path, 'genil-dilar.csv'), index_col=0)
 # df_imputed = impute_outliers(df)
+# df
 
 # df_imputed.to_csv(os.path.join(areas_path, 'genil-dilar.csv'))
-cleaning_future_series(future_series_path_og, future_series_path_clean)
+# cleaning_future_series(future_series_path_og, future_series_path_clean)
 
 # join_area_exog(exog_file,areas_path,'datasets/', True)
 
-# #%%
-# df.dias_sin_precip.value_counts()
-# # %%
-# df.drop(columns=['cuenca', 'fecha'], inplace=True)
-# df
-# # %%
-# sns.relplot(x="dia_sen", y = 'area_nieve', data = df)
+process_basin('genil-dilar')
 
-# #%%
-# corr_matrix = df.corr()
-# plt.figure(figsize=(12, 10))
-# sns.heatmap(corr_matrix, annot=True, cmap='coolwarm', fmt=".1f")
-# plt.title('Correlation Matrix of Numerical Features')
-# plt.show()
+#%%
+import os
+print(os.environ.get('GDAL_DRIVER_PATH'))
