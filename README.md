@@ -8,7 +8,7 @@ La funcionalidad de este código es tomar un modelo de red neuronal recurrente (
 
 ## Estructura de los datos
 
-Los datos utilizados que usaré en este proyecto contienen los siguientes datasets de la NASA:
+Los datos utilizados que usaré en este proyecto contienen los siguientes datasets de la nasa:
 
 * CGF_NDSI_Snow_Cover: **Este será el que nos interesa**
     - long_name: 'cloud-gap-filled NDSI snow cover',
