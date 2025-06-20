@@ -8,7 +8,7 @@ La funcionalidad de este código es tomar un modelo de red neuronal recurrente (
 
 ## Estructura de los datos
 
-Los datos utilizados que usaré en este proyecto contienen los siguientes datasets de la nasa:
+Los datos utilizados que usaré en este proyecto contienen los siguientes datasets de la nasa del satélite MOD10A1F:
 
 * CGF_NDSI_Snow_Cover: **Este será el que nos interesa**
     - long_name: 'cloud-gap-filled NDSI snow cover',
@@ -35,7 +35,7 @@ Los datos utilizados que usaré en este proyecto contienen los siguientes datase
     - Key:
         - count of consecutive preceding days of cloud cover
 
-Cada dataset es un raster de datos diviendo la basin en píxeles con los valores arriba mencionados, yo consideraré  los valores entre 40 y 100 como nieve, y los demás como no nieve para simplificar el modelo
+Cada dataset es un raster de datos diviendo la basin en píxeles con los valores arriba mencionados, en este proyecto se considerarán los valores entre 40 y 100 como nieve, y los demás como no nieve para simplificar el modelo
 
 # Estructura del Dataset CGF_NDSI_Snow_Cover _(snow_cover)_
 Este es el Dataset con el que trabajaremos, se trata de un xarray que contiene datos de cubierta de nieve derivados de imagenes MODIS, su estructura principal es la siguiente:
@@ -53,7 +53,7 @@ Este es el Dataset con el que trabajaremos, se trata de un xarray que contiene d
 Los datos MODIS se obtuvieron de [EarthData Search](https://search.earthdata.nasa.gov/search), la plataforma de NASA para la búsqueda de datos geoespaciales. Los pasos para la descarga personalizada fueron los siguientes:
 
 1.  **Filtrado por Fecha y Área de Interés:**
-    * Se filtraron los datos por el rango de fechas deseado y se definió el área de interés correspondiente a la basin Adda-Bormio.
+    * Se filtraron los datos por el rango de fechas deseado y se definió el área de interés correspondiente a la basin Adda-Bormio mediante un archivo .zip que contiene el .shp para delimitar el perímetro.
 
 2.  **Descarga Personalizada:**
     * Se seleccionó la opción de descarga personalizada para tener control sobre el formato y la proyección de los datos.

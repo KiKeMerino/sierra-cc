@@ -1,15 +1,14 @@
 #%% IMPORTS
 import os
 import pandas as pd
-import geopandas as gpd
+# import geopandas as gpd
 from pathlib import Path
 import re
 import datetime
-import rioxarray as rxr
+# import rioxarray as rxr
 import concurrent.futures
 import numpy as np
 import matplotlib.pyplot as plt
-
 
 #%% DEFINICIÓN DE FUNCIONES
 def calculate_area(snow_cover, basin):
@@ -339,25 +338,25 @@ def cleaning_future_series(input_data_path, output_data_path):
 
 
 # Probar a imputar con bfil y ffil
-def impute_outliers(df):
+def impute_outliers(df, cuenca, save=False):
+    df_copy = df.copy()
     df.index = pd.to_datetime(df.index)
-    q1 = df.area_nieve.quantile(0.25)
-    q3 = df.area_nieve.quantile(0.75)
+    q1 = df_copy.area_nieve.quantile(0.25)
+    q3 = df_copy.area_nieve.quantile(0.75)
     iqr = q3-q1
     upper_bound = q3 + 1.5 * iqr
-    outlier_mask = df.area_nieve > upper_bound
+    outlier_mask = df_copy.area_nieve > upper_bound
 
-    tmp_df = df['area_nieve'].copy()
-    tmp_df[outlier_mask] = np.nan
+    df_copy.loc[outlier_mask, 'area_nieve'] = np.nan
+    df_copy['area_nieve'] = df_copy['area_nieve'].bfill().ffill()
 
-    valor_medio_estacional = tmp_df.groupby(
-        [tmp_df.index.month, tmp_df.index.day]
-    ).transform('mean')
+    if df_copy['area_nieve'].isnull().any():
+        print(f"Advertencia: Quedan nulos en la columna 'area_nieve' después de bfill/ffill. Rellenando con la media de la columna.")
 
-    df_imputed = df.copy()
-    df_imputed.loc[outlier_mask, 'area_nieve'] = valor_medio_estacional[outlier_mask]
-
-    return df_imputed
+    if save:
+        df_copy.to_csv(f'./datasets/{cuenca}.csv')
+    else:
+        return df_copy
 
 #%% --- MAIN EXECUTION ---
 # join_areas("E:/data/csv/areas", '', True)
@@ -372,14 +371,22 @@ exog_file = os.path.join(data_path, 'csv/v_exog_hist.csv')
 areas_path = os.path.join(data_path, 'csv/areas/')
 future_series_path_og = os.path.join(data_path, 'csv\series_futuras_og')
 future_series_path_clean = os.path.join(data_path, 'csv\series_futuras_clean')
-
+genil = pd.read_csv(os.path.join(datasets_path, 'genil-dilar.csv'), index_col=0)
+indrawati = pd.read_csv(os.path.join(datasets_path, 'indrawati-melamchi.csv'), index_col=0)
+#%%
 # df = pd.read_csv(os.path.join(datasets_path, 'genil-dilar.csv'), index_col=0)
-# df_imputed = impute_outliers(df)
-# df
+df_imputed = impute_outliers(indrawati, 'indrawati-melamchi', False)
+
+#%%
+plt.figure(figsize=(10, 6))
+plt.boxplot(indrawati['area_nieve'])
+plt.title('Boxplot de Area de Nieve (Genil - Dilar)')
+plt.ylabel('Area Nieve')
+plt.show()
 
 # df_imputed.to_csv(os.path.join(areas_path, 'genil-dilar.csv'))
 # cleaning_future_series(future_series_path_og, future_series_path_clean)
 
 # join_area_exog(exog_file,areas_path,'datasets/', True)
 
-process_basin('genil-dilar')
+# process_basin('genil-dilar')

@@ -389,7 +389,7 @@ def convert_numpy_to_python(obj):
 # --- Main execution ---
 # Define the directory where your basin CSVs are located
 basins_dir = 'datasets/'
-models_dir = os.path.join("E:", "new_models")
+models_dir = os.path.join("E:", "new_models_imputed")
 
 exog_cols = ["dia_sen","temperatura","precipitacion", "dias_sin_precip"]
 exog_cols_scaled = [col + '_scaled' for col in exog_cols]
@@ -397,6 +397,8 @@ exog_cols_scaled = [col + '_scaled' for col in exog_cols]
 # Discover all basin CSVs
 basin_files = [f for f in os.listdir(basins_dir) if f.endswith('.csv')]
 cuencas_all = [os.path.splitext(f)[0] for f in basin_files] # Extract basin names
+cuencas_all = ['indrawati-melamchi']
+
 
 # Preprocess all data upfront and store in a dictionary
 all_basins_preprocessed_data = {}
@@ -418,7 +420,7 @@ cuencas_to_process = list(all_basins_preprocessed_data.keys())
 
 # Dictionary to store the best trial/model info for each basin
 best_models_per_basin = {}
-cuencas_to_process = ['genil-dilar']
+cuencas_to_process = ['indrawati-melamchi']
 
 # --- Loop through each basin for separate Optuna optimization and evaluation ---
 for cuenca_name in cuencas_to_process:
