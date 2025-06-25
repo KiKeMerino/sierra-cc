@@ -17,6 +17,20 @@ import optuna # Aunque no se usa directamente para la creación manual, se manti
 
 # --- FUNCIONES (Copiadas de tu script original, no necesitan cambios internos) ---
 
+# --- CLASE CUSTOM_LSTM PARA MANEJAR EL ERROR 'time_major' ---
+# Este es el cambio clave para cargar tus modelos antiguos.
+class CustomLSTM(keras.layers.LSTM):
+    def __init__(self, *args, **kwargs):
+        # Filtrar el argumento 'time_major' si está presente y no es reconocido
+        if 'time_major' in kwargs:
+            print(f"Advertencia: Ignorando el argumento 'time_major={kwargs['time_major']}' para la capa LSTM.")
+            kwargs.pop('time_major')
+        super().__init__(*args, **kwargs)
+
+# Registrar la clase para que Keras pueda encontrarla al cargar el modelo
+# Esto es importante para que Keras sepa cómo deserializar esta capa personalizada
+tf.keras.utils.get_custom_objects()['LSTM'] = CustomLSTM
+
 def nash_sutcliffe_efficiency(y_true, y_pred):
     numerator = np.sum((y_true - y_pred)**2)
     denominator = np.sum((y_true - np.mean(y_true))**2)
@@ -114,26 +128,36 @@ def create_narx_model(n_lags, n_layers, n_units_lstm, n_features, learning_rate,
     return model
 
 def load_model_and_params_for_basin(cuenca_name, models_dir='models'):
-    """Carga un modelo y sus hiperparámetros para una cuenca específica."""
+    """Carga un modelo y sus hiperparámetros para una cuenca específica,
+    manejando el error 'time_major'."""
     basin_output_dir = os.path.join(models_dir, cuenca_name)
     model_path = os.path.join(basin_output_dir, f'narx_model_best_{cuenca_name}.h5')
-    params_path = os.path.join(basin_output_dir, f'metrics.json')
+    params_path = os.path.join(basin_output_dir, f'metrics.json') # o 'best_params.json' si lo tienes
 
     loaded_model = None
     loaded_params = None
 
     if os.path.exists(model_path):
         try:
-            loaded_model = keras.models.load_model(model_path)
+            # Usar custom_objects para manejar la capa LSTM y la pérdida 'mse'
+            loaded_model = keras.models.load_model(
+                model_path,
+                custom_objects={
+                    'LSTM': CustomLSTM, # Usar clase custom para LSTM
+                    'mse': tf.keras.losses.MeanSquaredError() # Para el error 'mse' si aparece
+                }
+            )
             print(f"Modelo cargado para la cuenca: {cuenca_name} desde {model_path}")
         except Exception as e:
             print(f"Error al cargar el modelo de {cuenca_name}: {e}")
 
+    # Cargar parámetros adicionales (aunque hayas dicho que metrics.json no existe)
+    # Esto intentará cargarlo de todos modos, pero loaded_params será None si falla.
     if os.path.exists(params_path):
         try:
             with open(params_path, 'r', encoding='utf-8') as f:
                 loaded_params = json.load(f)
-            print(f"Hiperparámetros cargados para la cuenca: {cuenca_name} desde {params_path}")
+            print(f"Hiperparámetros (o métricas) cargados para la cuenca: {cuenca_name} desde {params_path}")
         except Exception as e:
             print(f"Error al cargar los hiperparámetros de {cuenca_name}: {e}")
     

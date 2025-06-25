@@ -493,7 +493,6 @@ if model and historical_df is not None and future_exog_df is not None and scaler
         future_predictions_df.to_csv(predictions_output_path, index=False)
         print(f"Predicciones futuras guardadas en: {predictions_output_path}")
 
-        # Opcional: Graficar las predicciones futuras (si tienes matplotlib/seaborn)
         try:
             plt.figure(figsize=(15, 6))
             sns.lineplot(x=future_predictions_df['fecha'], y=future_predictions_df['area_nieve_pred'], label='Predicción futura')

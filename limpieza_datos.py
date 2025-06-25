@@ -9,8 +9,9 @@ import datetime
 import concurrent.futures
 import numpy as np
 import matplotlib.pyplot as plt
-
 #%% DEFINICIÓN DE FUNCIONES
+
+# data/csv/areas/(6)
 def calculate_area(snow_cover, basin):
     if basin == "adda-bornio":
         snow_cover = snow_cover.rio.reproject("EPSG:25832")
@@ -37,82 +38,6 @@ def calculate_area(snow_cover, basin):
     area = round((area_pixel_nieve * n_pixeles_nieve) / 1e6, 5)
 
     return area
-
-# v_exog_hist.csv
-def process_var_exog(input_file, output_path, save=False):
-    """
-        Coge el excel de series agregadas y lo convierte a csv separándolo y renombrando las columnas.
-
-        Return -> devuelve un csv con todas las variables exógenas y con una nueva columna 'cuenca' que idenfica qué cuenca es
-    """
-    try:
-        # Leo datos sobre variables exogenas: temperatura y precipitacion
-        series_agregadas = pd.read_csv(input_file, delimiter=";")
-    except FileNotFoundError:
-        print(f"Error: Input file not found at '{input_file}'")
-        return
-
-    # Coreccion de formato
-    series_agregadas['Fecha'] = pd.to_datetime(series_agregadas["Fecha"], format="%d/%m/%Y")
-    columnas_numericas = ['T', 'T.1', 'T.2', 'T.3','T.4', 'T.5', 'P','P.1','P.2','P.3','P.4','P.5']
-    for col in columnas_numericas:
-        series_agregadas[col] = series_agregadas[col].apply(lambda x: x.replace(',','.')).apply(pd.to_numeric)
-
-    # Añado P_bool.5
-    series_agregadas['P_bool.5'] = np.where(series_agregadas['P.5']>0.1,1,0)
-
-    # Pasar a dia juliano normalizado
-    dia_juliano = series_agregadas['Fecha'].dt.strftime("%j")
-    año = series_agregadas['Year']
-    dias_año = año.apply(lambda x: 366 if x % 4 == 0 and x % 100 != 0 or x % 400 == 0 else 365)
-    dia_normalizado = dia_juliano.astype(int) / dias_año
-    dia_sen = np.sin(2 * np.pi * dia_normalizado)
-
-    series_agregadas['dia_sen'] = dia_sen
-    series_agregadas.rename(columns={'Fecha':'fecha'}, inplace=True)
-
-    # Borrar columnas innecesarias
-    columnas_innecesarias = ['Year','Mes']
-    for col in columnas_innecesarias:
-        del(series_agregadas[col])
-
-    # Dividir columnas por basins
-    columns = ['fecha', 'dia_sen', 'temperatura', 'precipitacion', 'precipitacion_bool']
-
-    adda_bornio = series_agregadas[['fecha','dia_sen','T','P','P_bool']]
-    adda_bornio.columns = columns
-    adda_bornio['cuenca'] = 'adda-bornio'
-
-    genil_dilar = series_agregadas[['fecha','dia_sen','T.1','P.1','P_bool.1']]
-    genil_dilar.columns = columns
-    genil_dilar['cuenca'] = 'genil-dilar' 
-
-    indrawati_melamchi = series_agregadas[['fecha','dia_sen','T.2','P.2','P_bool.2']]
-    indrawati_melamchi.columns = columns
-    indrawati_melamchi['cuenca'] = 'indrawati-melamchi'
-
-    mapocho_almendros = series_agregadas[['fecha','dia_sen','T.3','P.3','P_bool.3']]
-    mapocho_almendros.columns = columns
-    mapocho_almendros['cuenca'] = 'mapocho-almendros'
-
-    nenskra_enguri = series_agregadas[['fecha','dia_sen','T.4','P.4','P_bool.4']]
-    nenskra_enguri.columns = columns
-    nenskra_enguri['cuenca'] = 'nenskra-enguri'
-
-    uncompahgre_ridgway = series_agregadas[['fecha','dia_sen','T.5','P.5','P_bool.5']]
-    uncompahgre_ridgway.columns = columns
-    uncompahgre_ridgway['cuenca'] = 'uncompahgre-ridgway'
-
-    df_final = pd.concat([adda_bornio, genil_dilar, indrawati_melamchi, mapocho_almendros, nenskra_enguri, uncompahgre_ridgway], axis=0)
-    df_final.reset_index(drop=True, inplace=True)
-
-    if save:
-        df_final.to_csv(os.path.join(output_path, 'v_exog_hist.csv'))
-    else:
-        return df_final
-
-
-# data/csv/areas/(6)
 def process_hdf(basin, area, archivo):
     """
     Processes a single HDF file to extract snow cover area for a specific basin.
@@ -212,29 +137,79 @@ def process_basin(basin):
     else:
         print(f"\nNo valid snow cover data found for basin {basin}.")
 
-# df_all.csv
-def merge_areas_exog(areas_file, exog_file, save=False):
-    areas = pd.read_csv(areas_file, index_col=0)
-    exog = pd.read_csv(exog_file, index_col = 0)
+# v_exog_hist.csv
+def process_var_exog(input_file, output_path, save=False):
+    """
+        Coge el excel de series agregadas y lo convierte a csv separándolo y renombrando las columnas.
 
-    df = pd.merge(areas, exog, how='inner', on=['fecha', 'cuenca'])
-    df['fecha'] = pd.to_datetime(df["fecha"])
-    df['day'] = df['fecha'].dt.day_of_year
+        Return -> devuelve un csv con todas las variables exógenas y con una nueva columna 'cuenca' que idenfica qué cuenca es
+    """
+    try:
+        # Leo datos sobre variables exogenas: temperatura y precipitacion
+        series_agregadas = pd.read_csv(input_file, delimiter=";")
+    except FileNotFoundError:
+        print(f"Error: Input file not found at '{input_file}'")
+        return
 
-    # Calculo de dias transcurridos desde la última precipitacion
-    df['dias_sin_precip'] = 0
-    dias_transcurridos = 0
-    for index, row in df.iterrows():
-        if row['precipitacion_bool'] == 1:
-            dias_transcurridos = 0  # reinicia el contador si ha llovido
-        else:
-            dias_transcurridos += 1
+    # Coreccion de formato
+    series_agregadas['Fecha'] = pd.to_datetime(series_agregadas["Fecha"], format="%d/%m/%Y")
+    columnas_numericas = ['T', 'T.1', 'T.2', 'T.3','T.4', 'T.5', 'P','P.1','P.2','P.3','P.4','P.5']
+    for col in columnas_numericas:
+        series_agregadas[col] = series_agregadas[col].apply(lambda x: x.replace(',','.')).apply(pd.to_numeric)
 
-        df.loc[index, 'dias_sin_precip'] = dias_transcurridos
+    # Añado P_bool.5
+    series_agregadas['P_bool.5'] = np.where(series_agregadas['P.5']>0.1,1,0)
+
+    # Pasar a dia juliano normalizado
+    dia_juliano = series_agregadas['Fecha'].dt.strftime("%j")
+    año = series_agregadas['Year']
+    dias_año = año.apply(lambda x: 366 if x % 4 == 0 and x % 100 != 0 or x % 400 == 0 else 365)
+    dia_normalizado = dia_juliano.astype(int) / dias_año
+    dia_sen = np.sin(2 * np.pi * dia_normalizado)
+
+    series_agregadas['dia_sen'] = dia_sen
+    series_agregadas.rename(columns={'Fecha':'fecha'}, inplace=True)
+
+    # Borrar columnas innecesarias
+    columnas_innecesarias = ['Year','Mes']
+    for col in columnas_innecesarias:
+        del(series_agregadas[col])
+
+    # Dividir columnas por basins
+    columns = ['fecha', 'dia_sen', 'temperatura', 'precipitacion', 'precipitacion_bool']
+
+    adda_bornio = series_agregadas[['fecha','dia_sen','T','P','P_bool']]
+    adda_bornio.columns = columns
+    adda_bornio['cuenca'] = 'adda-bornio'
+
+    genil_dilar = series_agregadas[['fecha','dia_sen','T.1','P.1','P_bool.1']]
+    genil_dilar.columns = columns
+    genil_dilar['cuenca'] = 'genil-dilar' 
+
+    indrawati_melamchi = series_agregadas[['fecha','dia_sen','T.2','P.2','P_bool.2']]
+    indrawati_melamchi.columns = columns
+    indrawati_melamchi['cuenca'] = 'indrawati-melamchi'
+
+    mapocho_almendros = series_agregadas[['fecha','dia_sen','T.3','P.3','P_bool.3']]
+    mapocho_almendros.columns = columns
+    mapocho_almendros['cuenca'] = 'mapocho-almendros'
+
+    nenskra_enguri = series_agregadas[['fecha','dia_sen','T.4','P.4','P_bool.4']]
+    nenskra_enguri.columns = columns
+    nenskra_enguri['cuenca'] = 'nenskra-enguri'
+
+    uncompahgre_ridgway = series_agregadas[['fecha','dia_sen','T.5','P.5','P_bool.5']]
+    uncompahgre_ridgway.columns = columns
+    uncompahgre_ridgway['cuenca'] = 'uncompahgre-ridgway'
+
+    df_final = pd.concat([adda_bornio, genil_dilar, indrawati_melamchi, mapocho_almendros, nenskra_enguri, uncompahgre_ridgway], axis=0)
+    df_final.reset_index(drop=True, inplace=True)
+
     if save:
-        df.to_csv('./df_all.csv')
+        df_final.to_csv(os.path.join(output_path, 'v_exog_hist.csv'))
     else:
-        return df
+        return df_final
+
 
 # ./datasets/(6)
 def join_area_exog(exog_file, areas_path, output_path = './datasets', save=False):
@@ -260,9 +235,10 @@ def join_area_exog(exog_file, areas_path, output_path = './datasets', save=False
 
         if save:
             dataset.to_csv(os.path.join(output_path, f'{cuenca}.csv'))
-        else:
-            return dataset
 
+        return dataset
+
+# D:\data\csv\series_futuras_clean\
 def cleaning_future_series(input_data_path, output_data_path):
     """
     Procesa datos de cuencas, limpia y formatea archivos CSV, y guarda los resultados.
@@ -333,30 +309,29 @@ def cleaning_future_series(input_data_path, output_data_path):
 
                     df_model.loc[index, 'dias_sin_precip'] = dias_transcurridos
 
-                file_name = escenario[:-4] + '_clean_processed.csv'
+                file_name = f'{escenario[:-4]}_{model}_.csv'
                 df_model.to_csv(os.path.join(output_data_path, cuenca, file_name))
 
-
 # Probar a imputar con bfil y ffil
-def impute_outliers(df, cuenca, save=False):
+def impute_outliers(df, cuenca, columna, save=False):
     df_copy = df.copy()
     df.index = pd.to_datetime(df.index)
-    q1 = df_copy.area_nieve.quantile(0.25)
-    q3 = df_copy.area_nieve.quantile(0.75)
+    q1 = df_copy[columna].quantile(0.25)
+    q3 = df_copy[columna].quantile(0.75)
     iqr = q3-q1
     upper_bound = q3 + 1.5 * iqr
-    outlier_mask = df_copy.area_nieve > upper_bound
+    outlier_mask = df_copy[columna] > upper_bound
 
-    df_copy.loc[outlier_mask, 'area_nieve'] = np.nan
-    df_copy['area_nieve'] = df_copy['area_nieve'].bfill().ffill()
+    df_copy.loc[outlier_mask, columna] = np.nan
+    df_copy[columna] = df_copy[columna].bfill().ffill()
 
-    if df_copy['area_nieve'].isnull().any():
-        print(f"Advertencia: Quedan nulos en la columna 'area_nieve' después de bfill/ffill. Rellenando con la media de la columna.")
+    if df_copy[columna].isnull().any():
+        print(f"Advertencia: Quedan nulos en la columna {columna} después de bfill/ffill. Rellenando con la media de la columna.")
 
-    if save:
-        df_copy.to_csv(f'./datasets/{cuenca}.csv')
-    else:
-        return df_copy
+    if save == True:
+        df_copy.to_csv(f'./datasets_imputed/{cuenca}.csv', index = False)
+
+    return df_copy
 
 #%% --- MAIN EXECUTION ---
 # join_areas("E:/data/csv/areas", '', True)
@@ -364,29 +339,40 @@ def impute_outliers(df, cuenca, save=False):
 # merge_areas_exog('areas_total.csv', './v_exog_hist.csv', save=True)
 
 
-EXTERNAL_DISK = 'E:'
+EXTERNAL_DISK = 'D:'
 data_path = os.path.join(EXTERNAL_DISK, "data/")
 datasets_path = os.path.join('./datasets/')
 exog_file = os.path.join(data_path, 'csv/v_exog_hist.csv')
 areas_path = os.path.join(data_path, 'csv/areas/')
 future_series_path_og = os.path.join(data_path, 'csv\series_futuras_og')
 future_series_path_clean = os.path.join(data_path, 'csv\series_futuras_clean')
+
 genil = pd.read_csv(os.path.join(datasets_path, 'genil-dilar.csv'), index_col=0)
 indrawati = pd.read_csv(os.path.join(datasets_path, 'indrawati-melamchi.csv'), index_col=0)
+mapocho = pd.read_csv(os.path.join(datasets_path, 'mapocho-almendros.csv'), index_col=0)
+adda = pd.read_csv(os.path.join(datasets_path, 'adda-bornio.csv'), index_col=0)
+nenskra = pd.read_csv(os.path.join(datasets_path, 'nenskra-enguri.csv'), index_col=0)
+uncompahgre = pd.read_csv(os.path.join(datasets_path, 'uncompahgre-ridgway.csv'), index_col=0)
 #%%
 # df = pd.read_csv(os.path.join(datasets_path, 'genil-dilar.csv'), index_col=0)
-df_imputed = impute_outliers(indrawati, 'indrawati-melamchi', False)
+# columna = 'area_nieve'
+# impute_outliers(genil, 'genil-dilar', columna, True)
+# impute_outliers(indrawati, 'indrawati-melamchi', columna, True)
+# impute_outliers(mapocho, 'mapocho-almendros', columna, True)
+# impute_outliers(nenskra, 'nenskra-enguri', columna, True)
+# impute_outliers(adda, 'adda-bornio', columna, True)
+# impute_outliers(uncompahgre, 'uncompahgre-ridgway', columna, True)
 
 #%%
-plt.figure(figsize=(10, 6))
-plt.boxplot(indrawati['area_nieve'])
-plt.title('Boxplot de Area de Nieve (Genil - Dilar)')
-plt.ylabel('Area Nieve')
-plt.show()
+adda
+#%%
+# plt.figure(figsize=(10, 6))
+# plt.boxplot(genil['area_nieve'])
+# plt.title('Boxplot de Area de Nieve (Genil - Dilar)')
+# plt.ylabel('Area Nieve')
+# plt.show()
 
 # df_imputed.to_csv(os.path.join(areas_path, 'genil-dilar.csv'))
-# cleaning_future_series(future_series_path_og, future_series_path_clean)
-
-# join_area_exog(exog_file,areas_path,'datasets/', True)
-
-# process_basin('genil-dilar')
+cleaning_future_series(future_series_path_og, future_series_path_clean)
+#%%
+# join_area_exog(exog_file, areas_path,'datasets/', True)
