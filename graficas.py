@@ -12,7 +12,7 @@ data_path ='E:/data/csv/areas/'
 basins = ['genil-dilar','adda-bornio','indrawati-melamchi','mapocho-almendros','nenskra-Enguri','uncompahgre-ridgway']
 
 
-def plot_area_perday(basins, save=False, path='./img/lineplots/per_day'):
+def plot_area_perday(basins, save=False, path='./image/lineplots/per_day'):
     """
     Generates and displays (or saves) a line plot of the average snow cover area
     per day of the year for specified basins.
@@ -27,7 +27,7 @@ def plot_area_perday(basins, save=False, path='./img/lineplots/per_day'):
             the plot will be displayed using matplotlib's `plt.show()`.
             Defaults to False.
         path (str, optional): The directory path where the generated plot
-            will be saved if `save` is True. Defaults to './img/lineplots/per_day'.
+            will be saved if `save` is True. Defaults to './image/lineplots/per_day'.
 
     Returns:
         None
@@ -73,7 +73,7 @@ def plot_area_perday(basins, save=False, path='./img/lineplots/per_day'):
             plt.show()
         plt.close()
 
-def plot_area_permonth(basins, save=False, path='./img/lineplots/per_month'):
+def plot_area_permonth(basins, save=False, path='./image/lineplots/per_month'):
     """
     Generates and displays (or saves) a line plot of the average snow cover area
     per month of the year for specified basins.
@@ -88,7 +88,7 @@ def plot_area_permonth(basins, save=False, path='./img/lineplots/per_month'):
             the plot will be displayed using matplotlib's `plt.show()`.
             Defaults to False.
         path (str, optional): The directory path where the generated plot
-            will be saved if `save` is True. Defaults to './img/lineplots/per_month'.
+            will be saved if `save` is True. Defaults to './image/lineplots/per_month'.
 
     Returns:
         None
@@ -131,7 +131,7 @@ def plot_area_permonth(basins, save=False, path='./img/lineplots/per_month'):
             plt.show()
         plt.close()
 
-def plot_heatmap_prob(basins, save=False, path='./img/heatmaps'):
+def plot_heatmap_prob(basins, save=False, path='./image/heatmaps', data_path='E:/data/hdfs/'): # Added data_path as an argument for clarity
     """
     Generates and displays (or saves) a heatmap showing the probability of snow
     presence per pixel for specified basins.
@@ -151,7 +151,9 @@ def plot_heatmap_prob(basins, save=False, path='./img/heatmaps'):
             If False, the heatmap will be displayed using matplotlib's
             `plt.show()`. Defaults to False.
         path (str, optional): The directory path where the generated heatmap
-            will be saved if `save` is True. Defaults to './img/heatmaps'.
+            will be saved if `save` is True. Defaults to './image/heatmaps'.
+        data_path (str, optional): The base directory where the 'basins'
+            folder is located. Defaults to './data/'.
 
     Returns:
         None
@@ -163,23 +165,36 @@ def plot_heatmap_prob(basins, save=False, path='./img/heatmaps'):
 
     Example:
         >>> data_path = '/path/to/your/data/'
-        >>> plot_heatmap_prob(['Guadalquivir'])
-        >>> plot_heatmap_prob(['Guadalquivir', 'Ebro'], save=True, path='./output_heatmaps')
+        >>> plot_heatmap_prob(['Guadalquivir'], data_path=data_path)
+        >>> plot_heatmap_prob(['Guadalquivir', 'Ebro'], save=True, path='./output_heatmaps', data_path=data_path)
     """
+    # Set a base font size for all text elements
+    plt.rcParams.update({'font.size': 14}) # Adjust this value as needed
+
+    # Ensure basins is always a list for consistent iteration
+    if isinstance(basins, str):
+        basins = [basins]
+
     for basin in basins:
 
         # Lectura de datos
         try:
-            archivos_hdf = [str(archivo) for archivo in Path(data_path + "basins/" + basin).rglob("*.hdf")]
+            archivos_hdf = [str(archivo) for archivo in Path(data_path + basin).rglob("*.hdf")]
+            if not archivos_hdf:
+                print(f"No HDF files found in '{data_path + basin}'. Skipping basin.")
+                continue
         except FileNotFoundError:
-            print(f"Error: file not found '{data_path + 'basins/' + basin}'")
+            print(f"Error: Basin directory not found '{data_path + basin}'. Skipping basin.")
             continue
 
         try:
-            archivos_shp = [str(archivo) for archivo in Path(data_path + "basins" + "/" + basin).glob("*.shp")]
+            archivos_shp = [str(archivo) for archivo in Path(data_path + basin).glob("*.shp")]
+            if not archivos_shp:
+                print(f"No SHP files found in '{data_path + basin}'. Skipping basin.")
+                continue
             area_path = archivos_shp[0]
         except FileNotFoundError:
-            print(f"Error: file not found '{data_path} basins/ {basin}'")
+            print(f"Error: Shapefile directory not found '{data_path}/{basin}'. Skipping basin.")
             continue
 
         area = gpd.read_file(area_path)
@@ -188,8 +203,12 @@ def plot_heatmap_prob(basins, save=False, path='./img/heatmaps'):
 
         for archivo in archivos_hdf:
             print(f"\r{basin} -> {archivos_hdf.index(archivo)/len(archivos_hdf)*100:.2f}% ...", end="")
-            snow_cover = rxr.open_rasterio(archivo, masked=True, variable="CGF_NDSI_Snow_Cover").rio.clip(
-                area.geometry.to_list(), crs=area.crs, all_touched=False).squeeze()
+            try:
+                snow_cover = rxr.open_rasterio(archivo, masked=True, variable="CGF_NDSI_Snow_Cover").rio.clip(
+                    area.geometry.to_list(), crs=area.crs, all_touched=False).squeeze()
+            except Exception as e:
+                print(f"\nError processing {archivo}: {e}. Skipping this file.")
+                continue
 
 
             snow_cover = snow_cover.to_dataframe().dropna().reset_index()
@@ -203,26 +222,30 @@ def plot_heatmap_prob(basins, save=False, path='./img/heatmaps'):
             df_media = pd.concat(snow_presence_list, ignore_index=True)
             df_media = df_media.groupby(['x', 'y'])['nieve'].mean().reset_index()
 
-            probability_pivot = df_media.pivot(index='y', columns='x', values='nieve')
+            probability_pivot = df_media.pivot(index='y', columns='x', values='nieve') * 100 # Multiply by 100 for percentage
 
-            plt.figure(figsize=(10, 6))
-            sns.heatmap(probability_pivot, cmap='Spectral', cbar_kws={'label': 'Snow probability'})
-            plt.title(f'Snow probability by pixel - {basin}')
-            plt.xlabel('Longitude (x)')
-            plt.ylabel('Latitude (y)')
+            plt.figure(figsize=(12, 8)) # Increased figure size for better readability
+            sns.heatmap(probability_pivot, cmap='Spectral',
+                        cbar_kws={'label': 'Probabilidad de Nieve (%)', 'format': '%.0f'}, # Set legend label and format
+                        vmin=0, vmax=100) # Set color bar limits
+            plt.title(f'Probabilidad de Nieve por Píxel - {basin}', fontsize=16) # Increased title font size
+            plt.xlabel('Longitud (x)', fontsize=14) # Increased axis label font size
+            plt.ylabel('Latitud (y)', fontsize=14) # Increased axis label font size
             plt.xticks([])  # Eliminar marcas del eje x
             plt.yticks([])  # Eliminar marcas del eje y
             plt.gca().invert_yaxis()
 
+            # Ensure the output directory exists
             if save:
-                plt.savefig(f"{path}/{basin}-probability.png")
+                Path(path).mkdir(parents=True, exist_ok=True)
+                plt.savefig(f"{path}/{basin}-probability.png", bbox_inches='tight') # bbox_inches='tight' prevents labels from being cut off
+                print(f"\nHeatmap saved to {path}/{basin}-probability.png")
             else:
                 plt.show()
 
             plt.close()
 
         else:
-            print("No snow cover data found.")
+            print(f"\nNo snow cover data found for basin: {basin}.")
 
-plot_area_permonth(basins, save=True)
-plot_area_perday(basins, save=True)
+plot_heatmap_prob(basins, save=True)

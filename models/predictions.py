@@ -12,6 +12,14 @@ import seaborn as sns # Necesario si graficas
 
 # --- FUNCIONES DE SOPORTE (Mantienen su funcionalidad original) ---
 
+class CustomLSTM(keras.layers.LSTM):
+    def __init__(self, *args, **kwargs):
+        # Filtrar el argumento 'time_major' si está presente y no es reconocido
+        if 'time_major' in kwargs:
+            print(f"Advertencia: Ignorando el argumento 'time_major={kwargs['time_major']}' para la capa LSTM.")
+            kwargs.pop('time_major')
+        super().__init__(*args, **kwargs)
+
 def nash_sutcliffe_efficiency(y_true, y_pred):
     numerator = np.sum((y_true - y_pred)**2)
     denominator = np.sum((y_true - np.mean(y_true))**2)
@@ -84,211 +92,8 @@ def create_sequences(data, n_lags, exog_cols_scaled, target_col_scaled='area_nie
         return np.array([]).reshape(0, n_lags, len(exog_cols_scaled) + 1), np.array([]).reshape(0, 1)        
     return np.array(X), np.array(y).reshape(-1, 1)
 
-# Las funciones evaluate_model, evaluate_validation y evaluate_full_dataset
-# no se necesitan directamente para la predicción futura aquí,
-# pero las mantengo por si las usas para otras evaluaciones.
-# He corregido las comprobaciones de longitud y NaN/Inf dentro de ellas para mayor robustez.
 
-def evaluate_model(model, sequences, scaler_area):
-    X = sequences['X']
-    y_true = sequences['y']
-    
-    if X.shape[0] == 0:
-        return {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan}, None, None
-
-    y_pred_scaled = model.predict(X, verbose=0)
-
-    if np.any(np.isnan(y_pred_scaled)) or np.any(np.isinf(y_pred_scaled)):
-        return {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan}, None, None
-
-    y_pred_original = scaler_area.inverse_transform(y_pred_scaled)
-    y_true_original = scaler_area.inverse_transform(y_true)
-
-    # Añadir comprobación de longitud aquí también, aunque para train/test/val de create_sequences
-    # las longitudes deberían coincidir por construcción.
-    if y_pred_original.shape[0] != y_true_original.shape[0]:
-        return {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan}, None, None
-
-    r2 = pearsonr(y_true_original.flatten(), y_pred_original.flatten())
-    r2 = r2.statistic**2
-    mae = mean_absolute_error(y_true_original, y_pred_original)
-    nse = nash_sutcliffe_efficiency(y_true_original, y_pred_original)
-    kge = kling_gupta_efficiency(y_true_original, y_pred_original)
-
-    return {'R2': r2, 'MAE': mae, 'NSE': nse, 'KGE': kge}, y_pred_original, y_true_original
-
-def evaluate_validation(model, df_val_scaled, scaler_area, exog_cols, n_lags_area):
-    n_exog_features = len(exog_cols)
-
-    if len(df_val_scaled) < n_lags_area + 1:
-        return {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan}, None, None
-
-    y_val_true_original = df_val_scaled['area_nieve'].values[n_lags_area:].reshape(-1, 1)
-    y_val_pred_scaled = []
-
-    first_sequence_data = df_val_scaled[['area_nieve_scaled'] + [col + '_scaled' for col in exog_cols]].iloc[:n_lags_area].values
-    last_sequence = first_sequence_data.reshape(1, n_lags_area, -1)
-
-    for i in range(len(df_val_scaled) - n_lags_area):
-        if np.any(np.isnan(last_sequence)) or np.any(np.isinf(last_sequence)):
-            y_val_pred_scaled.extend([np.nan] * (len(df_val_scaled) - n_lags_area - i))
-            break
-
-        pred_scaled = model.predict(last_sequence, verbose=0)
-
-        if np.any(np.isnan(pred_scaled)) or np.any(np.isinf(pred_scaled)):
-            y_val_pred_scaled.append(np.nan)
-            y_val_pred_scaled.extend([np.nan] * (len(df_val_scaled) - n_lags_area - (i + 1)))
-            break
-
-        y_val_pred_scaled.append(pred_scaled[0, 0])
-
-        next_area_scaled = pred_scaled.reshape(1, 1, 1)
-        next_exog_scaled = df_val_scaled[[col + '_scaled' for col in exog_cols]].iloc[n_lags_area + i].values.reshape(1, 1, n_exog_features)
-
-        updated_area_sequence = np.concatenate([last_sequence[:, 1:, 0].reshape(1, n_lags_area - 1, 1), next_area_scaled], axis=1)
-        updated_exog_sequence = np.concatenate([last_sequence[:, 1:, 1:], next_exog_scaled], axis=1)
-        last_sequence = np.concatenate([updated_area_sequence, updated_exog_sequence], axis=2)
-            
-    if not y_val_pred_scaled:
-        return {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan}, None, None
-
-    y_val_pred_original = scaler_area.inverse_transform(np.array(y_val_pred_scaled).reshape(-1, 1))
-
-    # --- NUEVA COMPROBACIÓN DE LONGITUD Y VALORES ---
-    if y_val_pred_original.shape[0] != y_val_true_original.shape[0]:
-        print(f"Advertencia: Longitud de predicciones ({y_val_pred_original.shape[0]}) no coincide con valores reales ({y_val_true_original.shape[0]}).")
-        return {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan}, None, None
-    
-    if np.any(np.isnan(y_val_pred_original)) or np.any(np.isinf(y_val_pred_original)):
-        print(f"Advertencia: Predicciones transformadas contienen NaN/inf.")
-        return {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan}, None, None
-
-    r2_val = pearsonr(y_val_true_original.flatten(), y_val_pred_original.flatten())
-    r2_val = r2_val.statistic**2
-    mae_val = mean_absolute_error(y_val_true_original, y_val_pred_original)
-    nse_val = nash_sutcliffe_efficiency(y_val_true_original, y_val_pred_original)
-    kge_val = kling_gupta_efficiency(y_val_true_original, y_val_pred_original)
-
-    return {'R2': r2_val, 'MAE': mae_val, 'NSE': nse_val, 'KGE': kge_val}, y_val_pred_original, y_val_true_original
-
-def evaluate_full_dataset(model, scaled_data, scaler_area, n_lags_area, exog_cols_scaled, graph=False, model_dir='./', cuenca_name=""):
-    # Esta función se modificó para que acepte un solo modelo y sus datos
-    full_metrics = {}
-
-    df_full_scaled_cuenca = scaled_data['df'].copy()
-
-    n_exog_features = len(exog_cols_scaled)
-
-    if len(df_full_scaled_cuenca) < n_lags_area + 1:
-        print(f"Advertencia: Datos completos de la cuenca ({len(df_full_scaled_cuenca)}) son muy cortos para n_lags={n_lags_area}.")
-        return {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan}
-
-    y_full_true_original = df_full_scaled_cuenca['area_nieve'].values[n_lags_area:].reshape(-1, 1)
-    y_full_pred_scaled = []
-
-    first_sequence_full = df_full_scaled_cuenca[['area_nieve_scaled'] + exog_cols_scaled].iloc[:n_lags_area].values.reshape(1, n_lags_area, -1)
-    last_sequence_full = first_sequence_full.copy()
-
-    for i in range(len(df_full_scaled_cuenca) - n_lags_area):
-        if np.any(np.isnan(last_sequence_full)) or np.any(np.isinf(last_sequence_full)):
-            y_full_pred_scaled.extend([np.nan] * (len(df_full_scaled_cuenca) - n_lags_area - i))
-            break
-
-        pred_scaled = model.predict(last_sequence_full, verbose=0)
-
-        if np.any(np.isnan(pred_scaled)) or np.any(np.isinf(pred_scaled)):
-            y_full_pred_scaled.append(np.nan)
-            y_full_pred_scaled.extend([np.nan] * (len(df_full_scaled_cuenca) - n_lags_area - (i + 1)))
-            break
-
-        y_full_pred_scaled.append(pred_scaled[0, 0])
-
-        next_area_scaled = pred_scaled.reshape(1, 1, 1)
-        next_exog_scaled = df_full_scaled_cuenca[exog_cols_scaled].iloc[n_lags_area + i].values.reshape(1, 1, n_exog_features)
-
-        updated_area_sequence = np.concatenate([last_sequence_full[:, 1:, 0].reshape(1, n_lags_area - 1, 1), next_area_scaled], axis=1)
-        updated_exog_sequence = np.concatenate([last_sequence_full[:, 1:, 1:], next_exog_scaled], axis=1)
-        last_sequence_full = np.concatenate([updated_area_sequence, updated_exog_sequence], axis=2)
-            
-    if not y_full_pred_scaled:
-        print(f"Advertencia: No se generaron predicciones para el conjunto completo.")
-        return {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan}
-
-    y_full_pred_original = scaler_area.inverse_transform(np.array(y_full_pred_scaled).reshape(-1, 1))
-
-    # --- NUEVA COMPROBACIÓN DE LONGITUD Y VALORES ---
-    if y_full_pred_original.shape[0] != y_full_true_original.shape[0]:
-        print(f"Advertencia: Longitud de predicciones ({y_full_pred_original.shape[0]}) no coincide con valores reales ({y_full_true_original.shape[0]}) para el conjunto completo.")
-        return {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan}
-    
-    if np.any(np.isnan(y_full_pred_original)) or np.any(np.isinf(y_full_pred_original)):
-        print(f"Advertencia: Predicciones transformadas para el conjunto completo contienen NaN/inf.")
-        return {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan}
-
-    r2_full = pearsonr(y_full_true_original.flatten(), y_full_pred_original.flatten())
-    r2_full = r2_full.statistic**2
-    mae_full = mean_absolute_error(y_full_true_original, y_full_pred_original)
-    nse_full = nash_sutcliffe_efficiency(y_full_true_original, y_full_pred_original)
-    kge_full = kling_gupta_efficiency(y_full_true_original, y_full_pred_original)
-
-    full_metrics = {'R2': r2_full, 'MAE': mae_full, 'NSE': nse_full, 'KGE': kge_full} # Corregido: NSE no era KGE
-    
-    # --- GRÁFICOS (mantengo la funcionalidad de gráficos si graph=True) ---
-    if graph == True:
-        # Asegurarse de que df_full_scaled_cuenca tiene la columna 'fecha'
-        real_plot = df_full_scaled_cuenca.iloc[n_lags_area:].copy()
-        real_plot['area_nieve'] = y_full_true_original # Valores reales en escala original
-        y_full_pred_df = pd.DataFrame(y_full_pred_original, columns=['area_nieve_pred'], index=real_plot.index)
-        df_plot = pd.concat([real_plot, y_full_pred_df], axis=1)
-        df_plot['fecha'] = pd.to_datetime(df_plot['fecha'], format='%Y-%m-%d') # Asegurar formato
-
-        graph_types = ['per_day', 'per_month', 'all_days']
-        for graph_type in graph_types:
-            xlabel_text = ""
-            groupby_col = 'fecha'
-            title_suffix = ""
-
-            if graph_type == 'per_day':
-                df_plot['fecha_agrupada'] = df_plot['fecha'].dt.day_of_year
-                xlabel_text = "Day of Year"
-                groupby_col = 'fecha_agrupada'
-                title_suffix = " (Average per day of the year)"
-            elif graph_type == 'per_month':
-                df_plot['fecha_agrupada'] = df_plot['fecha'].dt.month
-                xlabel_text = 'Month'
-                groupby_col = 'fecha_agrupada'
-                title_suffix = " (Average per month)"
-            elif graph_type == 'all_days': 
-                xlabel_text = "Date"
-                title_suffix = " (Serie temporal completa)"
-
-            df_plot_grouped = df_plot.groupby(groupby_col).agg(
-                area_nieve_real = ('area_nieve', 'mean'),
-                area_nieve_pred=('area_nieve_pred', 'mean')
-            ).reset_index()
-
-            plt.figure(figsize=(15,6))
-            if graph_type in ['per_day', 'per_month']:
-                plt.xlim(left=min(df_plot_grouped[groupby_col]), right=(max(df_plot_grouped[groupby_col])))
-            sns.lineplot(x=df_plot_grouped[groupby_col], y=df_plot_grouped.area_nieve_real, label='Real area')
-            sns.lineplot(x=df_plot_grouped[groupby_col], y=df_plot_grouped.area_nieve_pred, label='Prediction')
-            plt.title(f'Prediction vs Real {cuenca_name.upper()}{title_suffix}')
-            plt.xlabel(xlabel_text)
-            plt.ylabel("Snow area Km2")
-            plt.legend()
-            plt.grid(True)
-            
-            output_path = os.path.join(model_dir, f'graphs_{cuenca_name}')
-            if not os.path.exists(output_path):
-                os.makedirs(output_path)
-            plt.savefig(os.path.join(output_path, f'{graph_type}.png'))
-            plt.close()
-    
-    return full_metrics
-
-
-# --- NUEVA FUNCIÓN PARA HACER PREDICCIONES FUTURAS ---
+# --- FUNCIÓN PARA HACER PREDICCIONES FUTURAS ---
 def make_future_predictions(model, historical_df, future_exog_df, exog_features, n_lags_area, scaler_area, scaler_exog):
     """
     Genera predicciones futuras de area_nieve_scaled, inicializando
@@ -311,8 +116,10 @@ def make_future_predictions(model, historical_df, future_exog_df, exog_features,
     print("\n--- Iniciando predicciones futuras ---")
     
     # 1. Calcular la media histórica de area_nieve por día del año
-    historical_df['fecha'] = pd.to_datetime(historical_df['fecha'])
-    historical_df['day_of_year'] = historical_df['fecha'].dt.day_of_year
+    if 'fecha' in historical_df.columns:
+        historical_df = historical_df.set_index(['fecha'])
+    historical_df.index = pd.to_datetime(historical_df.index)
+    historical_df['day_of_year'] = historical_df.index.day_of_year
     daily_avg_area_nieve = historical_df.groupby('day_of_year')['area_nieve'].mean()
 
     # 2. Preparar el DataFrame de datos futuros
@@ -411,12 +218,23 @@ def make_future_predictions(model, historical_df, future_exog_df, exog_features,
 # --- MAIN EXECUTION FOR FUTURE PREDICTION ---
 
 # 1. Define paths and file names
-cuenca = 'indrawati-melamchi' # Nombre de la cuenca
+
+basins_data_dir = 'datasets/' # Directorio de tus datos históricos
+available_basins = [f[:-4] for f in os.listdir(basins_data_dir)]
+
+print( "\t\t ----- CREACION DE PREDICCIONES FUTURAS -----\n")
+cuenca =  input("Introduce el nombre de la cuenca (ej: 'adda-bornio') que deseas predecir o deja en blanco para ver las disponibles: ").lower().strip()
+while cuenca not in available_basins:
+    print('\nCuencas disponibles: ')
+    for basin in available_basins:
+        print(f'- {basin}')
+
+    cuenca = input("\nPor favor, introduce el nombre de la cuenca que desesas usar: ").lower().strip()
+
+
 model_file_path = f'E:/models/{cuenca}/narx_model_best_{cuenca}.h5' # Tu modelo entrenado
 historical_data_file_name = f'{cuenca}.csv' # Archivo con datos históricos para medias
-future_data_file_name = f'E:/data/csv/series_futuras_clean/{cuenca}/Indrawati ssp 245 2051-2070_clean_processed.csv' # Archivo con variables exógenas futuras (sin area_nieve)
-
-basins_data_dir = 'datasets/' # Directorio de tus datos históricos y futuros
+future_data_file_name = 'E:/data/csv/series_futuras_clean/adda-bornio/Adda ssp 245 2051-2070_ACCESS-ESM1-5_.csv'
 
 # 2. Fixed parameters (exógenas)
 exog_cols = ["dia_sen", "temperatura", "precipitacion", "dias_sin_precip"]
@@ -446,7 +264,7 @@ scaler_exog = None
 try:
     historical_df = pd.read_csv(os.path.join(basins_data_dir, historical_data_file_name), index_col=0)
     if 'fecha' in historical_df.columns:
-        historical_df['fecha'] = historical_df['fecha'].astype(str) # Asegurar string para pd.to_datetime
+        historical_df.index = historical_df.index.astype(str) # Asegurar string para pd.to_datetime
     
     # Hacemos un preprocesamiento "parcial" solo para obtener los scalers ajustados
     # No necesitamos las divisiones train/test/val aquí para la predicción futura.
@@ -459,9 +277,10 @@ except Exception as e:
     exit()
 
 # 5. Cargar datos futuros de variables exógenas
+future_exog_dfs = future_data_file_name
 future_exog_df = None
 try:
-    future_exog_df = pd.read_csv(os.path.join(basins_data_dir, future_data_file_name))
+    future_exog_df = pd.read_csv(future_data_file_name)
     if 'fecha' in future_exog_df.columns:
         future_exog_df['fecha'] = future_exog_df['fecha'].astype(str)
     print(f"Datos exógenos futuros cargados de {future_data_file_name}.")
@@ -486,28 +305,103 @@ if model and historical_df is not None and future_exog_df is not None and scaler
         print(future_predictions_df.head())
         print(future_predictions_df.tail())
 
-        # Opcional: Guardar las predicciones en un CSV
-        output_predictions_dir = os.path.join(os.path.dirname(model_file_path), 'future_predictions')
+        # Directorio para guardar las predicciones CSV y las gráficas
+        output_base_dir = os.path.dirname(model_file_path)
+        output_predictions_dir = os.path.join(output_base_dir, 'future_predictions') # Carpeta específica para la cuenca
+        output_graphs_dir = os.path.join(output_predictions_dir, 'graphs') # Carpeta para las gráficas
+
         os.makedirs(output_predictions_dir, exist_ok=True)
+        os.makedirs(output_graphs_dir, exist_ok=True) # Crear el directorio de gráficas
+
         predictions_output_path = os.path.join(output_predictions_dir, f'future_predictions_{cuenca}.csv')
-        future_predictions_df.to_csv(predictions_output_path, index=False)
+        future_predictions_df = future_predictions_df.set_index('fecha')
+        future_predictions_df.to_csv(predictions_output_path) # Asegura el nombre de la columna
         print(f"Predicciones futuras guardadas en: {predictions_output_path}")
 
         try:
-            plt.figure(figsize=(15, 6))
-            sns.lineplot(x=future_predictions_df['fecha'], y=future_predictions_df['area_nieve_pred'], label='Predicción futura')
-            plt.title(f'Predicciones futuras de Area de Nieve para {cuenca}')
-            plt.xlabel('Fecha')
-            plt.ylabel('Area de Nieve (Km2)')
+            # Unir datos históricos y predicciones futuras para el plotting
+            if 'fecha' in historical_df.columns:
+                historical_df = historical_df.set_index('fecha')
+            historical_df.index = pd.to_datetime(historical_df.index)
+            if 'fecha' in future_predictions_df.columns:
+                future_predictions_df = future_predictions_df.set_index('fecha')
+            future_predictions_df.index = pd.to_datetime(future_predictions_df.index)
+
+            # 1. Gráfica de la Serie Temporal Completa (Histórico + Predicciones)
+            combined_series_real = historical_df['area_nieve'].copy()
+            combined_series_pred = future_predictions_df['area_nieve_pred'].copy()
+
+            df_plot_all_days = pd.concat([combined_series_real, combined_series_pred], axis=1)
+            df_plot_all_days.columns = ['area_nieve_real', 'area_nieve_pred'] 
+
+            plt.figure(figsize=(18, 7))
+            sns.lineplot(data = df_plot_all_days, x=df_plot_all_days.index, y='area_nieve_real', label='Real Historical Snow Area')
+            sns.lineplot(data = df_plot_all_days, x=df_plot_all_days.index, y='area_nieve_pred', label='Predicted Future Snow Area')
+
+            plt.title(f'Prediction vs Real {cuenca.upper()} (Complete Time Series)')
+            plt.xlabel("Date")
+            plt.ylabel("Snow area Km2")
+            plt.legend()
             plt.grid(True)
-            graph_output_path = os.path.join(output_predictions_dir, f'future_predictions_graph_{cuenca}.png')
-            plt.savefig(graph_output_path)
+
+            plt.xticks(rotation=45, ha='right')
+            plt.tick_params(axis='x', which='major', labelsize=10)
+            plt.tight_layout()
+            graph_output_path_all = os.path.join(output_graphs_dir, f'full_time_series_{cuenca}.png')
+            plt.savefig(graph_output_path_all)
             plt.close()
-            print(f"Gráfico de predicciones futuras guardado en: {graph_output_path}")
+            print(f"Gráfica de serie temporal completa guardada en: {graph_output_path_all}")
+
+            # 2. Gráficas de Estacionalidad (Media por Día del Año y por Mes)
+            historical_for_agg = historical_df['area_nieve'].to_frame()
+            predictions_for_agg = future_predictions_df['area_nieve_pred'].to_frame() # Mantener nombre original aquí
+
+            historical_for_agg.index = pd.to_datetime(historical_for_agg.index)
+            predictions_for_agg.index = pd.to_datetime(predictions_for_agg.index)
+
+            # Calcular promedios estacionales para históricos
+            historical_for_agg['day_of_year'] = historical_for_agg.index.day_of_year
+            historical_for_agg['month'] = historical_for_agg.index.month
+            # Calcular promedios estacionales para predicciones
+            predictions_for_agg['day_of_year'] = predictions_for_agg.index.day_of_year
+            predictions_for_agg['month'] = predictions_for_agg.index.month
+            
+            avg_historical_per_day = historical_for_agg.groupby('day_of_year')['area_nieve'].mean().rename('area_nieve_real_avg')
+            avg_historical_per_month = historical_for_agg.groupby('month')['area_nieve'].mean().rename('area_nieve_real_avg')
+
+            avg_predictions_per_day = predictions_for_agg.groupby('day_of_year')['area_nieve_pred'].mean().rename('area_nieve_pred_avg')
+            avg_predictions_per_month = predictions_for_agg.groupby('month')['area_nieve_pred'].mean().rename('area_nieve_pred_avg')
+
+            # Tipos de gráficas estacionales
+            graph_types = [
+                {'name': 'per_day', 'groupby_col': 'day_of_year', 'xlabel': 'Day of Year', 'title_suffix': ' (Average per day of the year)', 'historical_avg': avg_historical_per_day, 'predictions_avg': avg_predictions_per_day},
+                {'name': 'per_month', 'groupby_col': 'month', 'xlabel': 'Month', 'title_suffix': ' (Average per month)', 'historical_avg': avg_historical_per_month, 'predictions_avg': avg_predictions_per_month}
+            ]
+
+            for graph_info in graph_types:
+                plt.figure(figsize=(15, 6))
+                sns.lineplot(x=graph_info['historical_avg'].index, y=graph_info['historical_avg'], label='Real Historical Average')
+                sns.lineplot(x=graph_info['predictions_avg'].index, y=graph_info['predictions_avg'], label='Predicted Future Average')
+
+                plt.title(f'Prediction vs Real {cuenca.upper()}{graph_info["title_suffix"]}')
+                plt.xlabel(graph_info['xlabel'])
+                plt.ylabel("Snow area Km2")
+                plt.legend()
+                plt.grid(True)
+                plt.tight_layout()
+                
+                graph_output_path = os.path.join(output_graphs_dir, f'{graph_info["name"]}_{cuenca}.png')
+                plt.savefig(graph_output_path)
+                plt.close()
+                print(f"Gráfica de estacionalidad por {graph_info['name']} guardada en: {graph_output_path}")
+
         except Exception as e:
-            print(f"Error al generar el gráfico de predicciones futuras: {e}")
+            print(f"Error al generar gráficas: {e}")
+
+    else:
+        print("No se generaron predicciones futuras, omitiendo la generación de gráficas.")
 
 else:
     print("No se pudieron generar las predicciones futuras debido a errores previos.")
 
-print("\nProceso de predicción futura completado.")
+print(f"\nProceso de predicción futura completado para {cuenca}.")

@@ -170,7 +170,7 @@ def evaluate_model(model, sequences, scaler_area):
     if X.shape[0] == 0:
         return {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan}, None, None
 
-    y_pred_scaled = model.predict(X, verbose=0)
+    y_pred_scaled = model.predict(X, verbose=0, batch_size=2)
 
     if np.any(np.isnan(y_pred_scaled)) or np.any(np.isinf(y_pred_scaled)):
         return {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan}, None, None
@@ -203,7 +203,7 @@ def evaluate_validation(model, df_val_scaled, scaler_area, exog_cols, n_lags_are
             y_val_pred_scaled.extend([np.nan] * (len(df_val_scaled) - n_lags_area - i))
             break
 
-        pred_scaled = model.predict(last_sequence, verbose=0)
+        pred_scaled = model.predict(last_sequence, verbose=0, batch_size=2)
 
         if np.any(np.isnan(pred_scaled)) or np.any(np.isinf(pred_scaled)):
             y_val_pred_scaled.append(np.nan)
@@ -264,7 +264,7 @@ def evaluate_full_dataset(model, df_full_scaled_cuenca, scaler_area, exog_cols_s
             y_full_pred_scaled.extend([np.nan] * (len(df_full_scaled_cuenca) - n_lags_area - i))
             break
 
-        pred_scaled = model.predict(last_sequence_full, verbose=0)
+        pred_scaled = model.predict(last_sequence_full, verbose=0, batch_size=2)
 
         if np.any(np.isnan(pred_scaled)) or np.any(np.isinf(pred_scaled)):
             print(f"Warning: Model predicted NaN/inf at step {i} for {cuenca_name}. Stopping full prediction.")
@@ -386,7 +386,7 @@ def convert_numpy_to_python(obj):
 
 if __name__ == "__main__":
     basins_dir = 'datasets/'
-    models_base_dir = os.path.join("D:", "models") # Directorio base para todos los modelos
+    models_base_dir = os.path.join("E:", "models") # Directorio base para todos los modelos
 
     exog_cols = ["dia_sen","temperatura","precipitacion", "dias_sin_precip"]
     exog_cols_scaled = [col + '_scaled' for col in exog_cols]
@@ -400,7 +400,7 @@ if __name__ == "__main__":
         print("\nCuencas disponibles:")
         for basin in available_basins:
             print(f"- {basin}")
-        cuenca_name_input = input("Por favor, introduce el nombre de la cuenca que deseas usar: ").strip()
+        cuenca_name_input = input("Por favor, introduce el nombre de la cuenca que deseas usar: ").lower().strip()
     
     if cuenca_name_input not in available_basins:
         print(f"Error: La cuenca '{cuenca_name_input}' no se encontró en el directorio '{basins_dir}'.")
