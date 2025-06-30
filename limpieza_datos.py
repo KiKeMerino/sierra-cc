@@ -309,8 +309,11 @@ def cleaning_future_series(input_data_path, output_data_path):
 
                     df_model.loc[index, 'dias_sin_precip'] = dias_transcurridos
 
-                file_name = f'{escenario[:-4]}_{model}_.csv'
-                df_model.to_csv(os.path.join(output_data_path, cuenca, file_name))
+                file_name = f'{model}.csv'
+                output_path = os.path.join(output_data_path, cuenca, escenario[:-4])
+                if not os.path.exists(output_path):
+                    os.makedirs(output_path)
+                df_model.to_csv(os.path.join(output_path, file_name))
 
 # Probar a imputar con bfil y ffil
 def impute_outliers(df, cuenca, columna, save=False):
