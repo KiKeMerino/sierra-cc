@@ -214,27 +214,67 @@ def make_future_predictions(model, historical_df, future_exog_df, exog_features,
     print("Predicciones futuras generadas.")
     return future_predictions_df
 
+def print_menu():
+    print("\n" + "="*60)
+    print( "\t\t ----- CREACION DE PREDICCIONES FUTURAS -----")
+    print("="*60 + "\n")
+
+    available_basins = [f[:-4] for f in os.listdir(basins_data_dir)]
+
+    cuenca = ""
+    while cuenca not in available_basins:
+        cuenca =  input("Introduce el nombre de la cuenca (ej: 'adda-bornio') que deseas predecir o deja en blanco para ver las disponibles: ").lower().strip()
+        if not cuenca or cuenca not in available_basins: # Si el usuario deja en blanco, imprimo las cuencas disponibles
+            print('\n--- Cuencas disponibles ---')
+            for basin in available_basins:
+                print(f'- {basin}')
+            print("-"*25)
+            cuenca = input("\nPor favor, introduce el nombre de la cuenca que desesas usar: ").lower().strip()
+        
+    series_path = 'E:/data/csv/series_futuras_clean/' + cuenca
+
+    # Selección de Escenario futuro
+    scenarios_list = []
+    try:
+        scenarios_list = [s for s in os.listdir(series_path)
+                        if os.path.isdir(os.path.join(series_path, s))]
+    except FileNotFoundError:
+        print(f"Error: La ruta de series futuras no fue encontrada para '{cuenca}': {series_path}")
+    except Exception as e:
+        print(f"Error al obtener escenarios: {e}")
+
+    scenarios = {str(i + 1): name for i, name in enumerate(scenarios_list)}
+
+    print("--- Escenarios disponibles ---")
+    for key, value in scenarios.items():
+        print(f"{key}. {value}")
+
+    selected_scenario_key = ""
+    while selected_scenario_key not in scenarios:
+        selected_scenario_key = input("Ingrese el número del escenario deseado: ")
+        if selected_scenario_key not in scenarios:
+            print("Selección inválida. Por favor, intente de nuevo.")
+
+    selected_scenario_name = scenarios[selected_scenario_key]
+    selected_scenario_path = os.path.join(series_path, selected_scenario_name)
+
+
+    future_data_path = os.path.join(selected_scenario_path)
+
+    return cuenca, future_data_path
 
 # --- MAIN EXECUTION FOR FUTURE PREDICTION ---
 
 # 1. Define paths and file names
-
+EXTERNAL_DISK = 'E:/'
 basins_data_dir = 'datasets/' # Directorio de tus datos históricos
-available_basins = [f[:-4] for f in os.listdir(basins_data_dir)]
+base_model_path =  os.path.join(EXTERNAL_DISK, 'models/')
+cuenca, scenario_path = print_menu()
+future_data_file_name = os.path.join(scenario_path, 'dataset.csv')
+base_series_path = os.path.join(EXTERNAL_DISK, f'data/csv/series_futuras_clean/{cuenca}')
 
-print( "\t\t ----- CREACION DE PREDICCIONES FUTURAS -----\n")
-cuenca =  input("Introduce el nombre de la cuenca (ej: 'adda-bornio') que deseas predecir o deja en blanco para ver las disponibles: ").lower().strip()
-while cuenca not in available_basins:
-    print('\nCuencas disponibles: ')
-    for basin in available_basins:
-        print(f'- {basin}')
-
-    cuenca = input("\nPor favor, introduce el nombre de la cuenca que desesas usar: ").lower().strip()
-
-
-model_file_path = f'E:/models/{cuenca}/narx_model_best_{cuenca}.h5' # Tu modelo entrenado
+model_file_path = os.path.join(base_model_path, cuenca, f'narx_model_best_{cuenca}.h5')
 historical_data_file_name = f'{cuenca}.csv' # Archivo con datos históricos para medias
-future_data_file_name = 'E:/data/csv/series_futuras_clean/adda-bornio/Adda ssp 245 2051-2070_ACCESS-ESM1-5_.csv'
 
 # 2. Fixed parameters (exógenas)
 exog_cols = ["dia_sen", "temperatura", "precipitacion", "dias_sin_precip"]
@@ -308,7 +348,7 @@ if model and historical_df is not None and future_exog_df is not None and scaler
         # Directorio para guardar las predicciones CSV y las gráficas
         output_base_dir = os.path.dirname(model_file_path)
         output_predictions_dir = os.path.join(output_base_dir, 'future_predictions') # Carpeta específica para la cuenca
-        output_graphs_dir = os.path.join(output_predictions_dir, 'graphs') # Carpeta para las gráficas
+        output_graphs_dir = os.path.join(scenario_path, 'graphs') # Carpeta para las gráficas
 
         os.makedirs(output_predictions_dir, exist_ok=True)
         os.makedirs(output_graphs_dir, exist_ok=True) # Crear el directorio de gráficas

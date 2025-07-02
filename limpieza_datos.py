@@ -315,7 +315,7 @@ def cleaning_future_series(input_data_path, output_data_path):
                     os.makedirs(output_path)
                 df_model.to_csv(os.path.join(output_path, file_name))
 
-# Probar a imputar con bfil y ffil
+# ./datasets_imputed/(6)
 def impute_outliers(df, cuenca, columna, save=False):
     df_copy = df.copy()
     df.index = pd.to_datetime(df.index)
@@ -332,7 +332,7 @@ def impute_outliers(df, cuenca, columna, save=False):
         print(f"Advertencia: Quedan nulos en la columna {columna} después de bfill/ffill. Rellenando con la media de la columna.")
 
     if save == True:
-        df_copy.to_csv(f'./datasets_imputed/{cuenca}.csv', index = False)
+        df_copy.to_csv(f'./datasets_imputed/{cuenca}.csv')
 
     return df_copy
 
@@ -342,7 +342,7 @@ def impute_outliers(df, cuenca, columna, save=False):
 # merge_areas_exog('areas_total.csv', './v_exog_hist.csv', save=True)
 
 
-EXTERNAL_DISK = 'D:'
+EXTERNAL_DISK = 'E:'
 data_path = os.path.join(EXTERNAL_DISK, "data/")
 datasets_path = os.path.join('./datasets/')
 exog_file = os.path.join(data_path, 'csv/v_exog_hist.csv')
@@ -367,8 +367,6 @@ uncompahgre = pd.read_csv(os.path.join(datasets_path, 'uncompahgre-ridgway.csv')
 # impute_outliers(uncompahgre, 'uncompahgre-ridgway', columna, True)
 
 #%%
-adda
-#%%
 # plt.figure(figsize=(10, 6))
 # plt.boxplot(genil['area_nieve'])
 # plt.title('Boxplot de Area de Nieve (Genil - Dilar)')
@@ -377,5 +375,4 @@ adda
 
 # df_imputed.to_csv(os.path.join(areas_path, 'genil-dilar.csv'))
 cleaning_future_series(future_series_path_og, future_series_path_clean)
-#%%
 # join_area_exog(exog_file, areas_path,'datasets/', True)

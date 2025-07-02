@@ -396,14 +396,14 @@ def convert_numpy_to_python(obj):
 # --- Main execution ---
 # Define the directory where your basin CSVs are located
 basins_dir = 'datasets_imputed/' # Asegúrate de que esta ruta sea correcta para tus CSV de cuencas
-models_dir = os.path.join("D:", "models_imputed") # Directorio donde se guardarán/buscarán los modelos por cuenca
+models_dir = os.path.join("E:", "models_imputed") # Directorio donde se guardarán/buscarán los modelos por cuenca
 
 exog_cols = ["dia_sen","temperatura","precipitacion", "dias_sin_precip"]
 exog_cols_scaled = [col + '_scaled' for col in exog_cols]
 
 # Descubrir todos los CSV de cuencas
 basin_files = [f for f in os.listdir(basins_dir) if f.endswith('.csv')]
-basin_files = ['mapocho-almendros.csv']
+basin_files = [ 'genil-dilar.csv']
 cuencas_all = [os.path.splitext(f)[0] for f in basin_files] # Extraer nombres de cuencas
 # Descomentar la siguiente línea si solo quieres procesar una cuenca específica para prueba:
 
@@ -451,11 +451,11 @@ for cuenca_name in cuencas_to_process:
     # Crear un estudio Optuna para esta cuenca específica
     study_basin = optuna.create_study(direction='maximize',
                                       sampler=optuna.samplers.TPESampler(),
-                                      pruner=optuna.pruners.MedianPruner(n_startup_trials=4, n_warmup_steps=8),
+                                      pruner=optuna.pruners.MedianPruner(n_startup_trials=3, n_warmup_steps=6),
                                       study_name=f"basin_optimization_{cuenca_name}")
 
     # Ejecutar la optimización para esta cuenca
-    n_trials_per_basin = 25 
+    n_trials_per_basin = 10
     study_basin.optimize(objective_for_this_basin, n_trials=n_trials_per_basin, show_progress_bar=True)
 
     print(f"\n--- Resultados de Optimización Optuna para {cuenca_name} ---")
@@ -509,7 +509,6 @@ for cuenca_name in cuencas_to_process:
                                          n_units_lstm=best_n_neuronas, n_features=(1 + len(exog_cols_scaled)),
                                          learning_rate=best_learning_rate, dropout_rate=best_dropout_rate)
         
-        # Usar ModelCheckpoint para guardar los mejores pesos del modelo durante el entrenamiento
         # Importante: Keras recomienda el formato .keras.
         # Cambia '.h5' a '.keras' si tu TF/Keras es >= 2.10
         model_final_save_path = os.path.join(basin_output_dir, f'narx_model_best_{cuenca_name}.keras') # CAMBIADO a .keras
