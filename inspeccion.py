@@ -9,7 +9,7 @@ models_directory = os.path.join("E:", "models_per_basin")
 # Suponiendo que conoces el nombre de una de tus cuencas, por ejemplo 'adda-bornio'
 # y el nombre del archivo del modelo dentro de su subdirectorio.
 # Si tus modelos están en subdirectorios, necesitas construir la ruta completa.
-# Por ejemplo, si un modelo está en D:\models_per_basin\cuenca_1\narx_model_best_cuenca_1.h5
+# Por ejemplo, si un modelo está en D:\models_per_basin\cuenca_1\narx_model_cuenca_1.h5
 
 # Paso 1: Encuentra la ruta de un modelo
 # Puedes listar las cuencas para ver cuáles están disponibles
@@ -25,8 +25,8 @@ else:
         
         # Construye la ruta al archivo .h5 del modelo.
         # Necesitarás saber el formato de nombre que usaste al guardar el modelo.
-        # Por ejemplo, si usaste 'narx_model_best_CUENCA_NAME.h5'
-        model_filename = f'narx_model_best_{example_cuenca}.h5'
+        # Por ejemplo, si usaste 'narx_model_CUENCA_NAME.h5'
+        model_filename = f'narx_model_{example_cuenca}.h5'
         model_path = os.path.join(models_directory, example_cuenca, model_filename)
 
         if not os.path.exists(model_path):

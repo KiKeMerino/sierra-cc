@@ -108,154 +108,50 @@ Lo primero será juntar los 2 csv creados anteriormente haciendo coincidir las f
 Este es el resultado de juntar los dos dataframes creados anteriormente, sin embargo añadiré una columna más para mejorar el modelo "dias_sin_precip" que contará los dias transcurridos desde la última precipitación
 ![Días sin precipitación](images/dias_sin_precip.png)
 
-Ahora exploraremos cada variable para ver como se comporta:
-# adda-bornio
-![Estadisticas sobre Adda Bornio](images/genildilar-describe.png)
-Este DataFrame contiene datos diarios para la basin "genil-dilar" a lo largo de varios años.
-
-- **dia_sen:** Variable temporal normalizada utilizando la función seno. El valor medio es cercano a cero (-0.0026), con un rango que abarca desde -0.9999 hasta 0.9999, indicando la representación cíclica del año. La desviación estándar (0.7082) sugiere una dispersión considerable a lo largo del ciclo anual.
-
-- **temperatura:** La temperatura media diaria presenta una media de 12.34 °C, con valores que oscilan entre un mínimo de -6.33 °C y un máximo de 29.82 °C. La desviación estándar de 7.49 °C indica una variabilidad significativa en la temperatura diaria.
-
-- **precipitacion:** La precipitación diaria tiene una media de 1.60 litros/m², con un valor mínimo de 0 y un máximo de 54.79 litros/m². La desviación estándar de 3.99 litros/m² muestra una alta variabilidad en la cantidad de precipitación.
-
-- **precipitacion_bool:** Variable binaria que indica la presencia (1) o ausencia (0) de precipitación. De media, llueve aproximadamente el 44% de los días.
-
-- **area_nieve:** El área cubierta por nieve tiene una media de 262.36 km², con un rango que va desde 0 km² hasta un máximo de 477.57 km². La desviación estándar de 173.30 km² revela una gran variabilidad en la extensión de la capa de nieve.
-
-- **dias_sin_precip:** El número de días transcurridos desde la última precipitación tiene una media de 2.37 días, con un máximo de 33 días sin lluvia registrada. La desviación estándar de 3.67 días indica una variabilidad en la frecuencia de las precipitaciones.
-
-# genil-dilar
-![Estadisticas sobre Genil Dilar](images/addabornio-describe.png)
-Este DataFrame contiene datos diarios para la basin "adda-bornio" a lo largo de varios años.
-
-- **dia_sen:** Similar a otras basins, esta variable temporal normalizada con la función seno tiene una media cercana a cero (-0.0088) y un rango completo de -0.9999 a 0.9999. La desviación estándar es de 0.7076.
-
-- **temperatura:** La temperatura media diaria es de -0.79 °C, notablemente más baja que en la basin anterior. Los valores varían desde un mínimo extremo de -28.79 °C hasta un máximo de 16.91 °C. La desviación estándar de 8.48 °C indica una considerable variabilidad térmica.
-
-- **precipitacion:** La precipitación diaria tiene una media de 2.93 litros/m², con un máximo registrado de 77.47 litros/m². La desviación estándar es de 5.59 litros/m².
-
-- **precipitacion_bool:** La probabilidad de precipitación diaria es mayor en esta basin, con una media de 0.72, lo que indica que llueve aproximadamente el 72% de los días.
-
-- **area_nieve:** El área de nieve presenta una media de 50.80 km², significativamente menor que en la basin "adda-bornio". El área varía desde 0 km² hasta un máximo de 583.21 km². La desviación estándar es de 67.23 km².
-
-- **dias_sin_precip:** El promedio de días sin precipitación es bajo, de 0.81 días, con un máximo de 20 días consecutivos sin lluvia. La desviación estándar es de 1.98 días, lo que sugiere precipitaciones más frecuentes en comparación con la basin anterior.
-
-
-# indrawati-melamchi
-![Estadisticas sobre Indrawati Melamchi](images/indrawatimelamchi-describe.png)
-Este DataFrame contiene datos diarios para la basin "indrawati-melamchi" a lo largo de varios años.
-
-- **dia_sen:** La variable temporal normalizada con la función seno tiene una media cercana a cero (-0.0027) y un rango completo de -0.9999 a 0.9999. La desviación estándar es de 0.7083.
-
-- **temperatura:** La temperatura media diaria es de -5.25 °C, similar a la basin "genil-dilar" y también más baja que la "adda-bornio". Los valores oscilan entre un mínimo de -23.50 °C y un máximo de 5.98 °C. La desviación estándar de 6.76 °C indica una variabilidad considerable.
-
-- **precipitacion:** La precipitación diaria presenta una media de 5.25 litros/m², con un máximo registrado de 79.43 litros/m². La desviación estándar es de 7.48 litros/m², mostrando una alta variabilidad.
-
-- **precipitacion_bool:** La presencia de precipitación es muy frecuente en esta basin, con una media de 0.89, lo que sugiere que llueve aproximadamente el 89% de los días.
-
-- **area_nieve:** El área cubierta por nieve tiene una media de 61.61 km², con un rango de 0 km² hasta un máximo de 509.45 km². La desviación estándar de 65.42 km² indica una variabilidad notable en la extensión de la nieve.
-
-- **dias_sin_precip:** El número de días sin precipitación es muy bajo, con una media de 0.31 días y un máximo de 20 días consecutivos sin lluvia. La desviación estándar de 1.28 días sugiere precipitaciones muy frecuentes.
-
-# mapocho-almendros
-![Estadisticas sobre mapocho Almendros](images/mapochoalmendros-describe.png)
-Este DataFrame contiene datos diarios para la basin "mapocho-almendros" a lo largo de varios años.
-
-- **dia_sen:** La variable temporal normalizada con la función seno presenta una media cercana a cero (-0.0027) y un rango completo de -0.9999 a 0.9999. La desviación estándar es de 0.7084.
-
-- **temperatura:** La temperatura media diaria es de 4.00 °C, ubicándose entre las temperaturas medias de las basins anteriores. Los valores varían desde un mínimo de -16.60 °C hasta un máximo de 17.78 °C. La desviación estándar de 6.28 °C indica una variabilidad térmica considerable.
-
-- **precipitacion:** La precipitación diaria tiene una media de 2.45 litros/m², con un máximo registrado de 94.46 litros/m². La desviación estándar es de 6.53 litros/m², mostrando una alta variabilidad.
-
-- **precipitacion_bool:** La probabilidad de precipitación diaria es de aproximadamente el 59%, con una media de 0.59.
-
-- **area_nieve:** El área cubierta por nieve tiene una media de 167.51 km², con un rango que va desde 0 km² hasta un máximo de 635.69 km². La desviación estándar de 179.31 km² revela una gran variabilidad en la extensión de la capa de nieve.
-
-- **dias_sin_precip:** El promedio de días sin precipitación es de 1.40 días, con un máximo de 24 días consecutivos sin lluvia. La desviación estándar es de 2.61 días.
-
-# nenskra-enguri
-![Estadisticas sobre Nenskra Enguri](images/nenskraenguri-describe.png)
-Este DataFrame contiene datos diarios para la basin "nenskra-enguri" a lo largo de varios años.
-
-- **dia_sen:** La variable temporal normalizada con la función seno tiene una media cercana a cero (-0.0030) y un rango completo de -0.9999 a 0.9999. La desviación estándar es de 0.7082.
-
-- **temperatura:** La temperatura media diaria es de 2.45 °C, similar a la basin "mapocho-almendros". Los valores oscilan entre un mínimo de -21.34 °C y un máximo de 22.05 °C. La desviación estándar de 8.90 °C indica una variabilidad térmica considerable.
-
-- **precipitacion:** La precipitación diaria presenta una media de 4.45 litros/m², con un máximo registrado de 63.71 litros/m². La desviación estándar es de 6.91 litros/m², mostrando una alta variabilidad.
-
-- **precipitacion_bool:** La presencia de precipitación es frecuente en esta basin, con una media de 0.76, lo que sugiere que llueve aproximadamente el 76% de los días.
-
-- **area_nieve:** El área cubierta por nieve tiene una media de 320.70 km², con un rango de 0 km² hasta un máximo de 628.06 km². La desviación estándar de 224.81 km² revela una gran variabilidad en la extensión de la capa de nieve.
-
-- **dias_sin_precip:** El número de días sin precipitación es bajo, con una media de 0.63 días y un máximo de 20 días consecutivos sin lluvia. La desviación estándar de 1.66 días sugiere precipitaciones frecuentes.
-
-# uncompahgre-ridgway
-![Estadisticas sobre Uncompahgre Ridgway](images/uncompahgreridgway-describe.png)
-Este DataFrame contiene datos diarios para la basin "uncompahgre-ridgway" a lo largo de varios años.
-
-- **dia_sen:** La variable temporal normalizada con la función seno tiene una media cercana a cero (-0.0027) y un rango completo de -0.9999 a 0.9999. La desviación estándar es de 0.7083.
-
-- **temperatura:** La temperatura media diaria es de 1.64 °C. Los valores varían desde un mínimo de -23.79 °C hasta un máximo de 19.43 °C. La desviación estándar de 9.24 °C indica una variabilidad térmica considerable.
-
-- **precipitacion:** La precipitación diaria presenta una media de 1.86 litros/m², con un máximo registrado de 35.79 litros/m². La desviación estándar es de 3.38 litros/m², mostrando una variabilidad moderada.
-
-- **precipitacion_bool:** La probabilidad de precipitación diaria es de aproximadamente el 59%, con una media de 0.59.
-
-- **area_nieve:** El área cubierta por nieve tiene una media de 243.62 km², con un rango que va desde 0 km² hasta un máximo de 639.85 km². La desviación estándar de 234.05 km² revela una gran variabilidad en la extensión de la capa de nieve.
-
-- **dias_sin_precip:** El promedio de días sin precipitación es de 1.26 días, con un máximo de 20 días consecutivos sin lluvia. La desviación estándar es de 2.27 días.
 
 ## 4. Distribución de ficheros
 El proyecto se divide en 2 grandes partes: el disco externo y el directorio en el que se encuentra este mismo README
 
 Dentro del disco externo habrá dos directorios:
 - **data:** en el que se encontrarán todos los CSVs y los archivos hdf descargados
-- **models:** en el que habrá una carpeta por cada cuenca que contendrá el mejor modelo para esa cuenca asi como sus métricas, y gráficas relevantes con respecto a las predicciones
+    ->
+- **models:** en el que habrá una carpeta por cada cuenca que contendrá el mejor modelo para esa cuenca asi como sus métricas, y gráficas relevantes con respecto a las predicciones:
+    - *future_predictions*: se mostrarán
+    - *graphs_adda-bornio*
+    - *metrics.json*
+    - *narx_model_adda-bornio.h5*
+
 ![Ejemplo de la carpeta del modelo de adda-bornio](images/ejemplo-ficheros.png)
 
-## 5. Explicación de ficheros
+## 5. Ficheros útiles
 
 ### 5.1. limpieza_datos.py
 Este fichero contiene un conjunto de funciones útiles para procesar los datos y crear diferentes csv, a continuación se detallarán brevemente las funciones contenidas
 
 - **process_basin(basin):** función principal que calcula el area de la cuenca *'basin'*. Procesa cada uno de los archivos hdfs y calcula el area de nieve, el resultado se guarda en *EXTERNAL_DISK/data/csv/areas/*
 - **process_var_exog(input_file, output_path, save=False):** coge el excel de series agregadas y lo convierte a csv separándolo y renombrando las columnas. Devuelve un csv con todas las variables exógenas y con una nueva columna 'cuenca' que idenfica a qué cuenca pertenece cada registro.
-- **join_area_exog(exog_file, areas_path, output_path = './datasets', save=False):** función para obtener el el dataset final de cada cuenca, coge como parámetro el csv de variables exógenas, el csv de areas calculado anteriormente y los junta, preparado para entrenar al modelo
 - **cleaning_future_series(input_data_path, output_data_path):** función que procesa el excel *EXTERNAL_DISK:\data\csv\Series_historicas-futuras.xlsx* y crea un csv con las varibles exógenas para cada escenario y cada modelo, en total saldrán 20 csv distintos
+- **join_area_exog(exog_file, areas_path, output_path = './datasets', save=False):** función para obtener el el dataset final de cada cuenca, coge como parámetro el csv de variables exógenas, el csv de areas calculado anteriormente y los junta, preparado para entrenar al modelo
 - **impute_outliers(df, cuenca, columna, save=False):** función que coge un dataframe, y quita los outliers de la columna especificada por parámetro. Se considerará outlier cualquier valor por encima de *1.5 * rango_intercuartilico*
 
 ### 5.2. models/best_params.py
+Programa muy útil que hace uso de la librería optuna y se encarga de encontrar el mejor modelo para cada cuenca. Simplemente ejecutar el script y se pedirá al usuario la cuenca que se desea optimizar y el número de ensayos que se quiere realizar. Cada ensayo tarda bastante por lo que se recomienda no usar un número demasiado alto, ej: 10-20.
+Se creará un modelo .h5 con la mejor configuración, se plotearán las gráficas y se obtendrán las metricas en el directorio *EXTERNAL_DISK/new_models/*.
+La métrica que se usa para la optimización es el NSE (Nash Sutcliffe Efficiency)
+
 ### 5.3. models/create_load_model.py
+Una vez se conocen la mejor configuración, para un modelo, este script creará o evaluará un nuevo modelo y se crearán gráficas para mejor visualización. Al igual que el fichero anterior, simplemente se ejecuta y el programa se encargará de pedir los datos al usuario
+
 ### 5.4. models/predictions.py
-### 5.5. graficas.py
-### 5.6. environment-hdf.yml & environment-tf.yml
+Este script pide al usuario el nombre de una cuenca, y el escenario del que se desea obtener la predicciones: obtiene los datasets de variables exógenas de cada modelo para ese escenario y genera una gráfica en la que se visualizan las diferentes predicciones y un csv con las predcicciones de cada modelo.
 
+### 5.5. heatmaps.py
+Se encarga de generar los mapas de probabilidad de que cada pixel esté cubierno o no de nieve, leyendo los archivos hdf.
+¿Como usar?
+Simplemente llamar a la funcion, save = True para guardar los resultados o False simplemente para mostrarlos por pantalla 
 
-
-
-Actualiza la ventana de historial: elimina el valor más antiguo y añade la predicción actual (escalada).
-
-
-METRICAS CON Random Forest:
-- Evaluación en el conjunto de prueba (predicción directa):
-    R2: 0.9467, MAE: 28.7578, NSE: 0.9467, KGE: 0.9404
-- Evaluación en el conjunto de validación iterativa (modo predictivo):
-    R2: 0.1556, MAE: 173.3554, NSE: 0.1556, KGE: 0.2602
-- Métricas en todo el conjunto de datos (modo predictivo):
-    R2: -0.5581, MAE: 177.8610, NSE: -0.5581, KGE: 0.0190
-
-
-
-
-NUEVO MODELO NARX (Red Neuronal Auto-Regresiva con Variables Exógenas) implementada con capas LSTM(Long Short-Term Memory) de la libreria Keras (que se ejecuta sobre TensorFlow)
-    - El LSTM es un tipo de capa de red neuronal recurrente
-    - Para cada paspo en el tiempo, el modelo recibe como entrada una secuencia de los n_lags_area valores pasados del area de nieve
-    - La capa LSTM procesa esta secuencia de entrada, aprendiendo las relaciones temporales entre el área de nieve pasada y las variables exógenas pasadas para entender cómo influyen en el valor futuro del área de nieve.
-
-
-
-
+### 5.6. environment-hdf.yml & tf210_gpu.yml
+Entornos para que funcione el proyecto correctamente, tanto para heatmaps.py como para algunas funcionalidades de limpieza_datos.py es necesario tener activo el entorno *environment-hdf.yml*. Para el resto usaremos *tf210_gpu.py* ya que usará la versión 2.10 de TensorFlow (libreria para machine learning) y hará uso de la gpu (si el pc está configurado para ello) para procesar los datos más rapidamente.
 
 
 ## 📊 Evaluación del Modelo
@@ -285,37 +181,3 @@ El rendimiento del modelo se evalúa utilizando cuatro métricas clave en difere
 4.  **Métricas en Todo el Conjunto de Datos:**
     * **Dónde:** Calculadas combinando las predicciones y valores reales de los `conjuntos de entrenamiento`, `prueba` y `validación`.
     * **Propósito:** Proporciona una visión global del rendimiento del modelo a lo largo de todo el período de datos disponibles, ofreciendo un resumen consolidado en modo predicción.
-
-
-NARX_MODELS1
-n_lags_area = 3
-n_layers = 2
-n_neuronas = 50
-epochs = 30
-
-
-NARX_MODELS2
-n_lags_area = 5
-n_layers = 2
-n_neuronas = 10
-epochs = 50
-
-
-NARX_MODELS3
-n_lags_area = 3
-n_layers = 2
-n_neuronas = 10
-epochs = 50
-
-
-NARX_MODELS4 
-n_lags_area = 3
-n_layers = 1
-n_neuronas = 10
-epochs = 30
-
-NARX_MODELS5
-n_lags_area = 4
-n_layers = 3
-n_neuronas = 20
-epochs = 40

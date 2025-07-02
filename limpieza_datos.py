@@ -8,7 +8,6 @@ import datetime
 # import rioxarray as rxr
 import concurrent.futures
 import numpy as np
-import matplotlib.pyplot as plt
 #%% DEFINICIÓN DE FUNCIONES
 
 # data/csv/areas/(6)
@@ -210,34 +209,6 @@ def process_var_exog(input_file, output_path, save=False):
     else:
         return df_final
 
-
-# ./datasets/(6)
-def join_area_exog(exog_file, areas_path, output_path = './datasets', save=False):
-    """
-        Coge el archivo de areas, el archivo de variables exógenas y los junta, además de crear la nueva variable dias_sin_precip
-    """
-    exogs = pd.read_csv(exog_file, index_col=0)
-    cuencas = exogs['cuenca'].unique()
-    for cuenca in cuencas:
-        df_area = pd.read_csv(os.path.join(areas_path, cuenca + '.csv'))
-        dataset = pd.merge(left=df_area, right = exogs[exogs['cuenca'] == cuenca], how='inner', on='fecha')
-        dataset.drop(columns=['cuenca'], inplace=True)
-
-        dataset['dias_sin_precip'] = 0
-        dias_transcurridos = 0
-        for index, row in dataset.iterrows():
-            if row['precipitacion_bool'] == 1:
-                dias_transcurridos = 0  # reinicia el contador si ha llovido
-            else:
-                dias_transcurridos += 1
-
-            dataset.loc[index, 'dias_sin_precip'] = dias_transcurridos
-
-        if save:
-            dataset.to_csv(os.path.join(output_path, f'{cuenca}.csv'))
-
-        return dataset
-
 # D:\data\csv\series_futuras_clean\
 def cleaning_future_series(input_data_path, output_data_path):
     """
@@ -315,6 +286,32 @@ def cleaning_future_series(input_data_path, output_data_path):
                     os.makedirs(output_path)
                 df_model.to_csv(os.path.join(output_path, file_name))
 
+# ./datasets/(6)
+def join_area_exog(exog_file, areas_path, output_path = './datasets', save=False):
+    """
+        Coge el archivo de areas, el archivo de variables exógenas y los junta, además de crear la nueva variable dias_sin_precip
+    """
+    exogs = pd.read_csv(exog_file, index_col=0)
+    cuencas = exogs['cuenca'].unique()
+    for cuenca in cuencas:
+        df_area = pd.read_csv(os.path.join(areas_path, cuenca + '.csv'))
+        dataset = pd.merge(left=df_area, right = exogs[exogs['cuenca'] == cuenca], how='inner', on='fecha')
+        dataset.drop(columns=['cuenca'], inplace=True)
+
+        dataset['dias_sin_precip'] = 0
+        dias_transcurridos = 0
+        for index, row in dataset.iterrows():
+            if row['precipitacion_bool'] == 1:
+                dias_transcurridos = 0  # reinicia el contador si ha llovido
+            else:
+                dias_transcurridos += 1
+
+            dataset.loc[index, 'dias_sin_precip'] = dias_transcurridos
+
+        if save:
+            dataset.to_csv(os.path.join(output_path, f'{cuenca}.csv'))
+
+        return dataset
 # ./datasets_imputed/(6)
 def impute_outliers(df, cuenca, columna, save=False):
     df_copy = df.copy()

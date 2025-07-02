@@ -15,10 +15,9 @@ import json
 from keras.callbacks import EarlyStopping, ModelCheckpoint
 import optuna # Aunque no se usa directamente para la creación manual, se mantiene por si se quiere integrar más Optuna.
 
-# --- FUNCIONES (Copiadas de tu script original, no necesitan cambios internos) ---
+# --- FUNCIONES ---
 
 # --- CLASE CUSTOM_LSTM PARA MANEJAR EL ERROR 'time_major' ---
-# Este es el cambio clave para cargar tus modelos antiguos.
 class CustomLSTM(keras.layers.LSTM):
     def __init__(self, *args, **kwargs):
         # Filtrar el argumento 'time_major' si está presente y no es reconocido
@@ -131,7 +130,7 @@ def load_model_and_params_for_basin(cuenca_name, models_dir='models'):
     """Carga un modelo y sus hiperparámetros para una cuenca específica,
     manejando el error 'time_major'."""
     basin_output_dir = os.path.join(models_dir, cuenca_name)
-    model_path = os.path.join(basin_output_dir, f'narx_model_best_{cuenca_name}.h5')
+    model_path = os.path.join(basin_output_dir, f'narx_model_{cuenca_name}.h5')
     params_path = os.path.join(basin_output_dir, f'metrics.json') # o 'best_params.json' si lo tienes
 
     loaded_model = None
@@ -385,8 +384,8 @@ def convert_numpy_to_python(obj):
 # --- Main execution para el nuevo script ---
 
 if __name__ == "__main__":
-    basins_dir = 'datasets/'
-    models_base_dir = os.path.join("E:", "models") # Directorio base para todos los modelos
+    basins_dir = 'datasets_imputed/'
+    models_base_dir = os.path.join("D:", "models") # Directorio base para todos los modelos
 
     exog_cols = ["dia_sen","temperatura","precipitacion", "dias_sin_precip"]
     exog_cols_scaled = [col + '_scaled' for col in exog_cols]

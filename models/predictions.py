@@ -1,12 +1,9 @@
 import pandas as pd
 import numpy as np
-import tensorflow as tf
 from tensorflow import keras
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import mean_absolute_error
 from scipy.stats import pearsonr
 import os
-import json
 import matplotlib.pyplot as plt # Necesario si graficas
 import seaborn as sns # Necesario si graficas
 
@@ -211,7 +208,10 @@ def make_future_predictions(model, historical_df, future_exog_df, exog_features,
         'area_nieve_pred': predicted_area_nieve_original.flatten()
     })
     
+    future_predictions_df.loc[future_predictions_df['area_nieve_pred'] < 0, :] = 0
+
     print("Predicciones futuras generadas.")
+
     return future_predictions_df
 
 def print_menu():
@@ -219,6 +219,7 @@ def print_menu():
     print( "\t\t ----- CREACION DE PREDICCIONES FUTURAS -----")
     print("="*60 + "\n")
 
+    basins_data_dir = 'datasets_imputed/'
     available_basins = [f[:-4] for f in os.listdir(basins_data_dir)]
 
     cuenca = ""
@@ -231,7 +232,7 @@ def print_menu():
             print("-"*25)
             cuenca = input("\nPor favor, introduce el nombre de la cuenca que desesas usar: ").lower().strip()
         
-    series_path = 'E:/data/csv/series_futuras_clean/' + cuenca
+    series_path = 'D:/data/csv/series_futuras_clean/' + cuenca
 
     # Selección de Escenario futuro
     scenarios_list = []
@@ -261,20 +262,22 @@ def print_menu():
 
     future_data_path = os.path.join(selected_scenario_path)
 
-    return cuenca, future_data_path
+    return cuenca, future_data_path, selected_scenario_name
 
 # --- MAIN EXECUTION FOR FUTURE PREDICTION ---
 
 # 1. Define paths and file names
-EXTERNAL_DISK = 'E:/'
-basins_data_dir = 'datasets/' # Directorio de tus datos históricos
+EXTERNAL_DISK = 'D:/'
+ # Directorio de datos históricos
 base_model_path =  os.path.join(EXTERNAL_DISK, 'models/')
-cuenca, scenario_path = print_menu()
-future_data_file_name = os.path.join(scenario_path, 'dataset.csv')
-base_series_path = os.path.join(EXTERNAL_DISK, f'data/csv/series_futuras_clean/{cuenca}')
+# future_data_file_name = os.path.join(scenario_path, 'dataset.csv')
+# base_series_path = os.path.join(EXTERNAL_DISK, f'data/csv/series_futuras_clean/{cuenca}')
 
-model_file_path = os.path.join(base_model_path, cuenca, f'narx_model_best_{cuenca}.h5')
-historical_data_file_name = f'{cuenca}.csv' # Archivo con datos históricos para medias
+cuenca, scenario_path, scenario = print_menu()
+historical_data_file_name = os.path.join('datasets_imputed', f'{cuenca}.csv') # Archivo con datos históricos para medias
+model_file_path = os.path.join(base_model_path, cuenca, f'narx_model_{cuenca}.h5')
+
+model_future_exogs = os.listdir(scenario_path)
 
 # 2. Fixed parameters (exógenas)
 exog_cols = ["dia_sen", "temperatura", "precipitacion", "dias_sin_precip"]
@@ -302,12 +305,10 @@ historical_df = None
 scaler_area = None
 scaler_exog = None
 try:
-    historical_df = pd.read_csv(os.path.join(basins_data_dir, historical_data_file_name), index_col=0)
+    historical_df = pd.read_csv(historical_data_file_name, index_col=0)
     if 'fecha' in historical_df.columns:
         historical_df.index = historical_df.index.astype(str) # Asegurar string para pd.to_datetime
-    
-    # Hacemos un preprocesamiento "parcial" solo para obtener los scalers ajustados
-    # No necesitamos las divisiones train/test/val aquí para la predicción futura.
+
     temp_scaled_data, temp_scalers = preprocess_data(historical_df.copy(), exog_cols, train_size=0.7, test_size=0.2)
     scaler_area = temp_scalers['area']
     scaler_exog = temp_scalers['exog']
@@ -317,84 +318,95 @@ except Exception as e:
     exit()
 
 # 5. Cargar datos futuros de variables exógenas
-future_exog_dfs = future_data_file_name
-future_exog_df = None
-try:
-    future_exog_df = pd.read_csv(future_data_file_name)
-    if 'fecha' in future_exog_df.columns:
-        future_exog_df['fecha'] = future_exog_df['fecha'].astype(str)
-    print(f"Datos exógenos futuros cargados de {future_data_file_name}.")
-except Exception as e:
-    print(f"Error fatal al cargar datos exógenos futuros: {e}.")
-    exit()
+future_exog_dfs = {}
+for model_exog in model_future_exogs:
+    future_data_file_name = os.path.join(scenario_path, model_exog)
+    df = None
+    try:
+        df = pd.read_csv(future_data_file_name)
+        if 'fecha' in df.columns:
+            df['fecha'] = df['fecha'].astype(str)
+
+        model_name = model_exog[:-4]
+        future_exog_dfs[model_name] = df
+    except Exception as e:
+        print(f"Error fatal al cargar datos exógenos futuros: {e}.")
+        exit()
+
+print(f"Datos exógenos futuros cargados para el escenario {scenario_path}.")
 
 # 6. Realizar las predicciones futuras
-if model and historical_df is not None and future_exog_df is not None and scaler_area and scaler_exog:
-    future_predictions_df = make_future_predictions(
-        model,
-        historical_df, # Pasamos el DF histórico para calcular las medias por día del año
-        future_exog_df,
-        exog_cols,
-        n_lags_area,
-        scaler_area,
-        scaler_exog
-    )
+future_predictions = {}
+for model_name, future_exog_df in future_exog_dfs.items():
+    if model and historical_df is not None and future_exog_df is not None and scaler_area and scaler_exog:
+        future_predictions[model_name] = make_future_predictions(
+            model,
+            historical_df, # Pasamos el DF histórico para calcular las medias por día del año
+            future_exog_df,
+            exog_cols,
+            n_lags_area,
+            scaler_area,
+            scaler_exog
+        )
+    else:
+        print("No se pudieron generar las predicciones futuras debido a errores previos.")
 
-    if future_predictions_df is not None:
-        print("\n--- Predicciones Futuras Generadas ---")
-        print(future_predictions_df.head())
-        print(future_predictions_df.tail())
+if future_predictions is not None:
+    print("\n--- Predicciones Futuras Completadas ---")
 
-        # Directorio para guardar las predicciones CSV y las gráficas
-        output_base_dir = os.path.dirname(model_file_path)
-        output_predictions_dir = os.path.join(output_base_dir, 'future_predictions') # Carpeta específica para la cuenca
-        output_graphs_dir = os.path.join(scenario_path, 'graphs') # Carpeta para las gráficas
+    # Directorio para guardar las predicciones CSV y las gráficas
+    output_base_dir = os.path.dirname(model_file_path)
+    output_path = os.path.join(output_base_dir, 'future_predictions', scenario) # Carpeta específica para la cuenca
+    # output_graphs_dir = os.path.join(scenario_path, 'graphs') # Carpeta para las gráficas
 
-        os.makedirs(output_predictions_dir, exist_ok=True)
-        os.makedirs(output_graphs_dir, exist_ok=True) # Crear el directorio de gráficas
+    os.makedirs(output_path, exist_ok=True)
+    # os.makedirs(output_graphs_dir, exist_ok=True) # Crear el directorio de gráficas
 
-        predictions_output_path = os.path.join(output_predictions_dir, f'future_predictions_{cuenca}.csv')
-        future_predictions_df = future_predictions_df.set_index('fecha')
-        future_predictions_df.to_csv(predictions_output_path) # Asegura el nombre de la columna
-        print(f"Predicciones futuras guardadas en: {predictions_output_path}")
+    for model_name, predictions_df in future_predictions.items():
+        predictions_file_name = os.path.join(output_path, f'predictions_{model_name}.csv')
+
+        predictions_df = predictions_df.set_index('fecha')
+
+        predictions_df.to_csv(predictions_file_name)
+        print(f"Predicciones futuras guardadas en: {output_path}")
 
         try:
             # Unir datos históricos y predicciones futuras para el plotting
             if 'fecha' in historical_df.columns:
                 historical_df = historical_df.set_index('fecha')
             historical_df.index = pd.to_datetime(historical_df.index)
-            if 'fecha' in future_predictions_df.columns:
-                future_predictions_df = future_predictions_df.set_index('fecha')
-            future_predictions_df.index = pd.to_datetime(future_predictions_df.index)
+            if 'fecha' in predictions_df.columns:
+                predictions_df = predictions_df.set_index('fecha')
+            predictions_df.index = pd.to_datetime(predictions_df.index)
 
-            # 1. Gráfica de la Serie Temporal Completa (Histórico + Predicciones)
-            combined_series_real = historical_df['area_nieve'].copy()
-            combined_series_pred = future_predictions_df['area_nieve_pred'].copy()
+            # # 1. Gráfica de la Serie Temporal Completa (Histórico + Predicciones)
+            # combined_series_real = historical_df['area_nieve'].copy()
+            # combined_series_pred = future_predictions_df['area_nieve_pred'].copy()
 
-            df_plot_all_days = pd.concat([combined_series_real, combined_series_pred], axis=1)
-            df_plot_all_days.columns = ['area_nieve_real', 'area_nieve_pred'] 
+            # df_plot_all_days = pd.concat([combined_series_real, combined_series_pred], axis=1)
+            # df_plot_all_days.columns = ['area_nieve_real', 'area_nieve_pred'] 
 
-            plt.figure(figsize=(18, 7))
-            sns.lineplot(data = df_plot_all_days, x=df_plot_all_days.index, y='area_nieve_real', label='Real Historical Snow Area')
-            sns.lineplot(data = df_plot_all_days, x=df_plot_all_days.index, y='area_nieve_pred', label='Predicted Future Snow Area')
+            # plt.figure(figsize=(18, 7))
+            # sns.lineplot(data = df_plot_all_days, x=df_plot_all_days.index, y='area_nieve_real', label='Real Historical Snow Area')
+            # sns.lineplot(data = df_plot_all_days, x=df_plot_all_days.index, y='area_nieve_pred', label='Predicted Future Snow Area')
 
-            plt.title(f'Prediction vs Real {cuenca.upper()} (Complete Time Series)')
-            plt.xlabel("Date")
-            plt.ylabel("Snow area Km2")
-            plt.legend()
-            plt.grid(True)
+            # plt.title(f'Prediction vs Real {cuenca.upper()} (Complete Time Series)')
+            # plt.xlabel("Date")
+            # plt.ylabel("Snow area Km2")
+            # plt.legend()
+            # plt.grid(True)
 
-            plt.xticks(rotation=45, ha='right')
-            plt.tick_params(axis='x', which='major', labelsize=10)
-            plt.tight_layout()
-            graph_output_path_all = os.path.join(output_graphs_dir, f'full_time_series_{cuenca}.png')
-            plt.savefig(graph_output_path_all)
-            plt.close()
-            print(f"Gráfica de serie temporal completa guardada en: {graph_output_path_all}")
+            # plt.xticks(rotation=45, ha='right')
+            # plt.tick_params(axis='x', which='major', labelsize=10)
+            # plt.tight_layout()
+            # graph_output_path_all = os.path.join(output_graphs_dir, f'full_time_series_{cuenca}.png')
+            # plt.savefig(graph_output_path_all)
+            # plt.close()
+            # print(f"Gráfica de serie temporal completa guardada en: {graph_output_path_all}")
 
             # 2. Gráficas de Estacionalidad (Media por Día del Año y por Mes)
             historical_for_agg = historical_df['area_nieve'].to_frame()
-            predictions_for_agg = future_predictions_df['area_nieve_pred'].to_frame() # Mantener nombre original aquí
+            predictions_for_agg = predictions_df['area_nieve_pred'].to_frame()
 
             historical_for_agg.index = pd.to_datetime(historical_for_agg.index)
             predictions_for_agg.index = pd.to_datetime(predictions_for_agg.index)
@@ -405,7 +417,7 @@ if model and historical_df is not None and future_exog_df is not None and scaler
             # Calcular promedios estacionales para predicciones
             predictions_for_agg['day_of_year'] = predictions_for_agg.index.day_of_year
             predictions_for_agg['month'] = predictions_for_agg.index.month
-            
+        
             avg_historical_per_day = historical_for_agg.groupby('day_of_year')['area_nieve'].mean().rename('area_nieve_real_avg')
             avg_historical_per_month = historical_for_agg.groupby('month')['area_nieve'].mean().rename('area_nieve_real_avg')
 
@@ -414,14 +426,14 @@ if model and historical_df is not None and future_exog_df is not None and scaler
 
             # Tipos de gráficas estacionales
             graph_types = [
-                {'name': 'per_day', 'groupby_col': 'day_of_year', 'xlabel': 'Day of Year', 'title_suffix': ' (Average per day of the year)', 'historical_avg': avg_historical_per_day, 'predictions_avg': avg_predictions_per_day},
-                {'name': 'per_month', 'groupby_col': 'month', 'xlabel': 'Month', 'title_suffix': ' (Average per month)', 'historical_avg': avg_historical_per_month, 'predictions_avg': avg_predictions_per_month}
+                {'name': 'per_day',     'groupby_col': 'day_of_year',   'xlabel': 'Day of Year',    'title_suffix': ' (Average per day of the year)',   'historical_avg': avg_historical_per_day, 'predictions_avg': avg_predictions_per_day},
+                {'name': 'per_month',   'groupby_col': 'month',         'xlabel': 'Month',          'title_suffix': ' (Average per month)',             'historical_avg': avg_historical_per_month, 'predictions_avg': avg_predictions_per_month}
             ]
 
             for graph_info in graph_types:
                 plt.figure(figsize=(15, 6))
-                sns.lineplot(x=graph_info['historical_avg'].index, y=graph_info['historical_avg'], label='Real Historical Average')
-                sns.lineplot(x=graph_info['predictions_avg'].index, y=graph_info['predictions_avg'], label='Predicted Future Average')
+                sns.lineplot(x=graph_info['historical_avg'].index, y=graph_info['historical_avg'], palette='pastel', label='Real Historical Average')
+                sns.lineplot(x=graph_info['predictions_avg'].index, y=graph_info['predictions_avg'], label=f'Prediction model {model_name}')
 
                 plt.title(f'Prediction vs Real {cuenca.upper()}{graph_info["title_suffix"]}')
                 plt.xlabel(graph_info['xlabel'])
@@ -430,18 +442,17 @@ if model and historical_df is not None and future_exog_df is not None and scaler
                 plt.grid(True)
                 plt.tight_layout()
                 
-                graph_output_path = os.path.join(output_graphs_dir, f'{graph_info["name"]}_{cuenca}.png')
+                graph_output_path = os.path.join(output_path, f'{graph_info["name"]}_{cuenca}.png')
                 plt.savefig(graph_output_path)
-                plt.close()
-                print(f"Gráfica de estacionalidad por {graph_info['name']} guardada en: {graph_output_path}")
 
         except Exception as e:
             print(f"Error al generar gráficas: {e}")
 
-    else:
-        print("No se generaron predicciones futuras, omitiendo la generación de gráficas.")
+    print(f"Gráfica de estacionalidad por {graph_info['name']} guardada en: {graph_output_path}")
+    plt.close()
 
 else:
-    print("No se pudieron generar las predicciones futuras debido a errores previos.")
+        print("No se generaron predicciones futuras, omitiendo la generación de gráficas.")
+
 
 print(f"\nProceso de predicción futura completado para {cuenca}.")
