@@ -7,6 +7,8 @@ import os
 import matplotlib.pyplot as plt # Necesario si graficas
 import seaborn as sns # Necesario si graficas
 
+EXTERNAL_DISK = 'E:/'
+
 # --- FUNCIONES DE SOPORTE (Mantienen su funcionalidad original) ---
 
 class CustomLSTM(keras.layers.LSTM):
@@ -232,7 +234,7 @@ def print_menu():
             print("-"*25)
             cuenca = input("\nPor favor, introduce el nombre de la cuenca que desesas usar: ").lower().strip()
         
-    series_path = 'D:/data/csv/series_futuras_clean/' + cuenca
+    series_path = os.path.join(EXTERNAL_DISK, 'data/csv/series_futuras_clean/', cuenca)
 
     # Selección de Escenario futuro
     scenarios_list = []
@@ -267,7 +269,6 @@ def print_menu():
 # --- MAIN EXECUTION FOR FUTURE PREDICTION ---
 
 # 1. Define paths and file names
-EXTERNAL_DISK = 'D:/'
  # Directorio de datos históricos
 base_model_path =  os.path.join(EXTERNAL_DISK, 'models/')
 # future_data_file_name = os.path.join(scenario_path, 'dataset.csv')
@@ -379,47 +380,26 @@ if future_predictions is not None:
                 predictions_df = predictions_df.set_index('fecha')
             predictions_df.index = pd.to_datetime(predictions_df.index)
 
-            # # 1. Gráfica de la Serie Temporal Completa (Histórico + Predicciones)
-            # combined_series_real = historical_df['area_nieve'].copy()
-            # combined_series_pred = future_predictions_df['area_nieve_pred'].copy()
+            # 1. Preparar datos históricos
+            historical_for_agg = historical_df[['area_nieve']].copy()
+            historical_for_agg.index = pd.to_datetime(historical_for_agg.index)
+            historical_for_agg['day_of_year'] = historical_for_agg.index.day_of_year
+            historical_for_agg['month'] = historical_for_agg.index.month
 
-            # df_plot_all_days = pd.concat([combined_series_real, combined_series_pred], axis=1)
-            # df_plot_all_days.columns = ['area_nieve_real', 'area_nieve_pred'] 
+            avg_historical_per_day = historical_for_agg.groupby('day_of_year')['area_nieve'].mean().rename('Real Historical Average')
+            avg_historical_per_month = historical_for_agg.groupby('month')['area_nieve'].mean().rename('Real Historical Average')
 
-            # plt.figure(figsize=(18, 7))
-            # sns.lineplot(data = df_plot_all_days, x=df_plot_all_days.index, y='area_nieve_real', label='Real Historical Snow Area')
-            # sns.lineplot(data = df_plot_all_days, x=df_plot_all_days.index, y='area_nieve_pred', label='Predicted Future Snow Area')
+            # 2. Preparar la predicción del full-dataset
 
-            # plt.title(f'Prediction vs Real {cuenca.upper()} (Complete Time Series)')
-            # plt.xlabel("Date")
-            # plt.ylabel("Snow area Km2")
-            # plt.legend()
-            # plt.grid(True)
-
-            # plt.xticks(rotation=45, ha='right')
-            # plt.tick_params(axis='x', which='major', labelsize=10)
-            # plt.tight_layout()
-            # graph_output_path_all = os.path.join(output_graphs_dir, f'full_time_series_{cuenca}.png')
-            # plt.savefig(graph_output_path_all)
-            # plt.close()
-            # print(f"Gráfica de serie temporal completa guardada en: {graph_output_path_all}")
-
-            # 2. Gráficas de Estacionalidad (Media por Día del Año y por Mes)
-            historical_for_agg = historical_df['area_nieve'].to_frame()
             predictions_for_agg = predictions_df['area_nieve_pred'].to_frame()
 
-            historical_for_agg.index = pd.to_datetime(historical_for_agg.index)
             predictions_for_agg.index = pd.to_datetime(predictions_for_agg.index)
 
             # Calcular promedios estacionales para históricos
-            historical_for_agg['day_of_year'] = historical_for_agg.index.day_of_year
-            historical_for_agg['month'] = historical_for_agg.index.month
             # Calcular promedios estacionales para predicciones
             predictions_for_agg['day_of_year'] = predictions_for_agg.index.day_of_year
             predictions_for_agg['month'] = predictions_for_agg.index.month
         
-            avg_historical_per_day = historical_for_agg.groupby('day_of_year')['area_nieve'].mean().rename('area_nieve_real_avg')
-            avg_historical_per_month = historical_for_agg.groupby('month')['area_nieve'].mean().rename('area_nieve_real_avg')
 
             avg_predictions_per_day = predictions_for_agg.groupby('day_of_year')['area_nieve_pred'].mean().rename('area_nieve_pred_avg')
             avg_predictions_per_month = predictions_for_agg.groupby('month')['area_nieve_pred'].mean().rename('area_nieve_pred_avg')
@@ -443,12 +423,12 @@ if future_predictions is not None:
                 plt.tight_layout()
                 
                 graph_output_path = os.path.join(output_path, f'{graph_info["name"]}_{cuenca}.png')
-                plt.savefig(graph_output_path)
 
         except Exception as e:
             print(f"Error al generar gráficas: {e}")
 
     print(f"Gráfica de estacionalidad por {graph_info['name']} guardada en: {graph_output_path}")
+    plt.savefig(graph_output_path)
     plt.close()
 
 else:

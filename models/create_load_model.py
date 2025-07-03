@@ -169,7 +169,7 @@ def evaluate_model(model, sequences, scaler_area):
     if X.shape[0] == 0:
         return {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan}, None, None
 
-    y_pred_scaled = model.predict(X, verbose=0, batch_size=2)
+    y_pred_scaled = model.predict(X, verbose=0, batch_size=16)
 
     if np.any(np.isnan(y_pred_scaled)) or np.any(np.isinf(y_pred_scaled)):
         return {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan}, None, None
@@ -202,7 +202,7 @@ def evaluate_validation(model, df_val_scaled, scaler_area, exog_cols, n_lags_are
             y_val_pred_scaled.extend([np.nan] * (len(df_val_scaled) - n_lags_area - i))
             break
 
-        pred_scaled = model.predict(last_sequence, verbose=0, batch_size=2)
+        pred_scaled = model.predict(last_sequence, verbose=0, batch_size=16)
 
         if np.any(np.isnan(pred_scaled)) or np.any(np.isinf(pred_scaled)):
             y_val_pred_scaled.append(np.nan)
@@ -263,7 +263,7 @@ def evaluate_full_dataset(model, df_full_scaled_cuenca, scaler_area, exog_cols_s
             y_full_pred_scaled.extend([np.nan] * (len(df_full_scaled_cuenca) - n_lags_area - i))
             break
 
-        pred_scaled = model.predict(last_sequence_full, verbose=0, batch_size=2)
+        pred_scaled = model.predict(last_sequence_full, verbose=0, batch_size=16)
 
         if np.any(np.isnan(pred_scaled)) or np.any(np.isinf(pred_scaled)):
             print(f"Warning: Model predicted NaN/inf at step {i} for {cuenca_name}. Stopping full prediction.")
@@ -301,10 +301,12 @@ def evaluate_full_dataset(model, df_full_scaled_cuenca, scaler_area, exog_cols_s
 
     if graph == True:
         graph_types = ['per_day', 'per_month', 'all_days']
+        output_path = os.path.join(base_model_dir, 'graphs')
         for graph_type in graph_types:
             real_plot = df_full_scaled_cuenca.iloc[n_lags_area:].copy()
             real_plot['area_nieve'] = y_full_true_original
             y_full_pred_df = pd.DataFrame(y_full_pred_original, columns=['area_nieve_pred'], index=real_plot.index)
+            y_full_pred_df.to_csv(os.path.join(output_path, 'full_dataset.csv'))
             df_plot = pd.concat([real_plot, y_full_pred_df], axis=1)
             df_plot['fecha'] = pd.to_datetime(df_plot['fecha'])
 
@@ -341,7 +343,7 @@ def evaluate_full_dataset(model, df_full_scaled_cuenca, scaler_area, exog_cols_s
             plt.ylabel("Snow area Km2")
             plt.legend()
             plt.grid(True)
-            output_path = os.path.join(base_model_dir, f'graphs_{cuenca_name}')
+            
             if not os.path.exists(output_path):
                 os.makedirs(output_path)
             plt.savefig(os.path.join(output_path, f'{graph_type}.png'))

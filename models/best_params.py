@@ -164,7 +164,7 @@ def evaluate_validation(model, df_val_scaled, scaler_area, exog_cols, n_lags_are
             y_val_pred_scaled = [np.nan] * (len(df_val_scaled) - n_lags_area)
             break
 
-        pred_scaled = model.predict(last_sequence, verbose=0, batch_size=8)
+        pred_scaled = model.predict(last_sequence, verbose=0, batch_size=16)
 
         if np.any(np.isnan(pred_scaled)) or np.any(np.isinf(pred_scaled)):
             y_val_pred_scaled.append(np.nan)
@@ -220,7 +220,7 @@ def evaluate_full_dataset(model, df_full_scaled_cuenca, scaler_area, exog_cols_s
             y_full_pred_scaled.extend([np.nan] * (len(df_full_scaled_cuenca) - n_lags_area - i))
             break
 
-        pred_scaled = model.predict(last_sequence_full, verbose=0, batch_size=2)
+        pred_scaled = model.predict(last_sequence_full, verbose=0, batch_size=16)
 
         if np.any(np.isnan(pred_scaled)) or np.any(np.isinf(pred_scaled)):
             y_full_pred_scaled.append(np.nan)
