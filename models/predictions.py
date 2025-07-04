@@ -424,7 +424,10 @@ if future_predictions is not None:
             plt.ylim(bottom=0)
             plt.xlabel(config['xlabel'])
             plt.ylabel("Snow cover area (km2)")
-            plt.legend(loc='best', frameon=False)
+            if cuenca == 'mapocho-almendros':
+                plt.legend(loc='lower center', frameon=False)
+            else:
+                plt.legend(loc='upper center', frameon=False)
             # plt.grid(True)
             plt.tight_layout()
 
