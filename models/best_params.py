@@ -291,7 +291,7 @@ def evaluate_full_dataset(model, df_full_scaled_cuenca, scaler_area, exog_cols_s
                 plt.xlim(left=min(df_plot_grouped[groupby_col]), right=(max(df_plot_grouped[groupby_col])))
             sns.lineplot(x=df_plot_grouped[groupby_col], y=df_plot_grouped.area_nieve_real, label='Real area')
             sns.lineplot(x=df_plot_grouped[groupby_col], y=df_plot_grouped.area_nieve_pred, label='Prediction')
-            plt.title(f'Prediction vs Real {cuenca_name.upper()}{title_suffix}')
+            plt.title(f'Prediction vs Real {cuenca_name}{title_suffix}')
             plt.xlabel(xlabel_text)
             plt.ylabel("Snow area Km2")
             plt.legend()

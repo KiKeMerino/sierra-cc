@@ -13,7 +13,8 @@ from scipy.stats import pearsonr
 import matplotlib.pyplot as plt
 import json
 from keras.callbacks import EarlyStopping, ModelCheckpoint
-import optuna # Aunque no se usa directamente para la creación manual, se mantiene por si se quiere integrar más Optuna.
+
+plt.rcParams.update({'font.size': 18})
 
 # --- FUNCIONES ---
 
@@ -237,10 +238,8 @@ def evaluate_validation(model, df_val_scaled, scaler_area, exog_cols, n_lags_are
 def evaluate_full_dataset(model, df_full_scaled_cuenca, scaler_area, exog_cols_scaled, n_lags_area, graph=False, base_model_dir='./', cuenca_name=""):
     """
     Evalúa un modelo específico en el conjunto de datos completo (modo predicción).
-    Modificado para evaluar un único modelo y generar gráficos para esa cuenca.
     """
     full_metrics = {}
-
     if model is None:
         print(f"Skipping full dataset evaluation for {cuenca_name}: No model provided.")
         return {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan}
@@ -263,7 +262,7 @@ def evaluate_full_dataset(model, df_full_scaled_cuenca, scaler_area, exog_cols_s
             y_full_pred_scaled.extend([np.nan] * (len(df_full_scaled_cuenca) - n_lags_area - i))
             break
 
-        pred_scaled = model.predict(last_sequence_full, verbose=0, batch_size=16)
+        pred_scaled = model.predict(last_sequence_full, verbose=0, batch_size=64)
 
         if np.any(np.isnan(pred_scaled)) or np.any(np.isinf(pred_scaled)):
             print(f"Warning: Model predicted NaN/inf at step {i} for {cuenca_name}. Stopping full prediction.")
@@ -290,6 +289,7 @@ def evaluate_full_dataset(model, df_full_scaled_cuenca, scaler_area, exog_cols_s
         print(f"Warning: Inverse transformed predictions for {cuenca_name} contain NaN/inf. Skipping metric calculation and plotting.")
         return {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan}
 
+    # Calculate metrics
     r2_full = pearsonr(y_full_true_original.flatten(), y_full_pred_original.flatten())
     r2_full = r2_full.statistic**2
     mae_full = mean_absolute_error(y_full_true_original, y_full_pred_original)
@@ -301,48 +301,85 @@ def evaluate_full_dataset(model, df_full_scaled_cuenca, scaler_area, exog_cols_s
 
     if graph == True:
         graph_types = ['per_day', 'per_month', 'all_days']
-        output_path = os.path.join(base_model_dir, 'graphs')
+        output_path = os.path.join(base_model_dir, f'graphs_{cuenca_name}')
+        
+        # Formatear las métricas para la leyenda
+        metrics_text = (
+            f'R²: {full_metrics["R2"]:.3f}\n'
+            f'MAE: {full_metrics["MAE"]:.3f}\n'
+            f'NSE: {full_metrics["NSE"]:.3f}\n'
+            f'KGE: {full_metrics["KGE"]:.3f}'
+        )
+
         for graph_type in graph_types:
+            if 'fecha' in df_full_scaled_cuenca:
+                df_full_scaled_cuenca = df_full_scaled_cuenca.set_index('fecha')
+
             real_plot = df_full_scaled_cuenca.iloc[n_lags_area:].copy()
             real_plot['area_nieve'] = y_full_true_original
+            
             y_full_pred_df = pd.DataFrame(y_full_pred_original, columns=['area_nieve_pred'], index=real_plot.index)
             y_full_pred_df.to_csv(os.path.join(output_path, 'full_dataset.csv'))
+            
             df_plot = pd.concat([real_plot, y_full_pred_df], axis=1)
-            df_plot['fecha'] = pd.to_datetime(df_plot['fecha'])
 
             xlabel_text = ""
-            groupby_col = 'fecha'
+            groupby_col = 'fecha' # Valor por defecto, se sobrescribirá si es necesario
             title_suffix = ""
+            
+            if not isinstance(df_plot.index, pd.DatetimeIndex):
+                df_plot = df_plot.set_index(pd.to_datetime(df_plot.index))
 
             if graph_type == 'per_day':
-                df_plot['fecha_agrupada'] = df_plot['fecha'].dt.day_of_year
+                df_plot['fecha_agrupada'] = df_plot.index.day_of_year
                 xlabel_text = "Day of Year"
                 groupby_col = 'fecha_agrupada'
                 title_suffix = " (Average per day of the year)"
+                x_lim = 365
             elif graph_type == 'per_month':
-                df_plot['fecha_agrupada'] = df_plot['fecha'].dt.month
+                df_plot['fecha_agrupada'] = df_plot.index.month
                 xlabel_text = 'Month'
                 groupby_col = 'fecha_agrupada'
                 title_suffix = " (Average per month)"
+                xlim = 12
             elif graph_type == 'all_days':
+                # Para 'all_days', agrupamos por el índice (fecha)
                 xlabel_text = "Date"
+                groupby_col = df_plot.index # Agrupar por el DatetimeIndex directamente
                 title_suffix = " (Serie temporal completa)"
 
-            df_plot_grouped = df_plot.groupby(groupby_col).agg(
-                area_nieve_real = ('area_nieve', 'mean'),
-                area_nieve_pred=('area_nieve_pred', 'mean')
-            ).reset_index()
-
-            plt.figure(figsize=(15,6))
+            # El agrupamiento debe hacerse antes de plotear para 'per_day' y 'per_month'
+            # Para 'all_days', el agrupamiento sería un "agrupamiento" trivial por cada fecha
             if graph_type in ['per_day', 'per_month']:
-                plt.xlim(left=min(df_plot_grouped[groupby_col]), right=(max(df_plot_grouped[groupby_col])))
-            sns.lineplot(x=df_plot_grouped[groupby_col], y=df_plot_grouped.area_nieve_real, label='Real area')
-            sns.lineplot(x=df_plot_grouped[groupby_col], y=df_plot_grouped.area_nieve_pred, label='Prediction')
+                df_plot_grouped = df_plot.groupby(groupby_col).agg(
+                    area_nieve_real = ('area_nieve', 'mean'),
+                    area_nieve_pred=('area_nieve_pred', 'mean')
+                ).reset_index()
+            else: # graph_type == 'all_days'
+                # Para 'all_days', no agrupamos, simplemente usamos el df_plot directamente
+                # y aseguramos que el índice sea la columna de x.
+                df_plot_grouped = df_plot.copy()
+                df_plot_grouped.reset_index(inplace=True) # El índice de fecha se convierte en columna 'fecha'
+                df_plot_grouped = df_plot_grouped.rename(columns={'area_nieve':'area_nieve_real'})
+                groupby_col = 'fecha' # Ahora la columna de fecha es 'fecha'
+
+            plt.figure(figsize=(12,8))
+            
+            # Plotear la serie real
+            sns.lineplot(x=df_plot_grouped[groupby_col], y=df_plot_grouped.area_nieve_real, label='Real area', linewidth=2)
+            
+            # Plotear la predicción y añadir las métricas a su etiqueta en la leyenda
+
+            sns.lineplot(x=df_plot_grouped[groupby_col], y=df_plot_grouped.area_nieve_pred,
+                         label=f'Prediction\n{metrics_text}', linewidth=2) 
+            
+            plt.xlim(left=min(df_plot_grouped[groupby_col]), right=(max(df_plot_grouped[groupby_col])))
+            plt.ylim(bottom=0)
             plt.title(f'Prediction vs Real {cuenca_name.upper()}{title_suffix}')
             plt.xlabel(xlabel_text)
             plt.ylabel("Snow area Km2")
-            plt.legend()
-            plt.grid(True)
+            plt.legend(loc='best', frameon=False) # Ajusta la posición de la leyenda
+            plt.tight_layout()
             
             if not os.path.exists(output_path):
                 os.makedirs(output_path)
@@ -433,7 +470,7 @@ if __name__ == "__main__":
         choice = input("¿Deseas cargar el modelo existente (c) o crear un nuevo modelo (n)? [c/n]: ").lower()
         if choice == 'c':
             model_to_evaluate = loaded_model
-            params_to_use = loaded_params.get('best_params')
+            params_to_use = loaded_params.get('hyperparameters_used')
             print("Cargando el modelo existente.")
         else:
             print("Creando un nuevo modelo.")

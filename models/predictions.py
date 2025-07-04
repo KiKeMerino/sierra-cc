@@ -4,10 +4,12 @@ from tensorflow import keras
 from sklearn.preprocessing import StandardScaler
 from scipy.stats import pearsonr
 import os
-import matplotlib.pyplot as plt # Necesario si graficas
-import seaborn as sns # Necesario si graficas
+import matplotlib.pyplot as plt
+import seaborn as sns
 
-EXTERNAL_DISK = 'E:/'
+plt.rcParams.update({'font.size': 18})
+
+EXTERNAL_DISK = 'D:/'
 
 # --- FUNCIONES DE SOPORTE (Mantienen su funcionalidad original) ---
 
@@ -114,6 +116,9 @@ def make_future_predictions(model, historical_df, future_exog_df, exog_features,
     """
     print("\n--- Iniciando predicciones futuras ---")
     
+    historical_df = historical_df.iloc[:400]
+    future_exog_df = future_exog_df[:400]
+
     # 1. Calcular la media histórica de area_nieve por día del año
     if 'fecha' in historical_df.columns:
         historical_df = historical_df.set_index(['fecha'])
@@ -133,22 +138,7 @@ def make_future_predictions(model, historical_df, future_exog_df, exog_features,
     # 3. Inicializar la primera secuencia de entrada para el modelo
     # Esto usa las medias históricas para los lags de area_nieve_scaled
     initial_area_nieve_lags_scaled = []
-    for i in range(n_lags_area):
-        # Obtener el día del año para la fecha correspondiente al lag
-        # Asumimos que la primera predicción es para future_exog_df_processed.iloc[0]
-        # Entonces el primer lag es para (fecha_futura[0] - n_lags_area días)
-        # Esto requiere cuidado si la 'fecha' en future_exog_df_processed
-        # es el punto de inicio de la serie futura.
-        
-        # Para el primer conjunto de predicciones (los primeros 'n_lags_area' días en el futuro),
-        # usaremos las medias históricas de 'area_nieve'.
-        # Para cada lag, necesitamos la media del 'day_of_year' correspondiente al lag.
-        
-        # Si la predicción comienza en future_exog_df_processed.iloc[0],
-        # el primer lag es para la fecha de future_exog_df_processed.iloc[0] - 1 día
-        # el segundo lag para future_exog_df_processed.iloc[0] - 2 días
-        # y así sucesivamente.
-        
+    for i in range(n_lags_area):        
         # Calculamos la fecha para cada lag
         lag_date = future_exog_df_processed['fecha'].iloc[0] - pd.Timedelta(days=(n_lags_area - 1 - i))
         lag_day_of_year = lag_date.day_of_year
@@ -176,7 +166,7 @@ def make_future_predictions(model, historical_df, future_exog_df, exog_features,
             predicted_area_nieve_scaled.extend([np.nan] * (len(future_exog_df_processed) - i))
             break
         
-        pred_scaled = model.predict(last_sequence_input, verbose=0)
+        pred_scaled = model.predict(last_sequence_input, batch_size=64, verbose=0)
 
         if np.any(np.isnan(pred_scaled)) or np.any(np.isinf(pred_scaled)):
             print(f"Advertencia: Modelo predijo NaN/inf para el paso futuro {i}. Deteniendo predicciones futuras.")
@@ -363,73 +353,88 @@ if future_predictions is not None:
     os.makedirs(output_path, exist_ok=True)
     # os.makedirs(output_graphs_dir, exist_ok=True) # Crear el directorio de gráficas
 
+
+    model_colors_map = {
+        'Full Dataset Prediction': 'black',
+        'ACCESS-ESM1-5': 'blue',
+        'CNRM-CM6-1': 'orange',
+        'MPI-ESM1-2-LR': 'grey',
+        'HadGEM3-GC31-LL': 'green',
+        'MRI-ESM2-0': 'yellow'
+    }
+
+    # Preparar la predicción del full-dataset
+    full_dataset_file = os.path.join(output_base_dir, f'graphs_{cuenca}', 'full_dataset.csv')
+    full_dataset_for_agg = pd.read_csv(full_dataset_file)
+    if 'fecha' in full_dataset_for_agg.columns:
+        full_dataset_for_agg = full_dataset_for_agg.set_index('fecha')
+    full_dataset_for_agg.index = pd.to_datetime(full_dataset_for_agg.index)
+    full_dataset_for_agg['day_of_year'] = full_dataset_for_agg.index.day_of_year
+    full_dataset_for_agg['month'] = full_dataset_for_agg.index.month
+
+    avg_full_dataset_pred_per_day = full_dataset_for_agg.groupby('day_of_year')['area_nieve_pred'].mean().rename('Full Dataset Prediction')
+    avg_full_dataset_pred_per_month = full_dataset_for_agg.groupby('month')['area_nieve_pred'].mean().rename('Full Dataset Prediction')
+
+    # Acumular predicciones de los 5 modelos
+    all_models_avg_predictions_per_day = {}
+    all_models_avg_predictions_per_month = {}
+
     for model_name, predictions_df in future_predictions.items():
         predictions_file_name = os.path.join(output_path, f'predictions_{model_name}.csv')
-
         predictions_df = predictions_df.set_index('fecha')
-
         predictions_df.to_csv(predictions_file_name)
-        print(f"Predicciones futuras guardadas en: {output_path}")
+        print(f"Predicciones futuras de {model_name} guardadas en: {output_path}")
 
-        try:
-            # Unir datos históricos y predicciones futuras para el plotting
-            if 'fecha' in historical_df.columns:
-                historical_df = historical_df.set_index('fecha')
-            historical_df.index = pd.to_datetime(historical_df.index)
-            if 'fecha' in predictions_df.columns:
-                predictions_df = predictions_df.set_index('fecha')
-            predictions_df.index = pd.to_datetime(predictions_df.index)
+        predictions_for_agg = predictions_df[['area_nieve_pred']].copy()
+        predictions_for_agg.index = pd.to_datetime(predictions_for_agg.index)
+        predictions_for_agg['day_of_year'] = predictions_for_agg.index.day_of_year
+        predictions_for_agg['month'] = predictions_for_agg.index.month
 
-            # 1. Preparar datos históricos
-            historical_for_agg = historical_df[['area_nieve']].copy()
-            historical_for_agg.index = pd.to_datetime(historical_for_agg.index)
-            historical_for_agg['day_of_year'] = historical_for_agg.index.day_of_year
-            historical_for_agg['month'] = historical_for_agg.index.month
+        all_models_avg_predictions_per_day[model_name] = predictions_for_agg.groupby('day_of_year')['area_nieve_pred'].mean()
+        all_models_avg_predictions_per_month[model_name] = predictions_for_agg.groupby('month')['area_nieve_pred'].mean()
 
-            avg_historical_per_day = historical_for_agg.groupby('day_of_year')['area_nieve'].mean().rename('Real Historical Average')
-            avg_historical_per_month = historical_for_agg.groupby('month')['area_nieve'].mean().rename('Real Historical Average')
+    # --- Generación de gráficos ---
+    try:
+        # Definir la información para ambos tipos de gráficos
+        graph_configs = [
+            {'name': 'per_day', 'xlabel': 'Day of the year', 'full_dataset_pred_avg': avg_full_dataset_pred_per_day, 'models_avg_data': all_models_avg_predictions_per_day},
+            {'name': 'per_month', 'xlabel': 'Month of the year', 'full_dataset_pred_avg': avg_full_dataset_pred_per_month, 'models_avg_data': all_models_avg_predictions_per_month}
+        ]
 
-            # 2. Preparar la predicción del full-dataset
+        for config in graph_configs:
+            plt.figure(figsize=(12, 8))
 
-            predictions_for_agg = predictions_df['area_nieve_pred'].to_frame()
+            # Plotear la línea de la predicción en el full-dataset
+            sns.lineplot(x=config['full_dataset_pred_avg'].index, y=config['full_dataset_pred_avg'],
+                        label='historical', color=model_colors_map['Full Dataset Prediction'], linewidth=2)
 
-            predictions_for_agg.index = pd.to_datetime(predictions_for_agg.index)
+            # Plotear las líneas de los 5 modelos
+            for i, (model_name, avg_data) in enumerate(config['models_avg_data'].items()):
+                color_to_use = model_colors_map.get(model_name, 'red')
+                sns.lineplot(x=avg_data.index, y=avg_data, label=model_name, color=color_to_use, linewidth=2)
 
-            # Calcular promedios estacionales para históricos
-            # Calcular promedios estacionales para predicciones
-            predictions_for_agg['day_of_year'] = predictions_for_agg.index.day_of_year
-            predictions_for_agg['month'] = predictions_for_agg.index.month
-        
 
-            avg_predictions_per_day = predictions_for_agg.groupby('day_of_year')['area_nieve_pred'].mean().rename('area_nieve_pred_avg')
-            avg_predictions_per_month = predictions_for_agg.groupby('month')['area_nieve_pred'].mean().rename('area_nieve_pred_avg')
+            plt.text(x=0.02, y=0.02, # (0,0 = abajo-izq; 1,1 = arriba-der)
+                s=scenario,
+                transform=plt.gca().transAxes,
+                fontweight='bold', va='bottom', ha='left'
+                #bbox=dict(facecolor='white', alpha=0.7, edgecolor='none', boxstyle='round,pad=0.5') # Opcional: fondo para el texto
+            )
+            plt.xlim(left=min(config['full_dataset_pred_avg'].index), right=(max(config['full_dataset_pred_avg'].index)))
+            plt.ylim(bottom=0)
+            plt.xlabel(config['xlabel'])
+            plt.ylabel("Snow cover area (km2)")
+            plt.legend(loc='best', frameon=False)
+            # plt.grid(True)
+            plt.tight_layout()
 
-            # Tipos de gráficas estacionales
-            graph_types = [
-                {'name': 'per_day',     'groupby_col': 'day_of_year',   'xlabel': 'Day of Year',    'title_suffix': ' (Average per day of the year)',   'historical_avg': avg_historical_per_day, 'predictions_avg': avg_predictions_per_day},
-                {'name': 'per_month',   'groupby_col': 'month',         'xlabel': 'Month',          'title_suffix': ' (Average per month)',             'historical_avg': avg_historical_per_month, 'predictions_avg': avg_predictions_per_month}
-            ]
+            graph_output_path = os.path.join(output_path, f'seasonal_avg_{config["name"]}_{cuenca}.png')
+            plt.savefig(graph_output_path)
+            plt.close() # Cierra la figura para liberar memoria
+            print(f"Gráfico de promedio {config['name']} guardado en: {graph_output_path}")
 
-            for graph_info in graph_types:
-                plt.figure(figsize=(15, 6))
-                sns.lineplot(x=graph_info['historical_avg'].index, y=graph_info['historical_avg'], palette='pastel', label='Real Historical Average')
-                sns.lineplot(x=graph_info['predictions_avg'].index, y=graph_info['predictions_avg'], label=f'Prediction model {model_name}')
-
-                plt.title(f'Prediction vs Real {cuenca.upper()}{graph_info["title_suffix"]}')
-                plt.xlabel(graph_info['xlabel'])
-                plt.ylabel("Snow area Km2")
-                plt.legend()
-                plt.grid(True)
-                plt.tight_layout()
-                
-                graph_output_path = os.path.join(output_path, f'{graph_info["name"]}_{cuenca}.png')
-
-        except Exception as e:
-            print(f"Error al generar gráficas: {e}")
-
-    print(f"Gráfica de estacionalidad por {graph_info['name']} guardada en: {graph_output_path}")
-    plt.savefig(graph_output_path)
-    plt.close()
+    except Exception as e:
+        print(f"Error al generar gráficas: {e}")
 
 else:
         print("No se generaron predicciones futuras, omitiendo la generación de gráficas.")
