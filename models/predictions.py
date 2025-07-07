@@ -116,8 +116,8 @@ def make_future_predictions(model, historical_df, future_exog_df, exog_features,
     """
     print("\n--- Iniciando predicciones futuras ---")
     
-    historical_df = historical_df.iloc[:400]
-    future_exog_df = future_exog_df[:400]
+    # historical_df = historical_df.iloc[:400]
+    # future_exog_df = future_exog_df[:400]
 
     # 1. Calcular la media histórica de area_nieve por día del año
     if 'fecha' in historical_df.columns:
@@ -200,7 +200,7 @@ def make_future_predictions(model, historical_df, future_exog_df, exog_features,
         'area_nieve_pred': predicted_area_nieve_original.flatten()
     })
     
-    future_predictions_df.loc[future_predictions_df['area_nieve_pred'] < 0, :] = 0
+    future_predictions_df.loc[future_predictions_df['area_nieve_pred'] < 0, 'area_nieve_pred'] = 0
 
     print("Predicciones futuras generadas.")
 
@@ -414,22 +414,27 @@ if future_predictions is not None:
                 sns.lineplot(x=avg_data.index, y=avg_data, label=model_name, color=color_to_use, linewidth=2)
 
 
-            plt.text(x=0.02, y=0.02, # (0,0 = abajo-izq; 1,1 = arriba-der)
-                s=scenario,
-                transform=plt.gca().transAxes,
-                fontweight='bold', va='bottom', ha='left'
-                #bbox=dict(facecolor='white', alpha=0.7, edgecolor='none', boxstyle='round,pad=0.5') # Opcional: fondo para el texto
-            )
-            plt.xlim(left=min(config['full_dataset_pred_avg'].index), right=(max(config['full_dataset_pred_avg'].index)))
-            plt.ylim(bottom=0)
-            plt.xlabel(config['xlabel'])
-            plt.ylabel("Snow cover area (km2)")
-            if cuenca == 'mapocho-almendros':
-                plt.legend(loc='lower center', frameon=False)
-            else:
-                plt.legend(loc='upper center', frameon=False)
-            # plt.grid(True)
-            plt.tight_layout()
+                plt.text(x=0.02, y=0.02, # (0,0 = abajo-izq; 1,1 = arriba-der)
+                    s=scenario,
+                    transform=plt.gca().transAxes,
+                    fontweight='bold', va='bottom', ha='left'
+                    #bbox=dict(facecolor='white', alpha=0.7, edgecolor='none', boxstyle='round,pad=0.5') # Opcional: fondo para el texto
+                )
+                plt.xlim(left=min(config['full_dataset_pred_avg'].index), right=(max(config['full_dataset_pred_avg'].index)))
+                plt.ylim(bottom=0)
+                plt.xlabel(config['xlabel'])
+                plt.ylabel("Snow cover area (km2)")
+
+                if cuenca == 'adda-bornio' or cuenca == 'nenskra-enguri':
+                    plt.legend(loc='lower left', bbox_to_anchor=(0,0.1), frameon=False)
+                
+                elif cuenca == 'mapocho-almendros':
+                    plt.legend(loc='upper left', frameon=False)
+
+                else:   # indrwawati-melamchi, genil-dilar, uncompahgre-ridgway
+                    plt.legend(loc='upper center', frameon=False)
+
+                plt.tight_layout()
 
             graph_output_path = os.path.join(output_path, f'seasonal_avg_{config["name"]}_{cuenca}.png')
             plt.savefig(graph_output_path)
