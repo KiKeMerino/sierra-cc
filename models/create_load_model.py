@@ -17,7 +17,7 @@ import matplotlib.ticker as mticker # Necesario para FixedLocator
 import matplotlib.dates as mdates # Alias para fechas de matplotlib
 
 plt.rcParams.update({'font.size': 18})
-EXTERNAL_DISK = 'E:'
+EXTERNAL_DISK = 'D:'
 
 # --- CLASE CUSTOM_LSTM PARA MANEJAR EL ERROR 'time_major' ---
 class CustomLSTM(keras.layers.LSTM):
@@ -349,7 +349,7 @@ def evaluate_full_dataset(model, df_full_scaled_cuenca, scaler_area, exog_cols_s
                 df_plot_grouped.reset_index(inplace=True) # El índice de fecha se convierte en columna 'fecha'
                 df_plot_grouped = df_plot_grouped.rename(columns={'area_nieve':'area_nieve_real'})
                 groupby_col = 'fecha' # Ahora la columna de fecha es 'fecha'
-                ylim_top = max(max(df_plot_grouped['area_nieve_pred']), max(df_plot_grouped['area_nieve_real'])) + 200
+                ylim_top = max(max(df_plot_grouped['area_nieve_pred']), max(df_plot_grouped['area_nieve_real'])) * 1.25
 
             plt.figure(figsize=(12,8))
             
@@ -376,16 +376,12 @@ def evaluate_full_dataset(model, df_full_scaled_cuenca, scaler_area, exog_cols_s
                 start_year = 2000
                 end_year = 2023
                 
-                # Crear una lista de fechas para las marcas que quieres mostrar
-                # Incluye el año de inicio, el año de fin, y años intermedios si deseas
-                # Por ejemplo, cada 4 años desde 2000 hasta 2023.
-                # Asegúrate de que las fechas sean objetos Timestamp
+                # Crear una lista de fechas para las marcas que se quieren mostrar
                 years_to_show = list(range(start_year, end_year + 1, 4)) # Marcas cada 4 años, ajusta el '4' si quieres más/menos
                 if end_year not in years_to_show: # Asegurarse de que el último año esté incluido si no es múltiplo de 4
                     years_to_show.append(end_year) 
                 
                 # Convertir los años a objetos Timestamp para el locator
-                # Usamos el 1 de enero de cada año como referencia para la marca
                 tick_dates = [pd.Timestamp(f'{year}-01-01') for year in years_to_show]
                 
                 # Convertir a formato numérico de Matplotlib para el FixedLocator
@@ -580,7 +576,7 @@ if __name__ == "__main__":
         )
 
         model_to_evaluate.fit(X_train_final, y_train_final, epochs=params_to_use['epochs'], verbose=0,
-                             validation_split=0.1, callbacks=[early_stopping_callback, model_checkpoint_callback], batch_size=8)
+                             validation_split=0.1, callbacks=[early_stopping_callback, model_checkpoint_callback], batch_size=128)
         
         # Cargar el modelo guardado si se usó ModelCheckpoint
         final_trained_model_path = os.path.join(basin_output_dir, f'narx_model_{cuenca_name}.h5')

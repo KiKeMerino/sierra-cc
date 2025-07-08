@@ -19,7 +19,7 @@ import matplotlib.ticker as mticker # Necesario para FixedLocator
 import matplotlib.dates as mdates # Alias para fechas de matplotlib
 
 plt.rcParams.update({'font.size': 18})
-EXTERNAL_DISK = 'E:'
+EXTERNAL_DISK = 'D:'
 
 # --- CLASE CUSTOM_LSTM PARA MANEJAR EL ERROR 'time_major' ---
 class CustomLSTM(keras.layers.LSTM):
@@ -426,22 +426,22 @@ def objective_single_basin(trial, basin_data, basin_scalers, exog_cols, exog_col
                   batch_size=batch_size)
 
         # --- EVALUACIÓN PARA OPTUNA (NSE en el conjunto COMPLETO - full_dataset) ---
-        # metrics = evaluate_full_dataset(
-        #     model, 
-        #     basin_data['df'],
-        #     scaler_area, 
-        #     exog_cols_scaled, 
-        #     n_lags_area,
-        #     graph=False,
-        # )
-         # --- EVALUACIÓN PARA OPTUNA (NSE en el conjunto de VALIDACIÓN) ---
-        metrics, _, _ = evaluate_validation(
+        metrics = evaluate_full_dataset(
             model, 
-            val_data_df, # <--- ¡IMPORTANTE! Usar el DataFrame de datos de validación
-            scaler_area, # Acceder al scaler directamente
-            exog_cols, 
-            n_lags_area
+            basin_data['df'],
+            scaler_area, 
+            exog_cols_scaled, 
+            n_lags_area,
+            graph=False,
         )
+         # --- EVALUACIÓN PARA OPTUNA (NSE en el conjunto de VALIDACIÓN) ---
+        # metrics, _, _ = evaluate_validation(
+        #     model, 
+        #     val_data_df, # <--- ¡IMPORTANTE! Usar el DataFrame de datos de validación
+        #     scaler_area, # Acceder al scaler directamente
+        #     exog_cols, 
+        #     n_lags_area
+        # )
 
         # Si las métricas del full_dataset contienen NaN/inf, asigna un valor muy malo
         if np.any(np.isnan(list(metrics.values()))) or np.any(np.isinf(list(metrics.values()))):
@@ -640,8 +640,8 @@ if study_basin.best_trial is not None:
 
     if final_trained_model is not None:
         best_model = {'model': final_trained_model,
-                                                'best_n_lags_area': best_n_lags_area,
-                                                'best_params': best_params_basin} # Almacenar los mejores parámetros también
+                    'best_n_lags_area': best_n_lags_area,
+                    'best_params': best_params_basin} # Almacenar los mejores parámetros también
 
         # --- Evaluación del modelo para la cuenca actual ---
         current_scaler_area = preprocessed_data['scalers']['area']
@@ -666,7 +666,6 @@ if study_basin.best_trial is not None:
         metrics_val, _, _ = evaluate_validation(final_trained_model, sequences_for_eval['val_df'], current_scaler_area, exog_cols, best_n_lags_area)
         
         # Llama a evaluate_full_dataset y pasa el directorio de salida específico de la cuenca
-        # La función evaluate_full_dataset ahora espera 'scaled_data' que es un dict, y solo toma un modelo.
         metrics_full = evaluate_full_dataset(final_trained_model, preprocessed_data['data'],
                                                 current_scaler_area,exog_cols_scaled, best_n_lags_area, 
                                                 graph=True, base_model_dir=basin_output_dir, cuenca_name=cuenca_name)
