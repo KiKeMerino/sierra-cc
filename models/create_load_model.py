@@ -13,10 +13,11 @@ from scipy.stats import pearsonr
 import matplotlib.pyplot as plt
 import json
 from keras.callbacks import EarlyStopping, ModelCheckpoint
+import matplotlib.ticker as mticker # Necesario para FixedLocator
+import matplotlib.dates as mdates # Alias para fechas de matplotlib
 
 plt.rcParams.update({'font.size': 18})
-
-# --- FUNCIONES ---
+EXTERNAL_DISK = 'E:'
 
 # --- CLASE CUSTOM_LSTM PARA MANEJAR EL ERROR 'time_major' ---
 class CustomLSTM(keras.layers.LSTM):
@@ -26,11 +27,9 @@ class CustomLSTM(keras.layers.LSTM):
             print(f"Advertencia: Ignorando el argumento 'time_major={kwargs['time_major']}' para la capa LSTM.")
             kwargs.pop('time_major')
         super().__init__(*args, **kwargs)
-
-# Registrar la clase para que Keras pueda encontrarla al cargar el modelo
-# Esto es importante para que Keras sepa cómo deserializar esta capa personalizada
 tf.keras.utils.get_custom_objects()['LSTM'] = CustomLSTM
 
+# --- FUNCIONES ---
 def nash_sutcliffe_efficiency(y_true, y_pred):
     numerator = np.sum((y_true - y_pred)**2)
     denominator = np.sum((y_true - np.mean(y_true))**2)
@@ -302,14 +301,9 @@ def evaluate_full_dataset(model, df_full_scaled_cuenca, scaler_area, exog_cols_s
     if graph == True:
         graph_types = ['per_day', 'per_month', 'all_days']
         output_path = os.path.join(base_model_dir, f'graphs_{cuenca_name}')
-        
-        # Formatear las métricas para la leyenda
-        metrics_text = (
-            f'R²: {full_metrics["R2"]:.3f}\n'
-            f'MAE: {full_metrics["MAE"]:.3f}\n'
-            f'NSE: {full_metrics["NSE"]:.3f}\n'
-            f'KGE: {full_metrics["KGE"]:.3f}'
-        )
+        # Crea el directorio de salida si no existe
+        if not os.path.exists(output_path):
+            os.makedirs(output_path)
 
         for graph_type in graph_types:
             if 'fecha' in df_full_scaled_cuenca:
@@ -325,60 +319,95 @@ def evaluate_full_dataset(model, df_full_scaled_cuenca, scaler_area, exog_cols_s
 
             xlabel_text = ""
             groupby_col = 'fecha' # Valor por defecto, se sobrescribirá si es necesario
-            title_suffix = ""
             
             if not isinstance(df_plot.index, pd.DatetimeIndex):
                 df_plot = df_plot.set_index(pd.to_datetime(df_plot.index))
 
             if graph_type == 'per_day':
                 df_plot['fecha_agrupada'] = df_plot.index.day_of_year
-                xlabel_text = "Day of Year"
+                xlabel_text = "Day of the year"
                 groupby_col = 'fecha_agrupada'
-                title_suffix = " (Average per day of the year)"
-                x_lim = 365
             elif graph_type == 'per_month':
                 df_plot['fecha_agrupada'] = df_plot.index.month
-                xlabel_text = 'Month'
+                xlabel_text = 'Month of the year'
                 groupby_col = 'fecha_agrupada'
-                title_suffix = " (Average per month)"
-                xlim = 12
             elif graph_type == 'all_days':
                 # Para 'all_days', agrupamos por el índice (fecha)
                 xlabel_text = "Date"
                 groupby_col = df_plot.index # Agrupar por el DatetimeIndex directamente
-                title_suffix = " (Serie temporal completa)"
 
-            # El agrupamiento debe hacerse antes de plotear para 'per_day' y 'per_month'
-            # Para 'all_days', el agrupamiento sería un "agrupamiento" trivial por cada fecha
+            # El agrupamos para 'per_day' y 'per_month'
             if graph_type in ['per_day', 'per_month']:
                 df_plot_grouped = df_plot.groupby(groupby_col).agg(
                     area_nieve_real = ('area_nieve', 'mean'),
                     area_nieve_pred=('area_nieve_pred', 'mean')
                 ).reset_index()
+                ylim_top = max(max(df_plot_grouped['area_nieve_pred']), max(df_plot_grouped['area_nieve_real']))
+
             else: # graph_type == 'all_days'
-                # Para 'all_days', no agrupamos, simplemente usamos el df_plot directamente
-                # y aseguramos que el índice sea la columna de x.
                 df_plot_grouped = df_plot.copy()
                 df_plot_grouped.reset_index(inplace=True) # El índice de fecha se convierte en columna 'fecha'
                 df_plot_grouped = df_plot_grouped.rename(columns={'area_nieve':'area_nieve_real'})
                 groupby_col = 'fecha' # Ahora la columna de fecha es 'fecha'
+                ylim_top = max(max(df_plot_grouped['area_nieve_pred']), max(df_plot_grouped['area_nieve_real'])) + 200
 
             plt.figure(figsize=(12,8))
             
-            # Plotear la serie real
-            sns.lineplot(x=df_plot_grouped[groupby_col], y=df_plot_grouped.area_nieve_real, label='Real area', linewidth=2)
-            
-            # Plotear la predicción y añadir las métricas a su etiqueta en la leyenda
+            # Plotear la serie real y la simulación
+            sns.lineplot(x=df_plot_grouped[groupby_col], y=df_plot_grouped.area_nieve_real, label='Data', linewidth=2, color='black')
+            sns.lineplot(x=df_plot_grouped[groupby_col], y=df_plot_grouped.area_nieve_pred, label='Simulation', linewidth=2, color='green')
 
-            sns.lineplot(x=df_plot_grouped[groupby_col], y=df_plot_grouped.area_nieve_pred,
-                         label=f'Prediction\n{metrics_text}', linewidth=2) 
+            # 1. Establecer los límites del eje X exactamente al inicio y fin de tus datos
+            min_date = min(df_plot_grouped[groupby_col])
+            max_date = max(df_plot_grouped[groupby_col])
+
+            plt.xlim(left=min_date, right=max_date)
+            plt.ylim(bottom=0, top = ylim_top)
             
-            plt.xlim(left=min(df_plot_grouped[groupby_col]), right=(max(df_plot_grouped[groupby_col])))
-            plt.ylim(bottom=0)
-            plt.title(f'Prediction vs Real {cuenca_name.upper()}{title_suffix}')
+            if graph_type == 'all_days':
+                metrics_text = (
+                    f"R²: {full_metrics['R2']:.3f}\n"
+                    f"MAE: {full_metrics['MAE']:.3f}\n"
+                    f"NSE: {full_metrics['NSE']:.3f}\n"
+                    f"KGE: {full_metrics['KGE']:.3f}"
+                )
+                plt.text(0.75, 0.97, metrics_text, transform=plt.gca().transAxes, fontsize=20, verticalalignment='top')
+
+                start_year = 2000
+                end_year = 2023
+                
+                # Crear una lista de fechas para las marcas que quieres mostrar
+                # Incluye el año de inicio, el año de fin, y años intermedios si deseas
+                # Por ejemplo, cada 4 años desde 2000 hasta 2023.
+                # Asegúrate de que las fechas sean objetos Timestamp
+                years_to_show = list(range(start_year, end_year + 1, 4)) # Marcas cada 4 años, ajusta el '4' si quieres más/menos
+                if end_year not in years_to_show: # Asegurarse de que el último año esté incluido si no es múltiplo de 4
+                    years_to_show.append(end_year) 
+                
+                # Convertir los años a objetos Timestamp para el locator
+                # Usamos el 1 de enero de cada año como referencia para la marca
+                tick_dates = [pd.Timestamp(f'{year}-01-01') for year in years_to_show]
+                
+                # Convertir a formato numérico de Matplotlib para el FixedLocator
+                tick_values_mpl = mdates.date2num(tick_dates)
+
+                # 2. Forzar los límites del eje X para que incluyan exactamente el 2000 y el 2023
+                # Establecemos los límites al 1 de enero del año de inicio y el 31 de diciembre del año de fin
+                plt.xlim(pd.Timestamp(f'{start_year}-01-01'), pd.Timestamp(f'{end_year}-12-31'))
+                
+                # 3. Usar FixedLocator para establecer las marcas EXACTAS en los años deseados
+                plt.gca().xaxis.set_major_locator(mticker.FixedLocator(tick_values_mpl))
+                
+                # 4. Formatear las etiquetas como solo el año
+                plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
+                
+                # 5. Rotar las etiquetas para que no se superpongan
+                plt.setp(plt.gca().xaxis.get_majorticklabels(), rotation=45, ha='right') 
+            
+
             plt.xlabel(xlabel_text)
-            plt.ylabel("Snow area Km2")
-            plt.legend(loc='best', frameon=False) # Ajusta la posición de la leyenda
+            plt.ylabel("Snow cover area (km2)")
+            plt.legend(loc='best', frameon=True)
             plt.tight_layout()
             
             if not os.path.exists(output_path):
@@ -387,7 +416,6 @@ def evaluate_full_dataset(model, df_full_scaled_cuenca, scaler_area, exog_cols_s
             plt.close()
     return full_metrics
 
-# --- Nuevas funciones para el script de carga/creación ---
 
 def get_hyperparameters_from_user():
     """Solicita al usuario los hiperparámetros para un nuevo modelo."""
@@ -424,7 +452,7 @@ def convert_numpy_to_python(obj):
 
 if __name__ == "__main__":
     basins_dir = 'datasets_imputed/'
-    models_base_dir = os.path.join("D:", "models") # Directorio base para todos los modelos
+    models_base_dir = os.path.join(EXTERNAL_DISK, "models") # Directorio base para todos los modelos
 
     exog_cols = ["dia_sen","temperatura","precipitacion", "dias_sin_precip"]
     exog_cols_scaled = [col + '_scaled' for col in exog_cols]
@@ -552,7 +580,7 @@ if __name__ == "__main__":
         )
 
         model_to_evaluate.fit(X_train_final, y_train_final, epochs=params_to_use['epochs'], verbose=0,
-                             validation_split=0.1, callbacks=[early_stopping_callback, model_checkpoint_callback])
+                             validation_split=0.1, callbacks=[early_stopping_callback, model_checkpoint_callback], batch_size=8)
         
         # Cargar el modelo guardado si se usó ModelCheckpoint
         final_trained_model_path = os.path.join(basin_output_dir, f'narx_model_{cuenca_name}.h5')

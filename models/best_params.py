@@ -15,6 +15,21 @@ import json
 from keras.callbacks import EarlyStopping, ModelCheckpoint
 import optuna
 from functools import partial
+import matplotlib.ticker as mticker # Necesario para FixedLocator
+import matplotlib.dates as mdates # Alias para fechas de matplotlib
+
+plt.rcParams.update({'font.size': 18})
+EXTERNAL_DISK = 'E:'
+
+# --- CLASE CUSTOM_LSTM PARA MANEJAR EL ERROR 'time_major' ---
+class CustomLSTM(keras.layers.LSTM):
+    def __init__(self, *args, **kwargs):
+        # Filtrar el argumento 'time_major' si está presente y no es reconocido
+        if 'time_major' in kwargs:
+            print(f"Advertencia: Ignorando el argumento 'time_major={kwargs['time_major']}' para la capa LSTM.")
+            kwargs.pop('time_major')
+        super().__init__(*args, **kwargs)
+tf.keras.utils.get_custom_objects()['LSTM'] = CustomLSTM
 
 # --- FUNCIONES ---
 def nash_sutcliffe_efficiency(y_true, y_pred):
@@ -92,37 +107,26 @@ def create_sequences(data, n_lags, exog_cols_scaled, target_col_scaled='area_nie
 
 def create_narx_model(n_lags, n_layers, n_units_lstm, n_features, learning_rate, dropout_rate):
     model = Sequential()
-    lstm_activation = 'tanh' # Prefer tanh for stability. Can be 'relu' if needed.
+    lstm_activation = 'tanh'
 
     if n_layers > 1:
-        model.add(keras.layers.LSTM(n_units_lstm, activation=lstm_activation, input_shape=(n_lags, n_features), return_sequences=True))
+        model.add(LSTM(n_units_lstm, activation=lstm_activation, input_shape=(n_lags, n_features), return_sequences=True))
     else:
-        model.add(keras.layers.LSTM(n_units_lstm, activation=lstm_activation, input_shape=(n_lags, n_features)))
+        model.add(LSTM(n_units_lstm, activation=lstm_activation, input_shape=(n_lags, n_features)))
 
     for _ in range(1, n_layers):
         if _ == n_layers - 1:
-            model.add(keras.layers.LSTM(n_units_lstm, activation=lstm_activation))
+            model.add(LSTM(n_units_lstm, activation=lstm_activation))
         else:
-            model.add(keras.layers.LSTM(n_units_lstm, activation=lstm_activation, return_sequences=True))
+            model.add(LSTM(n_units_lstm, activation=lstm_activation, return_sequences=True))
 
-    model.add(keras.layers.Dropout(dropout_rate))
-    model.add(keras.layers.Dense(1))
+    model.add(Dropout(dropout_rate))
+    model.add(Dense(1))
 
-    optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate, clipnorm=0.5) # Stronger clipnorm
+    optimizer = tf.keras.optimizers.Adam(learning_rate=learning_rate, clipnorm=0.5)
     model.compile(optimizer=optimizer, loss='mse')
 
     return model
-
-def load_model_for_basin(cuenca_name, models_dir='models'):
-    """Carga un único modelo para una cuenca específica."""
-    model_path = os.path.join(models_dir, f'narx_model_{cuenca_name}.h5')
-    if os.path.exists(model_path):
-        loaded_model = keras.models.load_model(model_path)
-        print(f"Modelo cargado para la cuenca: {cuenca_name} desde {model_path}")
-        return loaded_model
-    else:
-        print(f"No se encontró el modelo para la cuenca: {cuenca_name} en {model_path}")
-        return None
 
 def evaluate_model(model, sequences, scaler_area):
     X = sequences['X']
@@ -131,7 +135,7 @@ def evaluate_model(model, sequences, scaler_area):
     if X.shape[0] == 0:
         return {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan}, None, None
 
-    y_pred_scaled = model.predict(X, verbose=0)
+    y_pred_scaled = model.predict(X, verbose=0, batch_size=16)
 
     if np.any(np.isnan(y_pred_scaled)) or np.any(np.isinf(y_pred_scaled)):
         return {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan}, None, None
@@ -161,7 +165,7 @@ def evaluate_validation(model, df_val_scaled, scaler_area, exog_cols, n_lags_are
 
     for i in range(len(df_val_scaled) - n_lags_area):
         if np.any(np.isnan(last_sequence)) or np.any(np.isinf(last_sequence)):
-            y_val_pred_scaled = [np.nan] * (len(df_val_scaled) - n_lags_area)
+            y_val_pred_scaled.extend([np.nan] * (len(df_val_scaled) - n_lags_area - i))
             break
 
         pred_scaled = model.predict(last_sequence, verbose=0, batch_size=16)
@@ -197,8 +201,10 @@ def evaluate_validation(model, df_val_scaled, scaler_area, exog_cols, n_lags_are
     return {'R2': r2_val, 'MAE': mae_val, 'NSE': nse_val, 'KGE': kge_val}, y_val_pred_original, y_val_true_original
 
 def evaluate_full_dataset(model, df_full_scaled_cuenca, scaler_area, exog_cols_scaled, n_lags_area, graph=False, base_model_dir='./', cuenca_name=""):
+    """
+    Evalúa un modelo específico en el conjunto de datos completo (modo predicción).
+    """
     full_metrics = {}
-
     if model is None:
         print(f"Skipping full dataset evaluation for {cuenca_name}: No model provided.")
         return {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan}
@@ -217,12 +223,14 @@ def evaluate_full_dataset(model, df_full_scaled_cuenca, scaler_area, exog_cols_s
 
     for i in range(len(df_full_scaled_cuenca) - n_lags_area):
         if np.any(np.isnan(last_sequence_full)) or np.any(np.isinf(last_sequence_full)):
+            print(f"Warning: Input sequence for prediction contains NaN/inf at step {i} for {cuenca_name}. Stopping full prediction.")
             y_full_pred_scaled.extend([np.nan] * (len(df_full_scaled_cuenca) - n_lags_area - i))
             break
 
-        pred_scaled = model.predict(last_sequence_full, verbose=0, batch_size=16)
+        pred_scaled = model.predict(last_sequence_full, verbose=0, batch_size=64)
 
         if np.any(np.isnan(pred_scaled)) or np.any(np.isinf(pred_scaled)):
+            print(f"Warning: Model predicted NaN/inf at step {i} for {cuenca_name}. Stopping full prediction.")
             y_full_pred_scaled.append(np.nan)
             y_full_pred_scaled.extend([np.nan] * (len(df_full_scaled_cuenca) - n_lags_area - (i + 1)))
             break
@@ -235,17 +243,18 @@ def evaluate_full_dataset(model, df_full_scaled_cuenca, scaler_area, exog_cols_s
         updated_area_sequence = np.concatenate([last_sequence_full[:, 1:, 0].reshape(1, n_lags_area - 1, 1), next_area_scaled], axis=1)
         updated_exog_sequence = np.concatenate([last_sequence_full[:, 1:, 1:], next_exog_scaled], axis=1)
         last_sequence_full = np.concatenate([updated_area_sequence, updated_exog_sequence], axis=2)
-            
-    if not y_full_pred_scaled:
-        print(f"Warning: No se generaron predicciones para {cuenca_name} en el conjunto completo.")
+    
+    if not y_full_pred_scaled or np.any(np.isnan(y_full_pred_scaled)) or np.any(np.isinf(y_full_pred_scaled)):
+        print(f"Warning: Final predictions for {cuenca_name} contain NaN/inf. Skipping metric calculation and plotting.")
         return {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan}
 
     y_full_pred_original = scaler_area.inverse_transform(np.array(y_full_pred_scaled).reshape(-1, 1))
 
     if np.any(np.isnan(y_full_pred_original)) or np.any(np.isinf(y_full_pred_original)):
-        print(f"Warning: Predicciones transformadas para {cuenca_name} en el conjunto completo contienen NaN/inf.")
+        print(f"Warning: Inverse transformed predictions for {cuenca_name} contain NaN/inf. Skipping metric calculation and plotting.")
         return {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan}
 
+    # Calculate metrics
     r2_full = pearsonr(y_full_true_original.flatten(), y_full_pred_original.flatten())
     r2_full = r2_full.statistic**2
     mae_full = mean_absolute_error(y_full_true_original, y_full_pred_original)
@@ -253,56 +262,121 @@ def evaluate_full_dataset(model, df_full_scaled_cuenca, scaler_area, exog_cols_s
     kge_full = kling_gupta_efficiency(y_full_true_original, y_full_pred_original)
 
     full_metrics = {'R2': r2_full, 'MAE': mae_full, 'NSE': nse_full, 'KGE': kge_full}
-    
-    if graph == True:
-        real_plot = df_full_scaled_cuenca.iloc[n_lags_area:].copy()
-        real_plot['area_nieve'] = y_full_true_original
-        y_full_pred_df = pd.DataFrame(y_full_pred_original, columns=['area_nieve_pred'], index=real_plot.index)
-        df_plot = pd.concat([real_plot, y_full_pred_df], axis=1)
-        df_plot['fecha'] = pd.to_datetime(df_plot['fecha'], format='%Y-%m-%d')
+    print(f"Métricas en todo el conjunto de datos (modo prediccion) para {cuenca_name}: R2={r2_full:.3f}, MAE={mae_full:.3f}, NSE={nse_full:.3f}, KGE={kge_full:.3f}")
 
+    if graph == True:
         graph_types = ['per_day', 'per_month', 'all_days']
+        output_path = os.path.join(base_model_dir, f'graphs_{cuenca_name}')
+
         for graph_type in graph_types:
+            if 'fecha' in df_full_scaled_cuenca:
+                df_full_scaled_cuenca = df_full_scaled_cuenca.set_index('fecha')
+
+            real_plot = df_full_scaled_cuenca.iloc[n_lags_area:].copy()
+            real_plot['area_nieve'] = y_full_true_original
+            
+            y_full_pred_df = pd.DataFrame(y_full_pred_original, columns=['area_nieve_pred'], index=real_plot.index)
+            y_full_pred_df.to_csv(os.path.join(output_path, 'full_dataset.csv'))
+            
+            df_plot = pd.concat([real_plot, y_full_pred_df], axis=1)
+
             xlabel_text = ""
-            groupby_col = 'fecha'
-            title_suffix = ""
+            groupby_col = 'fecha' # Valor por defecto, se sobrescribirá si es necesario
+            
+            if not isinstance(df_plot.index, pd.DatetimeIndex):
+                df_plot = df_plot.set_index(pd.to_datetime(df_plot.index))
 
             if graph_type == 'per_day':
-                df_plot['fecha_agrupada'] = df_plot['fecha'].dt.day_of_year
-                xlabel_text = "Day of Year"
+                df_plot['fecha_agrupada'] = df_plot.index.day_of_year
+                xlabel_text = "Day of the year"
                 groupby_col = 'fecha_agrupada'
-                title_suffix = " (Average per day of the year)"
             elif graph_type == 'per_month':
-                df_plot['fecha_agrupada'] = df_plot['fecha'].dt.month
-                xlabel_text = 'Month'
+                df_plot['fecha_agrupada'] = df_plot.index.month
+                xlabel_text = 'Month of the year'
                 groupby_col = 'fecha_agrupada'
-                title_suffix = " (Average per month)"
-            elif graph_type == 'all_days': 
+            elif graph_type == 'all_days':
+                # Para 'all_days', agrupamos por el índice (fecha)
                 xlabel_text = "Date"
-                title_suffix = " (Serie temporal completa)"
+                groupby_col = df_plot.index # Agrupar por el DatetimeIndex directamente
 
-            df_plot_grouped = df_plot.groupby(groupby_col).agg(
-                area_nieve_real = ('area_nieve', 'mean'),
-                area_nieve_pred=('area_nieve_pred', 'mean')
-            ).reset_index()
-
-            plt.figure(figsize=(15,6))
+            # El agrupamos para 'per_day' y 'per_month'
             if graph_type in ['per_day', 'per_month']:
-                plt.xlim(left=min(df_plot_grouped[groupby_col]), right=(max(df_plot_grouped[groupby_col])))
-            sns.lineplot(x=df_plot_grouped[groupby_col], y=df_plot_grouped.area_nieve_real, label='Real area')
-            sns.lineplot(x=df_plot_grouped[groupby_col], y=df_plot_grouped.area_nieve_pred, label='Prediction')
-            plt.title(f'Prediction vs Real {cuenca_name}{title_suffix}')
-            plt.xlabel(xlabel_text)
-            plt.ylabel("Snow area Km2")
-            plt.legend()
-            plt.grid(True)
+                df_plot_grouped = df_plot.groupby(groupby_col).agg(
+                    area_nieve_real = ('area_nieve', 'mean'),
+                    area_nieve_pred=('area_nieve_pred', 'mean')
+                ).reset_index()
+                ylim_top = max(max(df_plot_grouped['area_nieve_pred']), max(df_plot_grouped['area_nieve_real']))
+
+            else: # graph_type == 'all_days'
+                df_plot_grouped = df_plot.copy()
+                df_plot_grouped.reset_index(inplace=True) # El índice de fecha se convierte en columna 'fecha'
+                df_plot_grouped = df_plot_grouped.rename(columns={'area_nieve':'area_nieve_real'})
+                groupby_col = 'fecha' # Ahora la columna de fecha es 'fecha'
+                ylim_top = max(max(df_plot_grouped['area_nieve_pred']), max(df_plot_grouped['area_nieve_real'])) + 200
+
+            plt.figure(figsize=(12,8))
             
-            output_path = os.path.join(base_model_dir, f'graphs_{cuenca_name}')
+            # Plotear la serie real y la simulación
+            sns.lineplot(x=df_plot_grouped[groupby_col], y=df_plot_grouped.area_nieve_real, label='Data', linewidth=2, color='black')
+            sns.lineplot(x=df_plot_grouped[groupby_col], y=df_plot_grouped.area_nieve_pred, label='Simulation', linewidth=2, color='green')
+
+            # 1. Establecer los límites del eje X exactamente al inicio y fin de tus datos
+            min_date = min(df_plot_grouped[groupby_col])
+            max_date = max(df_plot_grouped[groupby_col])
+
+            plt.xlim(left=min_date, right=max_date)
+            plt.ylim(bottom=0, top = ylim_top)
+            
+            if graph_type == 'all_days':
+                metrics_text = (
+                    f"R²: {full_metrics['R2']:.3f}\n"
+                    f"MAE: {full_metrics['MAE']:.3f}\n"
+                    f"NSE: {full_metrics['NSE']:.3f}\n"
+                    f"KGE: {full_metrics['KGE']:.3f}"
+                )
+                plt.text(0.75, 0.97, metrics_text, transform=plt.gca().transAxes, fontsize=20, verticalalignment='top')
+
+                start_year = 2000
+                end_year = 2023
+                
+                # Crear una lista de fechas para las marcas que quieres mostrar
+                # Incluye el año de inicio, el año de fin, y años intermedios si deseas
+                # Por ejemplo, cada 4 años desde 2000 hasta 2023.
+                # Asegúrate de que las fechas sean objetos Timestamp
+                years_to_show = list(range(start_year, end_year + 1, 4)) # Marcas cada 4 años, ajusta el '4' si quieres más/menos
+                if end_year not in years_to_show: # Asegurarse de que el último año esté incluido si no es múltiplo de 4
+                    years_to_show.append(end_year) 
+                
+                # Convertir los años a objetos Timestamp para el locator
+                # Usamos el 1 de enero de cada año como referencia para la marca
+                tick_dates = [pd.Timestamp(f'{year}-01-01') for year in years_to_show]
+                
+                # Convertir a formato numérico de Matplotlib para el FixedLocator
+                tick_values_mpl = mdates.date2num(tick_dates)
+
+                # 2. Forzar los límites del eje X para que incluyan exactamente el 2000 y el 2023
+                # Establecemos los límites al 1 de enero del año de inicio y el 31 de diciembre del año de fin
+                plt.xlim(pd.Timestamp(f'{start_year}-01-01'), pd.Timestamp(f'{end_year}-12-31'))
+                
+                # 3. Usar FixedLocator para establecer las marcas EXACTAS en los años deseados
+                plt.gca().xaxis.set_major_locator(mticker.FixedLocator(tick_values_mpl))
+                
+                # 4. Formatear las etiquetas como solo el año
+                plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%Y'))
+                
+                # 5. Rotar las etiquetas para que no se superpongan
+                plt.setp(plt.gca().xaxis.get_majorticklabels(), rotation=45, ha='right') 
+            
+
+            plt.xlabel(xlabel_text)
+            plt.ylabel("Snow cover area (km2)")
+            plt.legend(loc='best', frameon=True)
+            plt.tight_layout()
+            
             if not os.path.exists(output_path):
                 os.makedirs(output_path)
             plt.savefig(os.path.join(output_path, f'{graph_type}.png'))
             plt.close()
-    
     return full_metrics
 
 # --- Optuna Objective Function ---
@@ -313,9 +387,8 @@ def objective_single_basin(trial, basin_data, basin_scalers, exog_cols, exog_col
     n_units_lstm = trial.suggest_int('n_units_lstm', 5, 30)
     learning_rate = trial.suggest_loguniform('learning_rate', 1e-4, 1e-2)
     dropout_rate = trial.suggest_float('dropout_rate', 0.1, 0.4)
-    
-    # Épocas: Rango más amplio para trials de Optuna, como pediste
-    epochs = trial.suggest_int('epochs', 20, 120) # Rango más amplio para epochs en trials
+    batch_size = trial.suggest_categorical('batch_size', [8, 16, 64, 128])
+    epochs = trial.suggest_int('epochs', 20, 120)
 
     # 2. Prepare data for the current trial
     n_features = 1 + len(exog_cols_scaled)
@@ -329,9 +402,7 @@ def objective_single_basin(trial, basin_data, basin_scalers, exog_cols, exog_col
 
     # Extract data for the single basin
     train_data_df = basin_data['df'].iloc[basin_data['train_idx']]
-    # NO NECESITAMOS val_data_df aquí si optimizamos en full_dataset para el trial,
-    # pero es necesario para validation_split del fit.
-    val_data_for_fit_df = basin_data['df'].iloc[basin_data['val_idx']].copy()
+    val_data_df = basin_data['df'].iloc[basin_data['val_idx']].copy() 
     scaler_area = basin_scalers['area']
 
     # Create sequences for the current basin with the trial's n_lags_area
@@ -351,29 +422,34 @@ def objective_single_basin(trial, basin_data, basin_scalers, exog_cols, exog_col
         # Entrenar el modelo con batch_size especificado para controlar el uso de VRAM
         model.fit(X_train, y_train, epochs=epochs, verbose=0,
                   validation_split=0.1, # Validación interna para EarlyStopping
-                  callbacks=[early_stopping_callback],)
+                  callbacks=[early_stopping_callback],
+                  batch_size=batch_size)
 
         # --- EVALUACIÓN PARA OPTUNA (NSE en el conjunto COMPLETO - full_dataset) ---
-        # Llamar a evaluate_full_dataset con el DataFrame completo de la cuenca
-        # Esto incluye los datos de entrenamiento, validación y prueba para la evaluación walk-forward
-        # NO GENERAR GRÁFICOS aquí (graph=False) para no ralentizar los trials
-        # Tampoco pasar base_model_dir ni cuenca_name, ya que no se necesitan para esta evaluación
-        full_eval_metrics = evaluate_full_dataset(
+        # metrics = evaluate_full_dataset(
+        #     model, 
+        #     basin_data['df'],
+        #     scaler_area, 
+        #     exog_cols_scaled, 
+        #     n_lags_area,
+        #     graph=False,
+        # )
+         # --- EVALUACIÓN PARA OPTUNA (NSE en el conjunto de VALIDACIÓN) ---
+        metrics, _, _ = evaluate_validation(
             model, 
-            basin_data['df'],
-            scaler_area, 
-            exog_cols_scaled, 
-            n_lags_area,
-            graph=False,
+            val_data_df, # <--- ¡IMPORTANTE! Usar el DataFrame de datos de validación
+            scaler_area, # Acceder al scaler directamente
+            exog_cols, 
+            n_lags_area
         )
 
         # Si las métricas del full_dataset contienen NaN/inf, asigna un valor muy malo
-        if np.any(np.isnan(list(full_eval_metrics.values()))) or np.any(np.isinf(list(full_eval_metrics.values()))):
+        if np.any(np.isnan(list(metrics.values()))) or np.any(np.isinf(list(metrics.values()))):
             print(f"Warning: Full dataset metrics for trial {trial.number} contain NaN/inf. Assigning -inf NSE.")
             return -np.inf
         else:
             # Optuna va a MAXIMIZAR este valor de NSE del conjunto COMPLETO
-            return full_eval_metrics['NSE']
+            return metrics['NSE']
 
     except (ValueError, tf.errors.InvalidArgumentError, tf.errors.ResourceExhaustedError, RuntimeError) as e:
         print(f"Trial {trial.number} failed with error: {e}. Returning -inf NSE.")
@@ -396,7 +472,7 @@ def convert_numpy_to_python(obj):
 # --- Main execution ---
 # Define the directory where your basin CSVs are located
 basins_dir = 'datasets_imputed/' # Asegúrate de que esta ruta sea correcta para tus CSV de cuencas
-models_dir = os.path.join("D:", "new_models") # Directorio donde se guardarán/buscarán los modelos por cuenca
+models_dir = os.path.join(EXTERNAL_DISK, "new_models") # Directorio donde se guardarán/buscarán los modelos por cuenca
 
 exog_cols = ["dia_sen","temperatura","precipitacion", "dias_sin_precip"]
 exog_cols_scaled = [col + '_scaled' for col in exog_cols]
