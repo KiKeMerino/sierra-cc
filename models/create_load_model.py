@@ -17,7 +17,7 @@ import matplotlib.ticker as mticker # Necesario para FixedLocator
 import matplotlib.dates as mdates # Alias para fechas de matplotlib
 
 plt.rcParams.update({'font.size': 18})
-EXTERNAL_DISK = 'D:'
+EXTERNAL_DISK = 'E:'
 
 # --- CLASE CUSTOM_LSTM PARA MANEJAR EL ERROR 'time_major' ---
 class CustomLSTM(keras.layers.LSTM):
@@ -450,7 +450,8 @@ if __name__ == "__main__":
     basins_dir = 'datasets_imputed/'
     models_base_dir = os.path.join(EXTERNAL_DISK, "models") # Directorio base para todos los modelos
 
-    exog_cols = ["dia_sen","temperatura","precipitacion", "dias_sin_precip"]
+    # exog_cols = ["dia_sen","temperatura","precipitacion", "dias_sin_precip"]
+    exog_cols = ["dia_sen","temperatura", "precipitacion"]
     exog_cols_scaled = [col + '_scaled' for col in exog_cols]
 
     cuenca_name_input = input("Introduce el nombre de la cuenca (ej: 'cuenca1') o deja en blanco para ver las disponibles: ").strip()
@@ -576,7 +577,7 @@ if __name__ == "__main__":
         )
 
         model_to_evaluate.fit(X_train_final, y_train_final, epochs=params_to_use['epochs'], verbose=0,
-                             validation_split=0.1, callbacks=[early_stopping_callback, model_checkpoint_callback], batch_size=128)
+                             validation_split=0.1, callbacks=[early_stopping_callback, model_checkpoint_callback], batch_size=8)
         
         # Cargar el modelo guardado si se usó ModelCheckpoint
         final_trained_model_path = os.path.join(basin_output_dir, f'narx_model_{cuenca_name}.h5')

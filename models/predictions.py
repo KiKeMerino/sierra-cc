@@ -9,7 +9,7 @@ import seaborn as sns
 
 plt.rcParams.update({'font.size': 18})
 
-EXTERNAL_DISK = 'D:/'
+EXTERNAL_DISK = 'E:/'
 
 # --- FUNCIONES DE SOPORTE (Mantienen su funcionalidad original) ---
 
@@ -166,7 +166,7 @@ def make_future_predictions(model, historical_df, future_exog_df, exog_features,
             predicted_area_nieve_scaled.extend([np.nan] * (len(future_exog_df_processed) - i))
             break
         
-        pred_scaled = model.predict(last_sequence_input, batch_size=64, verbose=0)
+        pred_scaled = model.predict(last_sequence_input, batch_size=8, verbose=0)
 
         if np.any(np.isnan(pred_scaled)) or np.any(np.isinf(pred_scaled)):
             print(f"Advertencia: Modelo predijo NaN/inf para el paso futuro {i}. Deteniendo predicciones futuras.")
@@ -271,7 +271,8 @@ model_file_path = os.path.join(base_model_path, cuenca, f'narx_model_{cuenca}.h5
 model_future_exogs = os.listdir(scenario_path)
 
 # 2. Fixed parameters (exógenas)
-exog_cols = ["dia_sen", "temperatura", "precipitacion", "dias_sin_precip"]
+# exog_cols = ["dia_sen", "temperatura", "precipitacion", "dias_sin_precip"]
+exog_cols = ["dia_sen", "temperatura", "precipitacion"]
 
 # 3. Cargar el modelo
 model = None

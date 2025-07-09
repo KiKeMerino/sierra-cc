@@ -19,7 +19,7 @@ import matplotlib.ticker as mticker # Necesario para FixedLocator
 import matplotlib.dates as mdates # Alias para fechas de matplotlib
 
 plt.rcParams.update({'font.size': 18})
-EXTERNAL_DISK = 'D:'
+EXTERNAL_DISK = 'E:'
 
 # --- CLASE CUSTOM_LSTM PARA MANEJAR EL ERROR 'time_major' ---
 class CustomLSTM(keras.layers.LSTM):
@@ -135,7 +135,7 @@ def evaluate_model(model, sequences, scaler_area):
     if X.shape[0] == 0:
         return {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan}, None, None
 
-    y_pred_scaled = model.predict(X, verbose=0, batch_size=16)
+    y_pred_scaled = model.predict(X, verbose=0, batch_size=128)
 
     if np.any(np.isnan(y_pred_scaled)) or np.any(np.isinf(y_pred_scaled)):
         return {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan}, None, None
@@ -426,22 +426,22 @@ def objective_single_basin(trial, basin_data, basin_scalers, exog_cols, exog_col
                   batch_size=batch_size)
 
         # --- EVALUACIÓN PARA OPTUNA (NSE en el conjunto COMPLETO - full_dataset) ---
-        metrics = evaluate_full_dataset(
-            model, 
-            basin_data['df'],
-            scaler_area, 
-            exog_cols_scaled, 
-            n_lags_area,
-            graph=False,
-        )
-         # --- EVALUACIÓN PARA OPTUNA (NSE en el conjunto de VALIDACIÓN) ---
-        # metrics, _, _ = evaluate_validation(
+        # metrics = evaluate_full_dataset(
         #     model, 
-        #     val_data_df, # <--- ¡IMPORTANTE! Usar el DataFrame de datos de validación
-        #     scaler_area, # Acceder al scaler directamente
-        #     exog_cols, 
-        #     n_lags_area
+        #     basin_data['df'],
+        #     scaler_area, 
+        #     exog_cols_scaled, 
+        #     n_lags_area,
+        #     graph=False,
         # )
+         # --- EVALUACIÓN PARA OPTUNA (NSE en el conjunto de VALIDACIÓN) ---
+        metrics, _, _ = evaluate_validation(
+            model, 
+            val_data_df, # <--- ¡IMPORTANTE! Usar el DataFrame de datos de validación
+            scaler_area, # Acceder al scaler directamente
+            exog_cols, 
+            n_lags_area
+        )
 
         # Si las métricas del full_dataset contienen NaN/inf, asigna un valor muy malo
         if np.any(np.isnan(list(metrics.values()))) or np.any(np.isinf(list(metrics.values()))):
