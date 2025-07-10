@@ -17,14 +17,15 @@ import matplotlib.ticker as mticker # Necesario para FixedLocator
 import matplotlib.dates as mdates # Alias para fechas de matplotlib
 
 plt.rcParams.update({'font.size': 18})
-EXTERNAL_DISK = 'E:'
+EXTERNAL_DISK = 'D:'
 
-# --- CLASE CUSTOM_LSTM PARA MANEJAR EL ERROR 'time_major' ---
+
+# clase custom_lstm para manejar el error 'time_major'
 class CustomLSTM(keras.layers.LSTM):
     def __init__(self, *args, **kwargs):
         # Filtrar el argumento 'time_major' si está presente y no es reconocido
         if 'time_major' in kwargs:
-            print(f"Advertencia: Ignorando el argumento 'time_major={kwargs['time_major']}' para la capa LSTM.")
+            # print(f"Advertencia: Ignorando el argumento 'time_major={kwargs['time_major']}' para la capa LSTM.")
             kwargs.pop('time_major')
         super().__init__(*args, **kwargs)
 tf.keras.utils.get_custom_objects()['LSTM'] = CustomLSTM
@@ -422,6 +423,7 @@ def get_hyperparameters_from_user():
     learning_rate = float(input("Tasa de aprendizaje (learning_rate, flotante, ej: 0.001): "))
     dropout_rate = float(input("Tasa de Dropout (dropout_rate, flotante, ej: 0.2): "))
     epochs = int(input("Número de épocas para el entrenamiento (epochs, entero, ej: 100): "))
+    batch_size = int(input("Batch size para el entrenamiento (batch_size, entero, ej: 32): "))
     
     return {
         'n_lags_area': n_lags_area,
@@ -429,7 +431,8 @@ def get_hyperparameters_from_user():
         'n_units_lstm': n_units_lstm,
         'learning_rate': learning_rate,
         'dropout_rate': dropout_rate,
-        'epochs': epochs
+        'epochs': epochs,
+        'batch_size': batch_size
     }
 
 def convert_numpy_to_python(obj):
@@ -450,8 +453,8 @@ if __name__ == "__main__":
     basins_dir = 'datasets_imputed/'
     models_base_dir = os.path.join(EXTERNAL_DISK, "models") # Directorio base para todos los modelos
 
-    # exog_cols = ["dia_sen","temperatura","precipitacion", "dias_sin_precip"]
-    exog_cols = ["dia_sen","temperatura", "precipitacion"]
+    exog_cols = ["dia_sen","temperatura","precipitacion", "dias_sin_precip"]
+    # exog_cols = ["dia_sen","temperatura", "precipitacion"]
     exog_cols_scaled = [col + '_scaled' for col in exog_cols]
 
     cuenca_name_input = input("Introduce el nombre de la cuenca (ej: 'cuenca1') o deja en blanco para ver las disponibles: ").strip()
@@ -529,7 +532,7 @@ if __name__ == "__main__":
             )
             
             model_to_evaluate.fit(X_train_final, y_train_final, epochs=params_to_use['epochs'], verbose=0,
-                                 validation_split=0.1, callbacks=[early_stopping_callback, model_checkpoint_callback])
+                                 validation_split=0.1, callbacks=[early_stopping_callback, model_checkpoint_callback], batch_size=params_to_use['batch_size'])
             
             # Cargar el modelo guardado si se usó ModelCheckpoint
             final_trained_model_path = os.path.join(basin_output_dir, f'narx_model_{cuenca_name}.h5')
@@ -577,7 +580,7 @@ if __name__ == "__main__":
         )
 
         model_to_evaluate.fit(X_train_final, y_train_final, epochs=params_to_use['epochs'], verbose=0,
-                             validation_split=0.1, callbacks=[early_stopping_callback, model_checkpoint_callback], batch_size=8)
+                             validation_split=0.1, callbacks=[early_stopping_callback, model_checkpoint_callback], batch_size=params_to_use['batch_size'])
         
         # Cargar el modelo guardado si se usó ModelCheckpoint
         final_trained_model_path = os.path.join(basin_output_dir, f'narx_model_{cuenca_name}.h5')

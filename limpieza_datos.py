@@ -8,6 +8,8 @@ import datetime
 # import rioxarray as rxr
 import concurrent.futures
 import numpy as np
+
+EXTERNAL_DISK = 'D:'
 #%% DEFINICIÓN DE FUNCIONES
 
 # data/csv/areas/(6)
@@ -177,31 +179,31 @@ def process_var_exog(input_file, output_path, save=False):
     # Dividir columnas por basins
     columns = ['fecha', 'dia_sen', 'temperatura', 'precipitacion', 'precipitacion_bool']
 
-    adda_bornio = series_agregadas[['fecha','dia_sen','T','P','P_bool']]
-    adda_bornio.columns = columns
-    adda_bornio['cuenca'] = 'adda-bornio'
-
-    genil_dilar = series_agregadas[['fecha','dia_sen','T.1','P.1','P_bool.1']]
+    genil_dilar = series_agregadas[['fecha','dia_sen','T','P','P_bool']].copy()
     genil_dilar.columns = columns
-    genil_dilar['cuenca'] = 'genil-dilar' 
+    genil_dilar['cuenca'] = 'genil-dilar'
 
-    indrawati_melamchi = series_agregadas[['fecha','dia_sen','T.2','P.2','P_bool.2']]
+    adda_bornio = series_agregadas[['fecha','dia_sen','T.1','P.1','P_bool.1']].copy()
+    adda_bornio.columns = columns
+    adda_bornio['cuenca'] = 'adda-bornio' 
+
+    indrawati_melamchi = series_agregadas[['fecha','dia_sen','T.2','P.2','P_bool.2']].copy()
     indrawati_melamchi.columns = columns
     indrawati_melamchi['cuenca'] = 'indrawati-melamchi'
 
-    mapocho_almendros = series_agregadas[['fecha','dia_sen','T.3','P.3','P_bool.3']]
+    mapocho_almendros = series_agregadas[['fecha','dia_sen','T.3','P.3','P_bool.3']].copy()
     mapocho_almendros.columns = columns
     mapocho_almendros['cuenca'] = 'mapocho-almendros'
 
-    nenskra_enguri = series_agregadas[['fecha','dia_sen','T.4','P.4','P_bool.4']]
+    nenskra_enguri = series_agregadas[['fecha','dia_sen','T.4','P.4','P_bool.4']].copy()
     nenskra_enguri.columns = columns
     nenskra_enguri['cuenca'] = 'nenskra-enguri'
 
-    uncompahgre_ridgway = series_agregadas[['fecha','dia_sen','T.5','P.5','P_bool.5']]
+    uncompahgre_ridgway = series_agregadas[['fecha','dia_sen','T.5','P.5','P_bool.5']].copy()
     uncompahgre_ridgway.columns = columns
     uncompahgre_ridgway['cuenca'] = 'uncompahgre-ridgway'
 
-    df_final = pd.concat([adda_bornio, genil_dilar, indrawati_melamchi, mapocho_almendros, nenskra_enguri, uncompahgre_ridgway], axis=0)
+    df_final = pd.concat([genil_dilar,adda_bornio, indrawati_melamchi, mapocho_almendros, nenskra_enguri, uncompahgre_ridgway], axis=0)
     df_final.reset_index(drop=True, inplace=True)
 
     if save:
@@ -287,7 +289,7 @@ def cleaning_future_series(input_data_path, output_data_path):
                 df_model.to_csv(os.path.join(output_path, file_name))
 
 # ./datasets/(6)
-def join_area_exog(exog_file, areas_path, output_path = './datasets', save=False):
+def join_area_exog(exog_file, areas_path, output_path = './datasets'):
     """
         Coge el archivo de areas, el archivo de variables exógenas y los junta, además de crear la nueva variable dias_sin_precip
     """
@@ -308,12 +310,10 @@ def join_area_exog(exog_file, areas_path, output_path = './datasets', save=False
 
             dataset.loc[index, 'dias_sin_precip'] = dias_transcurridos
 
-        if save:
-            dataset.to_csv(os.path.join(output_path, f'{cuenca}.csv'))
+        dataset.to_csv(os.path.join(output_path, f'{cuenca}.csv'))
 
-        return dataset
 # ./datasets_imputed/(6)
-def impute_outliers(df, cuenca, columna, save=False):
+def impute_outliers(df, cuenca, columna):
     df_copy = df.copy()
     df.index = pd.to_datetime(df.index)
     q1 = df_copy[columna].quantile(0.25)
@@ -328,18 +328,15 @@ def impute_outliers(df, cuenca, columna, save=False):
     if df_copy[columna].isnull().any():
         print(f"Advertencia: Quedan nulos en la columna {columna} después de bfill/ffill. Rellenando con la media de la columna.")
 
-    if save == True:
-        df_copy.to_csv(f'./datasets_imputed/{cuenca}.csv')
+    df_copy.to_csv(f'./datasets_imputed/{cuenca}.csv')
 
-    return df_copy
 
 #%% --- MAIN EXECUTION ---
 # join_areas("E:/data/csv/areas", '', True)
-# process_var_exog('E:/data/csv/Series_historicas_agregadas_ERA5Land.csv', '.')
+# process_var_exog(os.path.join(EXTERNAL_DISK, 'data/csv/Series_historicas_agregadas_ERA5Land.csv'), 'D:\data\csv/', True)
 # merge_areas_exog('areas_total.csv', './v_exog_hist.csv', save=True)
 
 
-EXTERNAL_DISK = 'E:'
 data_path = os.path.join(EXTERNAL_DISK, "data/")
 datasets_path = os.path.join('./datasets/')
 exog_file = os.path.join(data_path, 'csv/v_exog_hist.csv')
@@ -355,13 +352,13 @@ nenskra = pd.read_csv(os.path.join(datasets_path, 'nenskra-enguri.csv'), index_c
 uncompahgre = pd.read_csv(os.path.join(datasets_path, 'uncompahgre-ridgway.csv'), index_col=0)
 #%%
 # df = pd.read_csv(os.path.join(datasets_path, 'genil-dilar.csv'), index_col=0)
-# columna = 'area_nieve'
-# impute_outliers(genil, 'genil-dilar', columna, True)
-# impute_outliers(indrawati, 'indrawati-melamchi', columna, True)
-# impute_outliers(mapocho, 'mapocho-almendros', columna, True)
-# impute_outliers(nenskra, 'nenskra-enguri', columna, True)
-# impute_outliers(adda, 'adda-bornio', columna, True)
-# impute_outliers(uncompahgre, 'uncompahgre-ridgway', columna, True)
+columna = 'area_nieve'
+impute_outliers(genil, 'genil-dilar', columna)
+impute_outliers(indrawati, 'indrawati-melamchi', columna)
+impute_outliers(mapocho, 'mapocho-almendros', columna)
+impute_outliers(nenskra, 'nenskra-enguri', columna)
+impute_outliers(adda, 'adda-bornio', columna)
+impute_outliers(uncompahgre, 'uncompahgre-ridgway', columna)
 
 #%%
 # plt.figure(figsize=(10, 6))
@@ -371,5 +368,5 @@ uncompahgre = pd.read_csv(os.path.join(datasets_path, 'uncompahgre-ridgway.csv')
 # plt.show()
 
 # df_imputed.to_csv(os.path.join(areas_path, 'genil-dilar.csv'))
-cleaning_future_series(future_series_path_og, future_series_path_clean)
-# join_area_exog(exog_file, areas_path,'datasets/', True)
+# cleaning_future_series(future_series_path_og, future_series_path_clean)
+# join_area_exog(exog_file, areas_path,'datasets/')

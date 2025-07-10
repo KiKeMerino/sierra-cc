@@ -9,7 +9,7 @@ import seaborn as sns
 
 plt.rcParams.update({'font.size': 18})
 
-EXTERNAL_DISK = 'E:/'
+EXTERNAL_DISK = 'D:/'
 
 # --- FUNCIONES DE SOPORTE (Mantienen su funcionalidad original) ---
 
@@ -271,8 +271,7 @@ model_file_path = os.path.join(base_model_path, cuenca, f'narx_model_{cuenca}.h5
 model_future_exogs = os.listdir(scenario_path)
 
 # 2. Fixed parameters (exógenas)
-# exog_cols = ["dia_sen", "temperatura", "precipitacion", "dias_sin_precip"]
-exog_cols = ["dia_sen", "temperatura", "precipitacion"]
+exog_cols = ["dia_sen", "temperatura", "precipitacion", "dias_sin_precip"]
 
 # 3. Cargar el modelo
 model = None

@@ -19,14 +19,14 @@ import matplotlib.ticker as mticker # Necesario para FixedLocator
 import matplotlib.dates as mdates # Alias para fechas de matplotlib
 
 plt.rcParams.update({'font.size': 18})
-EXTERNAL_DISK = 'E:'
+EXTERNAL_DISK = 'D:'
 
 # --- CLASE CUSTOM_LSTM PARA MANEJAR EL ERROR 'time_major' ---
 class CustomLSTM(keras.layers.LSTM):
     def __init__(self, *args, **kwargs):
         # Filtrar el argumento 'time_major' si está presente y no es reconocido
         if 'time_major' in kwargs:
-            print(f"Advertencia: Ignorando el argumento 'time_major={kwargs['time_major']}' para la capa LSTM.")
+            # print(f"Advertencia: Ignorando el argumento 'time_major={kwargs['time_major']}' para la capa LSTM.")
             kwargs.pop('time_major')
         super().__init__(*args, **kwargs)
 tf.keras.utils.get_custom_objects()['LSTM'] = CustomLSTM
@@ -481,7 +481,7 @@ exog_cols_scaled = [col + '_scaled' for col in exog_cols]
 available_basins = [f[:-4] for f in os.listdir(basins_dir)]
 cuenca_name = ""
 while cuenca_name not in available_basins:
-        cuenca_name =  input("Introduce el nombre de la cuenca (ej: 'adda-bornio') que deseas predecir o deja en blanco para ver las disponibles: ").lower().strip()
+        cuenca_name =  input("Introduce el nombre de la cuenca (ej: 'adda-bornio') que deseas optimizar o deja en blanco para ver las disponibles: ").lower().strip()
         if not cuenca_name or cuenca_name not in available_basins: # Si el usuario deja en blanco, imprimo las cuencas disponibles
             print('\n--- Cuencas disponibles ---')
             for basin in available_basins:

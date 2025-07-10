@@ -1,18 +1,66 @@
+#%%
 import tensorflow as tf
 from tensorflow import keras
 import os
+import pandas as pd
 
-# Define el directorio donde guardaste tus modelos
-# Asegúrate de que esta ruta sea correcta
-models_directory = os.path.join("E:", "models_per_basin")
+EXTERNAL_DISK = 'D:'
+models_directory = os.path.join(EXTERNAL_DISK, "models")
+future_exog = os.path.join(EXTERNAL_DISK, 'data/csv/series_futuras_clean')
+#%%
+exog_file = pd.read_csv(os.path.join(EXTERNAL_DISK, 'data', 'csv/v_exog_hist.csv'), index_col = 0)
+exog_file.fecha = pd.to_datetime(exog_file.fecha)
+exog_file = exog_file[exog_file['fecha'].dt.year >= 2000]
 
-# Suponiendo que conoces el nombre de una de tus cuencas, por ejemplo 'adda-bornio'
-# y el nombre del archivo del modelo dentro de su subdirectorio.
-# Si tus modelos están en subdirectorios, necesitas construir la ruta completa.
-# Por ejemplo, si un modelo está en D:\models_per_basin\cuenca_1\narx_model_cuenca_1.h5
+adda_historic_imputed = pd.read_csv('./datasets_imputed/adda-bornio.csv')
+adda_predictions = pd.read_csv(os.path.join(future_exog, 'adda-bornio/Adda ssp 245 2051-2070','ACCESS-ESM1-5.csv'))
+adda_og = exog_file[exog_file['cuenca'] == 'adda-bornio']
 
-# Paso 1: Encuentra la ruta de un modelo
-# Puedes listar las cuencas para ver cuáles están disponibles
+genil_historic =  pd.read_csv('./datasets/genil-dilar.csv')
+genil_predictions = pd.read_csv(os.path.join(future_exog, 'genil-dilar/Genil ssp 245 2051-2070','ACCESS-ESM1-5.csv'))
+genil_og = exog_file[exog_file['cuenca'] == 'genil-dilar']
+
+#%%
+print(f'Media de precipitacion de datos historicos adda-bornio: {adda_historic_imputed.precipitacion.mean()}')
+print(f'Media de precipitacion de predicciones adda-bornio: {adda_predictions.precipitacion.mean()}')
+
+#%%
+print(f'Media de temperatura de datos historicos  adda-bornio: {adda_historic_imputed.temperatura.mean()}')
+print(f'Media de temperatura de predicciones adda-bornio: {adda_predictions.temperatura.mean()}')
+print(f'Media de temperatura de historico adda-bornio original: {adda_og.temperatura.mean()}')
+
+#%%
+print(f'Media de precipitacion de datos historicos genil-dilar: {genil_historic.precipitacion.mean()}')
+print(f'Media de precipitacion de predicciones genil-dilar: {genil_predictions.precipitacion.mean()}')
+
+#%%
+print(f'Media de temperatura de datos historicos genil-dilar: {genil_historic.temperatura.mean()}')
+print(f'Media de temperatura de predicciones genil-dilar: {genil_predictions.temperatura.mean()}')
+print(f'Media de temperatura de historico genil-dilar original: {genil_og.temperatura.mean()}')
+
+#%%
+print(f'Media de precipitacion de datos historicos nenskra-enguri: {nenskra_historic.precipitacion.mean()}')
+print(f'Media de precipitacion de datos historicos nenskra-enguri: {nenskra_historic_imputed.precipitacion.mean()}')
+print(f'Media de precipitacion de predicciones nenskra-enguri: {nenskra_predictions.precipitacion.mean()}')
+#%%
+print(f'Media de temperatura de datos historicos nenskra-enguri: {nenskra_historic.temperatura.mean()}')
+print(f'Media de temperatura de datos historicos nenskra-enguri: {nenskra_historic_imputed.temperatura.mean()}')
+print(f'Media de temperatura de predicciones nenskra-enguri: {nenskra_predictions.temperatura.mean()}')
+
+#%%
+df = pd.read_csv('D:\data\csv\series_futuras_og/adda-bornio\Adda ssp 245 2051-2070.csv', header=1)
+df
+#%%
+df['T'].mean()
+#%%
+
+#%%
+
+
+
+
+
+#%%
 cuencas_disponibles = [d for d in os.listdir(models_directory) if os.path.isdir(os.path.join(models_directory, d)) and not d.startswith('graphs') ]
 
 if not cuencas_disponibles:
