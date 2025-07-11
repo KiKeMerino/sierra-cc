@@ -4,7 +4,7 @@ from tensorflow import keras
 import os
 import pandas as pd
 
-EXTERNAL_DISK = 'D:'
+EXTERNAL_DISK = 'E:'
 models_directory = os.path.join(EXTERNAL_DISK, "models")
 future_exog = os.path.join(EXTERNAL_DISK, 'data/csv/series_futuras_clean')
 #%%
@@ -39,13 +39,6 @@ print(f'Media de temperatura de predicciones genil-dilar: {genil_predictions.tem
 print(f'Media de temperatura de historico genil-dilar original: {genil_og.temperatura.mean()}')
 
 #%%
-print(f'Media de precipitacion de datos historicos nenskra-enguri: {nenskra_historic.precipitacion.mean()}')
-print(f'Media de precipitacion de datos historicos nenskra-enguri: {nenskra_historic_imputed.precipitacion.mean()}')
-print(f'Media de precipitacion de predicciones nenskra-enguri: {nenskra_predictions.precipitacion.mean()}')
-#%%
-print(f'Media de temperatura de datos historicos nenskra-enguri: {nenskra_historic.temperatura.mean()}')
-print(f'Media de temperatura de datos historicos nenskra-enguri: {nenskra_historic_imputed.temperatura.mean()}')
-print(f'Media de temperatura de predicciones nenskra-enguri: {nenskra_predictions.temperatura.mean()}')
 
 #%%
 df = pd.read_csv('D:\data\csv\series_futuras_og/adda-bornio\Adda ssp 245 2051-2070.csv', header=1)
@@ -53,8 +46,52 @@ df
 #%%
 df['T'].mean()
 #%%
+scenario4_path = os.path.join(models_directory, 'mapocho-almendros/future_predictions/Mapocho ssp 585 2081-2100/')
+model1 = pd.read_csv(os.path.join(scenario4_path, 'predictions_ACCESS-ESM1-5.csv'))
+model2 = pd.read_csv(os.path.join(scenario4_path, 'predictions_CNRM-CM6-1.csv'))
+model3 = pd.read_csv(os.path.join(scenario4_path, 'predictions_HadGEM3-GC31-LL.csv'))
+model4 = pd.read_csv(os.path.join(scenario4_path, 'predictions_MPI-ESM1-2-LR.csv'))
+model5 = pd.read_csv(os.path.join(scenario4_path, 'predictions_MRI-ESM2-0.csv'))
+
+# model1 = model1.set_index(pd.to_datetime(model1['fecha'])).drop('fecha', axis=1)
+model2 = model2.set_index(pd.to_datetime(model2['fecha'])).drop('fecha', axis=1)
+model3 = model3.set_index(pd.to_datetime(model3['fecha'])).drop('fecha', axis=1)
+model4 = model4.set_index(pd.to_datetime(model4['fecha'])).drop('fecha', axis=1)
+model5 = model5.set_index(pd.to_datetime(model5['fecha'])).drop('fecha', axis=1)
 
 #%%
+print(f"Media enero y febrero de modelo 1: {model1[model1.index.month.isin([12,1])].mean().iloc[0]}")
+print(f"Media enero y febrero de modelo 3: {model3[model3.index.month.isin([12,1])].mean().iloc[0]}")
+print(f"Media enero y febrero de modelo 2: {model2[model2.index.month.isin([12,1])].mean().iloc[0]}")
+
+#%%
+access = pd.read_csv('E:\data\csv\series_futuras_clean\mapocho-almendros\Mapocho ssp 585 2081-2100\ACCESS-ESM1-5.csv', index_col=0)
+gem3 = pd.read_csv('E:\data\csv\series_futuras_clean\mapocho-almendros\Mapocho ssp 585 2081-2100\HadGEM3-GC31-LL.csv', index_col=0)
+access.index = pd.to_datetime(access.index)
+gem3.index = pd.to_datetime(gem3.index)
+
+#%% Temperatura
+print(f"Media enero y febrero de modelo 1: {access.loc[gem3.index.month.isin([12,1]),'temperatura'].mean()}")
+print(f"Media enero y febrero de modelo 3: {gem3.loc[gem3.index.month.isin([12,1]),'temperatura'].mean()}")
+
+#%% precipitacion
+print(f"Media enero y febrero de modelo 1: {access.loc[gem3.index.month.isin([12,1]),'precipitacion'].mean()}")
+print(f"Media enero y febrero de modelo 3: {gem3.loc[gem3.index.month.isin([12,1]),'precipitacion'].mean()}")
+
+#%% dias_sin_precip
+print(f"Media enero y febrero de modelo 1: {access.loc[gem3.index.month.isin([12,1]),'dias_sin_precip'].mean()}")
+print(f"Media enero y febrero de modelo 3: {gem3.loc[gem3.index.month.isin([12,1]),'dias_sin_precip'].mean()}")
+
+
+
+
+
+
+
+
+
+
+
 
 
 

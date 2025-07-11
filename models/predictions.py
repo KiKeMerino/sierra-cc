@@ -9,7 +9,7 @@ import seaborn as sns
 
 plt.rcParams.update({'font.size': 18})
 
-EXTERNAL_DISK = 'D:/'
+EXTERNAL_DISK = 'E:/'
 
 # --- FUNCIONES DE SOPORTE (Mantienen su funcionalidad original) ---
 
@@ -114,10 +114,7 @@ def make_future_predictions(model, historical_df, future_exog_df, exog_features,
     Returns:
         pd.DataFrame: DataFrame con fechas futuras y las predicciones de area_nieve.
     """
-    print("\n--- Iniciando predicciones futuras ---")
-    
-    # historical_df = historical_df.iloc[:400]
-    # future_exog_df = future_exog_df[:400]
+    print("\n--- Iniciando predicciones futuras:  ---")
 
     # 1. Calcular la media histórica de area_nieve por día del año
     if 'fecha' in historical_df.columns:
@@ -259,13 +256,11 @@ def print_menu():
 # --- MAIN EXECUTION FOR FUTURE PREDICTION ---
 
 # 1. Define paths and file names
- # Directorio de datos históricos
+
 base_model_path =  os.path.join(EXTERNAL_DISK, 'models/')
-# future_data_file_name = os.path.join(scenario_path, 'dataset.csv')
-# base_series_path = os.path.join(EXTERNAL_DISK, f'data/csv/series_futuras_clean/{cuenca}')
 
 cuenca, scenario_path, scenario = print_menu()
-historical_data_file_name = os.path.join('datasets_imputed', f'{cuenca}.csv') # Archivo con datos históricos para medias
+historical_data_file_name = os.path.join('datasets_imputed', f'{cuenca}.csv')
 model_file_path = os.path.join(base_model_path, cuenca, f'narx_model_{cuenca}.h5')
 
 model_future_exogs = os.listdir(scenario_path)
@@ -332,7 +327,7 @@ for model_name, future_exog_df in future_exog_dfs.items():
     if model and historical_df is not None and future_exog_df is not None and scaler_area and scaler_exog:
         future_predictions[model_name] = make_future_predictions(
             model,
-            historical_df, # Pasamos el DF histórico para calcular las medias por día del año
+            historical_df,
             future_exog_df,
             exog_cols,
             n_lags_area,
@@ -352,7 +347,6 @@ if future_predictions is not None:
 
     os.makedirs(output_path, exist_ok=True)
     # os.makedirs(output_graphs_dir, exist_ok=True) # Crear el directorio de gráficas
-
 
     model_colors_map = {
         'Full Dataset Prediction': 'black',

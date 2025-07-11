@@ -231,7 +231,7 @@ def cleaning_future_series(input_data_path, output_data_path):
             try:
                 df = pd.read_csv(os.path.join(input_data_path, cuenca, escenario))
             except FileNotFoundError:
-                print(f"No se ha encontrado el archivo '{os.path.join(input_data_path, cuenca, escenario)}'")
+                print(f"No se ha encontrado el archivo '{os.path.join(input_data_path, cuenca, escenario)}' saltando a la siguente cuenca...")
                 continue # Continúa con el siguiente escenario si el archivo no se encuentra
 
             df = df.loc[1:, :'Unnamed: 22']
