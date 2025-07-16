@@ -9,7 +9,7 @@ import seaborn as sns
 
 plt.rcParams.update({'font.size': 18})
 
-EXTERNAL_DISK = 'E:/'
+EXTERNAL_DISK = 'D:/'
 
 # --- FUNCIONES DE SOPORTE (Mantienen su funcionalidad original) ---
 

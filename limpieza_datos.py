@@ -247,7 +247,7 @@ def cleaning_future_series(input_data_path, output_data_path):
             models = [col for col in df.columns if not col.startswith('Unnamed')]
             for model in models:
                 start_index = df.columns.get_loc(model)
-                df_model = df.iloc[:, start_index:start_index+4].copy()
+                df_model = df.iloc[:, start_index:start_index+4].copy() # Me quedo con las 4 primeras columnas de cada modelo (Tmin, Tmax, P, T)
                 df_model = df_model.iloc[:,2:]
                 df_model.columns = ['precipitacion', 'temperatura']
             

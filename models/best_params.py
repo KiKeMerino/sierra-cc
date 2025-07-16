@@ -437,8 +437,8 @@ def objective_single_basin(trial, basin_data, basin_scalers, exog_cols, exog_col
          # --- EVALUACIÓN PARA OPTUNA (NSE en el conjunto de VALIDACIÓN) ---
         metrics, _, _ = evaluate_validation(
             model, 
-            val_data_df, # <--- ¡IMPORTANTE! Usar el DataFrame de datos de validación
-            scaler_area, # Acceder al scaler directamente
+            val_data_df,
+            scaler_area,
             exog_cols, 
             n_lags_area
         )
@@ -516,10 +516,9 @@ print(f"\n--- Iniciando Optimización Optuna para Cuenca: {cuenca_name} ---")
 
 # Definir el directorio de salida para el mejor modelo y métricas de esta cuenca específica
 basin_output_dir = os.path.join(models_dir, cuenca_name)
-os.makedirs(basin_output_dir, exist_ok=True) # Asegura que el directorio de la cuenca exista
+os.makedirs(basin_output_dir, exist_ok=True)
 
 # Crear una función objetivo parcial para la cuenca actual
-# Asegúrate de que 'objective_single_basin' esté definida antes en tu script.
 objective_for_this_basin = partial(objective_single_basin,
                                     basin_data=preprocessed_data['data'],
                                     basin_scalers=preprocessed_data['scalers'],
@@ -549,176 +548,179 @@ if study_basin.best_trial is not None:
 
     # Almacenar los mejores parámetros y entrenar el modelo final para esta cuenca
     best_params_basin = best_trial_basin.params
-    best_n_lags_area = best_params_basin['n_lags_area']
-    best_n_layers = best_params_basin['n_layers']
-    best_n_neuronas = best_params_basin['n_units_lstm']
-    best_learning_rate = best_params_basin['learning_rate']
-    best_dropout_rate = best_params_basin['dropout_rate']
-    epochs_final_train = 100 # Máximo de épocas para el entrenamiento final, EarlyStopping se encargará
-
-    print(f"\n--- Entrenando modelo final para {cuenca_name} con los mejores hiperparámetros ---")
-    basin_data_final = preprocessed_data['data']
-    X_train_final, y_train_final = create_sequences(basin_data_final['df'].iloc[basin_data_final['train_idx']],
-                                                    best_n_lags_area, exog_cols_scaled)
-
-    if X_train_final.shape[0] == 0:
-        print(f"Saltando entrenamiento final para {cuenca_name}: No hay secuencias de entrenamiento para best_n_lags_area={best_n_lags_area}.")
-        best_model = {'model': None, 'best_n_lags_area': best_n_lags_area}
-        
-        # Asignar NaNs a las métricas si no hay entrenamiento
-        current_basin_metrics = {
-            'best_params': best_params_basin,
-            'full_dataset': {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan},
-            'train': {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan},
-            'test': {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan},
-            'val': {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan}
-        }
-        # Guardar el JSON para esta cuenca (incluso si tiene NaNs)
-        json_output_path = os.path.join(basin_output_dir, 'metrics.json')
-        with open(json_output_path, 'w', encoding='utf-8') as f:
-            json.dump(convert_numpy_to_python(current_basin_metrics), f, indent=4) # 'convert_numpy_to_python' debe estar definida
-        print(f"Métricas (con NaNs) guardadas para {cuenca_name} en {json_output_path}")
-
-    # Asegúrate de que 'create_narx_model' acepta 'learning_rate' y 'dropout_rate' como parámetros
-    # y que se ha importado o definido antes.
-    model_final = create_narx_model(n_lags=best_n_lags_area, n_layers=best_n_layers,
-                                        n_units_lstm=best_n_neuronas, n_features=(1 + len(exog_cols_scaled)),
-                                        learning_rate=best_learning_rate, dropout_rate=best_dropout_rate)
-    
-    # Importante: Keras recomienda el formato .keras.
-    # Cambia '.h5' a '.keras' si tu TF/Keras es >= 2.10
-    model_final_save_path = os.path.join(basin_output_dir, f'narx_model_{cuenca_name}.keras') # CAMBIADO a .keras
-    model_checkpoint_callback = ModelCheckpoint(
-        filepath=model_final_save_path,
-        monitor='val_loss',
-        save_best_only=True,
-        verbose=0
-    )
-    early_stopping_callback_final = EarlyStopping(
-        monitor='val_loss',
-        patience=20,
-        restore_best_weights=True,
-        verbose=1
-    )
-
-    model_final.fit(X_train_final, y_train_final, epochs=epochs_final_train, verbose=0,
-                    validation_split=0.1, callbacks=[early_stopping_callback_final, model_checkpoint_callback])
-
-    # Cargar el mejor modelo guardado si el checkpoint fue usado, de lo contrario usar el de la última época
-    final_trained_model = None
-    if os.path.exists(model_final_save_path): # Cargar el .keras
-        try:
-            final_trained_model = keras.models.load_model(model_final_save_path)
-            print(f"Cargado el mejor modelo guardado para {cuenca_name} desde .keras.")
-        except Exception as e_keras:
-            print(f"Error al cargar modelo .keras para {cuenca_name}: {e_keras}. Intentando cargar .h5...")
-            # Fallback a .h5 con custom_objects si .keras falla
-            h5_path = os.path.join(basin_output_dir, f'narx_model_{cuenca_name}.h5')
-            if os.path.exists(h5_path):
-                try:
-                    final_trained_model = keras.models.load_model(h5_path, custom_objects={'mse': tf.keras.losses.MeanSquaredError()})
-                    print(f"Cargado el mejor modelo guardado para {cuenca_name} desde .h5 con custom_objects.")
-                except Exception as e_h5:
-                    print(f"Error al cargar modelo .h5 para {cuenca_name} incluso con custom_objects: {e_h5}. Usando modelo de última época.")
-                    final_trained_model = model_final # Usar el modelo en memoria si no se pudo guardar/cargar
-            else:
-                final_trained_model = model_final # Usar el modelo en memoria
-                print(f"No se encontró ningún archivo de modelo guardado para {cuenca_name}, usando el de la última época.")
-    else: # Si no se guardó el .keras, intentar el .h5
-        h5_path = os.path.join(basin_output_dir, f'narx_model_{cuenca_name}.h5')
-        if os.path.exists(h5_path):
-            try:
-                final_trained_model = keras.models.load_model(h5_path, custom_objects={'mse': tf.keras.losses.MeanSquaredError()})
-                print(f"Cargado el mejor modelo guardado para {cuenca_name} desde .h5 con custom_objects.")
-            except Exception as e_h5_fallback:
-                print(f"Error al cargar modelo .h5 para {cuenca_name} incluso con custom_objects: {e_h5_fallback}. Usando modelo de última época.")
-                final_trained_model = model_final
-        else:
-            final_trained_model = model_final # Usar el modelo de la última época si no se encontró nada
-            print(f"No se encontró el mejor modelo guardado para {cuenca_name}, usando el de la última época.")
-
-
-    if final_trained_model is not None:
-        best_model = {'model': final_trained_model,
-                    'best_n_lags_area': best_n_lags_area,
-                    'best_params': best_params_basin} # Almacenar los mejores parámetros también
-
-        # --- Evaluación del modelo para la cuenca actual ---
-        current_scaler_area = preprocessed_data['scalers']['area']
-        
-        # Prepara las secuencias para esta cuenca usando su mejor n_lags_area
-        basin_data_eval_df = preprocessed_data['data']['df']
-        train_data_eval_df = basin_data_eval_df.iloc[basin_data_final['train_idx']]
-        test_data_eval_df = basin_data_eval_df.iloc[basin_data_final['test_idx']]
-        val_data_eval_df = basin_data_eval_df.iloc[basin_data_final['val_idx']].copy()
-
-
-        sequences_for_eval = {
-            'train': {'X': create_sequences(train_data_eval_df, best_n_lags_area, exog_cols_scaled)[0],
-                        'y': create_sequences(train_data_eval_df, best_n_lags_area, exog_cols_scaled)[1]},
-            'test': {'X': create_sequences(test_data_eval_df, best_n_lags_area, exog_cols_scaled)[0],
-                        'y': create_sequences(test_data_eval_df, best_n_lags_area, exog_cols_scaled)[1]},
-            'val_df': val_data_eval_df # Pasar el DF para evaluate_validation
-        }
-
-        metrics_train, _, _ = evaluate_model(final_trained_model, sequences_for_eval['train'], current_scaler_area)
-        metrics_test, _, _ = evaluate_model(final_trained_model, sequences_for_eval['test'], current_scaler_area)
-        metrics_val, _, _ = evaluate_validation(final_trained_model, sequences_for_eval['val_df'], current_scaler_area, exog_cols, best_n_lags_area)
-        
-        # Llama a evaluate_full_dataset y pasa el directorio de salida específico de la cuenca
-        metrics_full = evaluate_full_dataset(final_trained_model, preprocessed_data['data'],
-                                                current_scaler_area,exog_cols_scaled, best_n_lags_area, 
-                                                graph=True, base_model_dir=basin_output_dir, cuenca_name=cuenca_name)
-
-
-        current_basin_metrics = {
-            'best_params': best_params_basin,
-            'full_dataset': metrics_full,
-            'train': metrics_train,
-            'test': metrics_test,
-            'val': metrics_val
-        }
-        print(f"Métricas finales para {cuenca_name}:")
-        print(f"  Full Dataset (modo prediccion): {current_basin_metrics['full_dataset']}")
-        print(f"  Train: {current_basin_metrics['train']}")
-        print(f"  Test: {current_basin_metrics['test']}")
-        print(f"  Validation (modo prediccion): {current_basin_metrics['val']}")
-
-        # Guarda las métricas de esta cuenca en su propio archivo JSON
-        json_output_path = os.path.join(basin_output_dir, 'metrics.json')
-        with open(json_output_path, 'w', encoding='utf-8') as f:
-            json.dump(convert_numpy_to_python(current_basin_metrics), f, indent=4) # 'convert_numpy_to_python' debe estar definida
-        print(f"Métricas guardadas para {cuenca_name} en {json_output_path}")
-
-    else: # Si final_trained_model es None (no se pudo cargar/entrenar)
-        print(f"No se pudo cargar/entrenar el modelo final para Cuenca: {cuenca_name}. Saltando la evaluación.")
-        best_model = {'model': None, 'best_n_lags_area': None, 'best_params': None}
-        # Guardar un JSON con NaNs si no hay trials exitosos o modelo
-        current_basin_metrics = {
-            'best_params': None,
-            'full_dataset': {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan},
-            'train': {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan},
-            'test': {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan},
-            'val': {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan}
-        }
-        json_output_path = os.path.join(basin_output_dir, 'metrics.json')
-        with open(json_output_path, 'w', encoding='utf-8') as f:
-            json.dump(convert_numpy_to_python(current_basin_metrics), f, indent=4)
-        print(f"Métricas (con NaNs) guardadas para {cuenca_name} en {json_output_path}")
-else: # Si study_basin.best_trial is None (no hay trials exitosos)
-    print(f"No successful trials for Cuenca: {cuenca_name}. Saltando entrenamiento y evaluación del modelo.")
-    best_model = {'model': None, 'best_n_lags_area': None, 'best_params': None}
-    # Guardar un JSON con NaNs si no hay trials exitosos
-    current_basin_metrics = {
-        'best_params': None,
-        'full_dataset': {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan},
-        'train': {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan},
-        'test': {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan},
-        'val': {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan}
-    }
-    json_output_path = os.path.join(basin_output_dir, 'metrics.json')
+    json_output_path = os.path.join(basin_output_dir, 'best_params.json')
     with open(json_output_path, 'w', encoding='utf-8') as f:
-        json.dump(convert_numpy_to_python(current_basin_metrics), f, indent=4)
-    print(f"Métricas (con NaNs) guardadas para {cuenca_name} en {json_output_path}")
+        json.dump(convert_numpy_to_python(best_params_basin), f, indent=4)
+    print(f"Métricas guardadas para {cuenca_name} en {json_output_path}")
 
-print("\nProceso de optimización y evaluación por cuenca completado.")
+#     best_n_lags_area = best_params_basin['n_lags_area']
+#     best_n_layers = best_params_basin['n_layers']
+#     best_n_neuronas = best_params_basin['n_units_lstm']
+#     best_learning_rate = best_params_basin['learning_rate']
+#     best_dropout_rate = best_params_basin['dropout_rate']
+#     epochs_final_train = 100 # Máximo de épocas para el entrenamiento final, EarlyStopping se encargará
+
+#     print(f"\n--- Entrenando modelo final para {cuenca_name} con los mejores hiperparámetros ---")
+#     basin_data_final = preprocessed_data['data']
+#     X_train_final, y_train_final = create_sequences(basin_data_final['df'].iloc[basin_data_final['train_idx']],
+#                                                     best_n_lags_area, exog_cols_scaled)
+
+#     if X_train_final.shape[0] == 0:
+#         print(f"Saltando entrenamiento final para {cuenca_name}: No hay secuencias de entrenamiento para best_n_lags_area={best_n_lags_area}.")
+#         best_model = {'model': None, 'best_n_lags_area': best_n_lags_area}
+        
+#         # Asignar NaNs a las métricas si no hay entrenamiento
+#         current_basin_metrics = {
+#             'best_params': best_params_basin,
+#             'full_dataset': {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan},
+#             'train': {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan},
+#             'test': {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan},
+#             'val': {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan}
+#         }
+#         # Guardar el JSON para esta cuenca (incluso si tiene NaNs)
+#         json_output_path = os.path.join(basin_output_dir, 'metrics.json')
+#         with open(json_output_path, 'w', encoding='utf-8') as f:
+#             json.dump(convert_numpy_to_python(current_basin_metrics), f, indent=4) # 'convert_numpy_to_python' debe estar definida
+#         print(f"Métricas (con NaNs) guardadas para {cuenca_name} en {json_output_path}")
+
+
+#     model_final = create_narx_model(n_lags=best_n_lags_area, n_layers=best_n_layers,
+#                                         n_units_lstm=best_n_neuronas, n_features=(1 + len(exog_cols_scaled)),
+#                                         learning_rate=best_learning_rate, dropout_rate=best_dropout_rate)
+    
+
+#     model_final_save_path = os.path.join(basin_output_dir, f'narx_model_{cuenca_name}.keras') # CAMBIADO a .keras
+#     model_checkpoint_callback = ModelCheckpoint(
+#         filepath=model_final_save_path,
+#         monitor='val_loss',
+#         save_best_only=True,
+#         verbose=0
+#     )
+#     early_stopping_callback_final = EarlyStopping(
+#         monitor='val_loss',
+#         patience=20,
+#         restore_best_weights=True,
+#         verbose=1
+#     )
+
+#     model_final.fit(X_train_final, y_train_final, epochs=epochs_final_train, verbose=0,
+#                     validation_split=0.1, callbacks=[early_stopping_callback_final, model_checkpoint_callback])
+
+#     # Cargar el mejor modelo guardado si el checkpoint fue usado, de lo contrario usar el de la última época
+#     final_trained_model = None
+#     if os.path.exists(model_final_save_path): # Cargar el .keras
+#         try:
+#             final_trained_model = keras.models.load_model(model_final_save_path)
+#             print(f"Cargado el mejor modelo guardado para {cuenca_name} desde .keras.")
+#         except Exception as e_keras:
+#             print(f"Error al cargar modelo .keras para {cuenca_name}: {e_keras}. Intentando cargar .h5...")
+#             # Fallback a .h5 con custom_objects si .keras falla
+#             h5_path = os.path.join(basin_output_dir, f'narx_model_{cuenca_name}.h5')
+#             if os.path.exists(h5_path):
+#                 try:
+#                     final_trained_model = keras.models.load_model(h5_path, custom_objects={'mse': tf.keras.losses.MeanSquaredError()})
+#                     print(f"Cargado el mejor modelo guardado para {cuenca_name} desde .h5 con custom_objects.")
+#                 except Exception as e_h5:
+#                     print(f"Error al cargar modelo .h5 para {cuenca_name} incluso con custom_objects: {e_h5}. Usando modelo de última época.")
+#                     final_trained_model = model_final # Usar el modelo en memoria si no se pudo guardar/cargar
+#             else:
+#                 final_trained_model = model_final # Usar el modelo en memoria
+#                 print(f"No se encontró ningún archivo de modelo guardado para {cuenca_name}, usando el de la última época.")
+#     else: # Si no se guardó el .keras, intentar el .h5
+#         h5_path = os.path.join(basin_output_dir, f'narx_model_{cuenca_name}.h5')
+#         if os.path.exists(h5_path):
+#             try:
+#                 final_trained_model = keras.models.load_model(h5_path, custom_objects={'mse': tf.keras.losses.MeanSquaredError()})
+#                 print(f"Cargado el mejor modelo guardado para {cuenca_name} desde .h5 con custom_objects.")
+#             except Exception as e_h5_fallback:
+#                 print(f"Error al cargar modelo .h5 para {cuenca_name} incluso con custom_objects: {e_h5_fallback}. Usando modelo de última época.")
+#                 final_trained_model = model_final
+#         else:
+#             final_trained_model = model_final # Usar el modelo de la última época si no se encontró nada
+#             print(f"No se encontró el mejor modelo guardado para {cuenca_name}, usando el de la última época.")
+
+
+#     if final_trained_model is not None:
+#         best_model = {'model': final_trained_model,
+#                     'best_n_lags_area': best_n_lags_area,
+#                     'best_params': best_params_basin} # Almacenar los mejores parámetros también
+
+#         # --- Evaluación del modelo para la cuenca actual ---
+#         current_scaler_area = preprocessed_data['scalers']['area']
+        
+#         # Prepara las secuencias para esta cuenca usando su mejor n_lags_area
+#         basin_data_eval_df = preprocessed_data['data']['df']
+#         train_data_eval_df = basin_data_eval_df.iloc[basin_data_final['train_idx']]
+#         test_data_eval_df = basin_data_eval_df.iloc[basin_data_final['test_idx']]
+#         val_data_eval_df = basin_data_eval_df.iloc[basin_data_final['val_idx']].copy()
+
+
+#         sequences_for_eval = {
+#             'train': {'X': create_sequences(train_data_eval_df, best_n_lags_area, exog_cols_scaled)[0],
+#                         'y': create_sequences(train_data_eval_df, best_n_lags_area, exog_cols_scaled)[1]},
+#             'test': {'X': create_sequences(test_data_eval_df, best_n_lags_area, exog_cols_scaled)[0],
+#                         'y': create_sequences(test_data_eval_df, best_n_lags_area, exog_cols_scaled)[1]},
+#             'val_df': val_data_eval_df # Pasar el DF para evaluate_validation
+#         }
+
+#         metrics_train, _, _ = evaluate_model(final_trained_model, sequences_for_eval['train'], current_scaler_area)
+#         metrics_test, _, _ = evaluate_model(final_trained_model, sequences_for_eval['test'], current_scaler_area)
+#         metrics_val, _, _ = evaluate_validation(final_trained_model, sequences_for_eval['val_df'], current_scaler_area, exog_cols, best_n_lags_area)
+        
+#         # Llama a evaluate_full_dataset y pasa el directorio de salida específico de la cuenca
+#         metrics_full = evaluate_full_dataset(final_trained_model, preprocessed_data['data'],
+#                                                 current_scaler_area,exog_cols_scaled, best_n_lags_area, 
+#                                                 graph=True, base_model_dir=basin_output_dir, cuenca_name=cuenca_name)
+
+
+#         current_basin_metrics = {
+#             'best_params': best_params_basin,
+#             'full_dataset': metrics_full,
+#             'train': metrics_train,
+#             'test': metrics_test,
+#             'val': metrics_val
+#         }
+#         print(f"Métricas finales para {cuenca_name}:")
+#         print(f"  Full Dataset (modo prediccion): {current_basin_metrics['full_dataset']}")
+#         print(f"  Train: {current_basin_metrics['train']}")
+#         print(f"  Test: {current_basin_metrics['test']}")
+#         print(f"  Validation (modo prediccion): {current_basin_metrics['val']}")
+
+#         # Guarda las métricas de esta cuenca en su propio archivo JSON
+#         json_output_path = os.path.join(basin_output_dir, 'metrics.json')
+#         with open(json_output_path, 'w', encoding='utf-8') as f:
+#             json.dump(convert_numpy_to_python(current_basin_metrics), f, indent=4) # 'convert_numpy_to_python' debe estar definida
+#         print(f"Métricas guardadas para {cuenca_name} en {json_output_path}")
+
+#     else: # Si final_trained_model es None (no se pudo cargar/entrenar)
+#         print(f"No se pudo cargar/entrenar el modelo final para Cuenca: {cuenca_name}. Saltando la evaluación.")
+#         best_model = {'model': None, 'best_n_lags_area': None, 'best_params': None}
+#         # Guardar un JSON con NaNs si no hay trials exitosos o modelo
+#         current_basin_metrics = {
+#             'best_params': None,
+#             'full_dataset': {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan},
+#             'train': {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan},
+#             'test': {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan},
+#             'val': {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan}
+#         }
+#         json_output_path = os.path.join(basin_output_dir, 'metrics.json')
+#         with open(json_output_path, 'w', encoding='utf-8') as f:
+#             json.dump(convert_numpy_to_python(current_basin_metrics), f, indent=4)
+#         print(f"Métricas (con NaNs) guardadas para {cuenca_name} en {json_output_path}")
+# else: # Si study_basin.best_trial is None (no hay trials exitosos)
+#     print(f"No successful trials for Cuenca: {cuenca_name}. Saltando entrenamiento y evaluación del modelo.")
+#     best_model = {'model': None, 'best_n_lags_area': None, 'best_params': None}
+#     # Guardar un JSON con NaNs si no hay trials exitosos
+#     current_basin_metrics = {
+#         'best_params': None,
+#         'full_dataset': {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan},
+#         'train': {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan},
+#         'test': {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan},
+#         'val': {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan}
+#     }
+#     json_output_path = os.path.join(basin_output_dir, 'metrics.json')
+#     with open(json_output_path, 'w', encoding='utf-8') as f:
+#         json.dump(convert_numpy_to_python(current_basin_metrics), f, indent=4)
+#     print(f"Métricas (con NaNs) guardadas para {cuenca_name} en {json_output_path}")
+
+# print("\nProceso de optimización y evaluación por cuenca completado.")
