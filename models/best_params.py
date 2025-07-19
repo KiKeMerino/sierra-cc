@@ -707,20 +707,20 @@ if study_basin.best_trial is not None:
 #         with open(json_output_path, 'w', encoding='utf-8') as f:
 #             json.dump(convert_numpy_to_python(current_basin_metrics), f, indent=4)
 #         print(f"Métricas (con NaNs) guardadas para {cuenca_name} en {json_output_path}")
-# else: # Si study_basin.best_trial is None (no hay trials exitosos)
-#     print(f"No successful trials for Cuenca: {cuenca_name}. Saltando entrenamiento y evaluación del modelo.")
-#     best_model = {'model': None, 'best_n_lags_area': None, 'best_params': None}
-#     # Guardar un JSON con NaNs si no hay trials exitosos
-#     current_basin_metrics = {
-#         'best_params': None,
-#         'full_dataset': {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan},
-#         'train': {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan},
-#         'test': {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan},
-#         'val': {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan}
-#     }
-#     json_output_path = os.path.join(basin_output_dir, 'metrics.json')
-#     with open(json_output_path, 'w', encoding='utf-8') as f:
-#         json.dump(convert_numpy_to_python(current_basin_metrics), f, indent=4)
-#     print(f"Métricas (con NaNs) guardadas para {cuenca_name} en {json_output_path}")
+else: # Si study_basin.best_trial is None (no hay trials exitosos)
+    print(f"No successful trials for Cuenca: {cuenca_name}. Saltando entrenamiento y evaluación del modelo.")
+    best_model = {'model': None, 'best_n_lags_area': None, 'best_params': None}
+    # Guardar un JSON con NaNs si no hay trials exitosos
+    current_basin_metrics = {
+        'best_params': None,
+        'full_dataset': {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan},
+        'train': {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan},
+        'test': {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan},
+        'val': {'R2': np.nan, 'MAE': np.nan, 'NSE': np.nan, 'KGE': np.nan}
+    }
+    json_output_path = os.path.join(basin_output_dir, 'metrics.json')
+    with open(json_output_path, 'w', encoding='utf-8') as f:
+        json.dump(convert_numpy_to_python(current_basin_metrics), f, indent=4)
+    print(f"Métricas (con NaNs) guardadas para {cuenca_name} en {json_output_path}")
 
-# print("\nProceso de optimización y evaluación por cuenca completado.")
+print("\nProceso de optimización y evaluación por cuenca completado.")
