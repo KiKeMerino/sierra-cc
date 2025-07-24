@@ -138,7 +138,7 @@ def process_basin(basin):
     else:
         print(f"\nNo valid snow cover data found for basin {basin}.")
 
-# v_exog_hist.csv
+# v_exog_hist.csv, Procesa el archivo de 'Series_historicas_agregadas_ERA5Land.csv'
 def process_var_exog(input_file, output_path, save=False):
     """
         Coge el excel de series agregadas y lo convierte a csv separándolo y renombrando las columnas.
@@ -369,4 +369,4 @@ impute_outliers(uncompahgre, 'uncompahgre-ridgway', columna)
 
 # df_imputed.to_csv(os.path.join(areas_path, 'genil-dilar.csv'))
 # cleaning_future_series(future_series_path_og, future_series_path_clean)
-# join_area_exog(exog_file, areas_path,'datasets/')
+join_area_exog(exog_file, areas_path,'datasets/')

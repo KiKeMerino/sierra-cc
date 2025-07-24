@@ -17,7 +17,7 @@ import matplotlib.ticker as mticker # Necesario para FixedLocator
 import matplotlib.dates as mdates # Alias para fechas de matplotlib
 
 plt.rcParams.update({'font.size': 18})
-EXTERNAL_DISK = 'D:'
+EXTERNAL_DISK = 'E:'
 
 
 # clase custom_lstm para manejar el error 'time_major'
@@ -297,10 +297,10 @@ def evaluate_full_dataset(model, df_full_scaled_cuenca, scaler_area, exog_cols_s
     kge_full = kling_gupta_efficiency(y_full_true_original, y_full_pred_original)
 
     full_metrics = {'R2': r2_full, 'MAE': mae_full, 'NSE': nse_full, 'KGE': kge_full}
-    print(f"Métricas en todo el conjunto de datos (modo prediccion) para {cuenca_name}: R2={r2_full:.3f}, MAE={mae_full:.3f}, NSE={nse_full:.3f}, KGE={kge_full:.3f}")
+    print(f"Métricas en todo el conjunto de datos (modo prediccion) para {cuenca_name}: R2={r2_full:.2f}, MAE={mae_full:.2f}km2, NSE={nse_full:.2f}, KGE={kge_full:.2f}")
 
     if graph == True:
-        graph_types = ['per_day', 'per_month', 'all_days']
+        graph_types = ['per_day', 'all_days'] # tambien está el 'per_month'
         output_path = os.path.join(base_model_dir, f'graphs_{cuenca_name}')
         # Crea el directorio de salida si no existe
         if not os.path.exists(output_path):
@@ -328,24 +328,17 @@ def evaluate_full_dataset(model, df_full_scaled_cuenca, scaler_area, exog_cols_s
                 df_plot['fecha_agrupada'] = df_plot.index.day_of_year
                 xlabel_text = "Day of the year"
                 groupby_col = 'fecha_agrupada'
-            elif graph_type == 'per_month':
-                df_plot['fecha_agrupada'] = df_plot.index.month
-                xlabel_text = 'Month of the year'
-                groupby_col = 'fecha_agrupada'
-            elif graph_type == 'all_days':
-                # Para 'all_days', agrupamos por el índice (fecha)
-                xlabel_text = "Date"
-                groupby_col = df_plot.index # Agrupar por el DatetimeIndex directamente
-
-            # El agrupamos para 'per_day' y 'per_month'
-            if graph_type in ['per_day', 'per_month']:
                 df_plot_grouped = df_plot.groupby(groupby_col).agg(
                     area_nieve_real = ('area_nieve', 'mean'),
                     area_nieve_pred=('area_nieve_pred', 'mean')
                 ).reset_index()
                 ylim_top = max(max(df_plot_grouped['area_nieve_pred']), max(df_plot_grouped['area_nieve_real']))
 
-            else: # graph_type == 'all_days'
+            elif graph_type == 'all_days':
+                # Para 'all_days', agrupamos por el índice (fecha)
+                xlabel_text = "Date"
+                groupby_col = df_plot.index # Agrupar por el DatetimeIndex directamente
+
                 df_plot_grouped = df_plot.copy()
                 df_plot_grouped.reset_index(inplace=True) # El índice de fecha se convierte en columna 'fecha'
                 df_plot_grouped = df_plot_grouped.rename(columns={'area_nieve':'area_nieve_real'})
@@ -353,10 +346,11 @@ def evaluate_full_dataset(model, df_full_scaled_cuenca, scaler_area, exog_cols_s
                 ylim_top = max(max(df_plot_grouped['area_nieve_pred']), max(df_plot_grouped['area_nieve_real'])) * 1.25
 
             plt.figure(figsize=(12,8))
+            plt.title(cuenca_name.split('-')[0].upper(), loc='center', y=0.94)
             
             # Plotear la serie real y la simulación
-            sns.lineplot(x=df_plot_grouped[groupby_col], y=df_plot_grouped.area_nieve_real, label='Data', linewidth=2, color='black')
-            sns.lineplot(x=df_plot_grouped[groupby_col], y=df_plot_grouped.area_nieve_pred, label='Simulation', linewidth=2, color='green')
+            sns.lineplot(x=df_plot_grouped[groupby_col], y=df_plot_grouped.area_nieve_real, label='Data', linewidth=2.5, color='black', alpha=0.8)
+            sns.lineplot(x=df_plot_grouped[groupby_col], y=df_plot_grouped.area_nieve_pred, label='Simulation', linewidth=2.5, color='red', linestyle='--', alpha=0.8)
 
             # 1. Establecer los límites del eje X exactamente al inicio y fin de tus datos
             min_date = min(df_plot_grouped[groupby_col])
@@ -367,10 +361,10 @@ def evaluate_full_dataset(model, df_full_scaled_cuenca, scaler_area, exog_cols_s
             
             if graph_type == 'all_days':
                 metrics_text = (
-                    f"R²: {full_metrics['R2']:.3f}\n"
-                    f"MAE: {full_metrics['MAE']:.3f}\n"
-                    f"NSE: {full_metrics['NSE']:.3f}\n"
-                    f"KGE: {full_metrics['KGE']:.3f}"
+                    f"R²: {full_metrics['R2']:.2f}\n"
+                    f"MAE: {full_metrics['MAE']:.2f} km2\n"
+                    f"NSE: {full_metrics['NSE']:.2f}\n"
+                    f"KGE: {full_metrics['KGE']:.2f}"
                 )
                 plt.text(0.75, 0.97, metrics_text, transform=plt.gca().transAxes, fontsize=20, verticalalignment='top')
 

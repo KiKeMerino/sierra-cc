@@ -321,6 +321,37 @@ for model_exog in model_future_exogs:
 
 print(f"Datos exógenos futuros cargados para el escenario {scenario_path}.")
 
+# Nuevo apartado para realizar predicciones del periodo 1995 - 2014
+historical_exogs = pd.read_csv(os.path.join(EXTERNAL_DISK, 'data/csv/v_exog_hist.csv'), index_col=0)
+historical_exogs['fecha'] = pd.to_datetime(historical_exogs['fecha'])
+
+# Filtrar por años entre 1995 y 2014
+historical_exogs = historical_exogs[
+    (historical_exogs['fecha'].dt.year >= 1995) &
+    (historical_exogs['fecha'].dt.year <= 2014)
+]
+historical_exogs = historical_exogs[
+    historical_exogs['cuenca'] == cuenca
+].reset_index()
+historical_exogs.drop(['cuenca', 'index'], axis=1, inplace=True)
+
+# Calculo la columnas 'dias_sin_precip'
+historical_exogs['dias_sin_precip'] = 0
+dias_transcurridos = 0
+for index, row in historical_exogs.iterrows():
+    if row['precipitacion_bool'] == 1:
+        dias_transcurridos = 0  # reinicia el contador si ha llovido
+    else:
+        dias_transcurridos += 1
+
+    historical_exogs.loc[index, 'dias_sin_precip'] = dias_transcurridos
+
+if 'fecha' in historical_exogs.columns:
+    historical_exogs['fecha'] = historical_exogs['fecha'].astype(str)
+
+
+future_exog_dfs['historical'] = historical_exogs
+
 # 6. Realizar las predicciones futuras
 future_predictions = {}
 for model_name, future_exog_df in future_exog_dfs.items():
@@ -349,7 +380,7 @@ if future_predictions is not None:
     # os.makedirs(output_graphs_dir, exist_ok=True) # Crear el directorio de gráficas
 
     model_colors_map = {
-        'Full Dataset Prediction': 'black',
+        'historical': 'black',
         'ACCESS-ESM1-5': 'blue',
         'CNRM-CM6-1': 'orange',
         'MPI-ESM1-2-LR': 'grey',
@@ -357,21 +388,21 @@ if future_predictions is not None:
         'MRI-ESM2-0': 'yellow'
     }
 
-    # Preparar la predicción del full-dataset
-    full_dataset_file = os.path.join(output_base_dir, f'graphs_{cuenca}', 'full_dataset.csv')
-    full_dataset_for_agg = pd.read_csv(full_dataset_file)
-    if 'fecha' in full_dataset_for_agg.columns:
-        full_dataset_for_agg = full_dataset_for_agg.set_index('fecha')
-    full_dataset_for_agg.index = pd.to_datetime(full_dataset_for_agg.index)
-    full_dataset_for_agg['day_of_year'] = full_dataset_for_agg.index.day_of_year
-    full_dataset_for_agg['month'] = full_dataset_for_agg.index.month
+    # # Preparar la predicción del full-dataset
+    # full_dataset_file = os.path.join(output_base_dir, f'graphs_{cuenca}', 'full_dataset.csv')
+    # full_dataset_for_agg = pd.read_csv(full_dataset_file)
+    # if 'fecha' in full_dataset_for_agg.columns:
+    #     full_dataset_for_agg = full_dataset_for_agg.set_index('fecha')
+    # full_dataset_for_agg.index = pd.to_datetime(full_dataset_for_agg.index)
+    # full_dataset_for_agg['day_of_year'] = full_dataset_for_agg.index.day_of_year
+    # full_dataset_for_agg['month'] = full_dataset_for_agg.index.month
 
-    avg_full_dataset_pred_per_day = full_dataset_for_agg.groupby('day_of_year')['area_nieve_pred'].mean().rename('Full Dataset Prediction')
-    avg_full_dataset_pred_per_month = full_dataset_for_agg.groupby('month')['area_nieve_pred'].mean().rename('Full Dataset Prediction')
+    # avg_full_dataset_pred_per_day = full_dataset_for_agg.groupby('day_of_year')['area_nieve_pred'].mean().rename('Full Dataset Prediction')
+    # avg_full_dataset_pred_per_month = full_dataset_for_agg.groupby('month')['area_nieve_pred'].mean().rename('Full Dataset Prediction')
 
     # Acumular predicciones de los 5 modelos
     all_models_avg_predictions_per_day = {}
-    all_models_avg_predictions_per_month = {}
+    # all_models_avg_predictions_per_month = {}
 
     for model_name, predictions_df in future_predictions.items():
         predictions_file_name = os.path.join(output_path, f'predictions_{model_name}.csv')
@@ -382,58 +413,52 @@ if future_predictions is not None:
         predictions_for_agg = predictions_df[['area_nieve_pred']].copy()
         predictions_for_agg.index = pd.to_datetime(predictions_for_agg.index)
         predictions_for_agg['day_of_year'] = predictions_for_agg.index.day_of_year
-        predictions_for_agg['month'] = predictions_for_agg.index.month
+        # predictions_for_agg['month'] = predictions_for_agg.index.month
 
         all_models_avg_predictions_per_day[model_name] = predictions_for_agg.groupby('day_of_year')['area_nieve_pred'].mean()
-        all_models_avg_predictions_per_month[model_name] = predictions_for_agg.groupby('month')['area_nieve_pred'].mean()
+        # all_models_avg_predictions_per_month[model_name] = predictions_for_agg.groupby('month')['area_nieve_pred'].mean()
 
     # --- Generación de gráficos ---
     try:
-        # Definir la información para ambos tipos de gráficos
-        graph_configs = [
-            {'name': 'per_day', 'xlabel': 'Day of the year', 'full_dataset_pred_avg': avg_full_dataset_pred_per_day, 'models_avg_data': all_models_avg_predictions_per_day},
-            {'name': 'per_month', 'xlabel': 'Month of the year', 'full_dataset_pred_avg': avg_full_dataset_pred_per_month, 'models_avg_data': all_models_avg_predictions_per_month}
-        ]
 
-        for config in graph_configs:
-            plt.figure(figsize=(12, 8))
+        plt.figure(figsize=(12, 8))
 
-            # Plotear la línea de la predicción en el full-dataset
-            sns.lineplot(x=config['full_dataset_pred_avg'].index, y=config['full_dataset_pred_avg'],
-                        label='historical', color=model_colors_map['Full Dataset Prediction'], linewidth=2)
+        # Plotear la línea de la predicción en el full-dataset
+        # sns.lineplot(x=avg_full_dataset_pred_per_day.index, y=avg_full_dataset_pred_per_day,
+        #             label='historical', color=model_colors_map['Full Dataset Prediction'], linewidth=2)
 
-            # Plotear las líneas de los 5 modelos
-            for i, (model_name, avg_data) in enumerate(config['models_avg_data'].items()):
-                color_to_use = model_colors_map.get(model_name, 'red')
-                sns.lineplot(x=avg_data.index, y=avg_data, label=model_name, color=color_to_use, linewidth=2)
+        historical = all_models_avg_predictions_per_day['historical']
+        plt.xlim(left=min(historical.index), right=(max(historical.index)))
+        plt.ylim(bottom=0, top=max(historical))
+        plt.xlabel('Day of the year')
+        plt.ylabel("Snow cover area (km2)")
 
+        # Plotear las líneas de los 5 modelos
+        for i, (model_name, avg_data) in enumerate(all_models_avg_predictions_per_day.items()):
+            color_to_use = model_colors_map.get(model_name, 'red')
 
-                plt.text(x=0.02, y=0.02, # (0,0 = abajo-izq; 1,1 = arriba-der)
-                    s=scenario,
-                    transform=plt.gca().transAxes,
-                    fontweight='bold', va='bottom', ha='left'
-                    #bbox=dict(facecolor='white', alpha=0.7, edgecolor='none', boxstyle='round,pad=0.5') # Opcional: fondo para el texto
-                )
-                plt.xlim(left=min(config['full_dataset_pred_avg'].index), right=(max(config['full_dataset_pred_avg'].index)))
-                plt.ylim(bottom=0)
-                plt.xlabel(config['xlabel'])
-                plt.ylabel("Snow cover area (km2)")
+            sns.lineplot(x=avg_data.index, y=avg_data, label=model_name, color=color_to_use, linewidth=2)
+            plt.text(x=0.02, y=0.02, # (0,0 = abajo-izq; 1,1 = arriba-der)
+                s=scenario,
+                transform=plt.gca().transAxes,
+                fontweight='bold', va='bottom', ha='left'
+            )
 
-                if cuenca == 'adda-bornio' or cuenca == 'nenskra-enguri':
-                    plt.legend(loc='lower left', bbox_to_anchor=(0,0.1), frameon=False)
-                
-                elif cuenca == 'mapocho-almendros':
-                    plt.legend(loc='upper left', frameon=False)
+            if cuenca == 'adda-bornio' or cuenca == 'nenskra-enguri':
+                plt.legend(loc='lower left', bbox_to_anchor=(0,0.1), frameon=False)
+            
+            elif cuenca == 'mapocho-almendros':
+                plt.legend(loc='upper left', frameon=False)
 
-                else:   # indrwawati-melamchi, genil-dilar, uncompahgre-ridgway
-                    plt.legend(loc='upper center', frameon=False)
+            else:   # indrwawati-melamchi, genil-dilar, uncompahgre-ridgway
+                plt.legend(loc='upper center', frameon=False)
 
-                plt.tight_layout()
+            plt.tight_layout()
 
-            graph_output_path = os.path.join(output_path, f'seasonal_avg_{config["name"]}_{cuenca}.png')
-            plt.savefig(graph_output_path)
-            plt.close() # Cierra la figura para liberar memoria
-            print(f"Gráfico de promedio {config['name']} guardado en: {graph_output_path}")
+        graph_output_path = os.path.join(output_path, f'seasonal_avg_per_day_{cuenca}.png')
+        plt.savefig(graph_output_path)
+        plt.close() # Cierra la figura para liberar memoria
+        print(f"Gráfico de promedio de día del año guardado en: {graph_output_path}")
 
     except Exception as e:
         print(f"Error al generar gráficas: {e}")
