@@ -1,6 +1,5 @@
 # Predicción de la cobertura de nieve con un modelo NARX
 
-
 ## Descripción
 
 Este proyecto tiene como objetivo crear conciencia sobre cómo va a ir cambiando el nivel de la capa de nieve en fechas futuras utilizando un modelo NARX (Non-linear Autoregressive with Exogenous Inputs).
@@ -116,10 +115,10 @@ Dentro del disco externo habrá dos directorios:
 - **data:** en el que se encontrarán todos los CSVs y los archivos hdf descargados
     ->
 - **models:** en el que habrá una carpeta por cada cuenca que contendrá el mejor modelo para esa cuenca asi como sus métricas, y gráficas relevantes con respecto a las predicciones:
-    - *future_predictions*: se mostrarán
-    - *graphs_adda-bornio*
-    - *metrics.json*
-    - *narx_model_adda-bornio.h5*
+    - *future_predictions*: se mostrarán las predicciones de los 5 modelos en los 4 escenarios posibles en cada cuenca 
+    - *graphs_adda-bornio*: gráficas sobre el rendimiento del modelo comparado con los datos reales
+    - *metrics.json*: metricas e hiperparámetros del modelo
+    - *narx_model_adda-bornio.h5*: el modelos
 
 ![Ejemplo de la carpeta del modelo de adda-bornio](images/ejemplo-ficheros.png)
 
@@ -136,7 +135,7 @@ Este fichero contiene un conjunto de funciones útiles para procesar los datos y
 
 ### 5.2. models/best_params.py
 Programa muy útil que hace uso de la librería optuna y se encarga de encontrar el mejor modelo para cada cuenca. Simplemente ejecutar el script y se pedirá al usuario la cuenca que se desea optimizar y el número de ensayos que se quiere realizar. Cada ensayo tarda bastante por lo que se recomienda no usar un número demasiado alto, ej: 10-20.
-Se creará un modelo .h5 con la mejor configuración, se plotearán las gráficas y se obtendrán las metricas en el directorio *EXTERNAL_DISK/new_models/*.
+Se guardarán los hiperparámetros del mejor modelo encontrado en un json, el cual se mostrará la ruta por pantalla
 La métrica que se usa para la optimización es el NSE (Nash Sutcliffe Efficiency)
 
 ### 5.3. models/create_load_model.py
@@ -150,34 +149,8 @@ Se encarga de generar los mapas de probabilidad de que cada pixel esté cubierno
 ¿Como usar?
 Simplemente llamar a la funcion, save = True para guardar los resultados o False simplemente para mostrarlos por pantalla 
 
-### 5.6. environment-hdf.yml & tf210_gpu.yml
-Entornos para que funcione el proyecto correctamente, tanto para heatmaps.py como para algunas funcionalidades de limpieza_datos.py es necesario tener activo el entorno *environment-hdf.yml*. Para el resto usaremos *tf210_gpu.py* ya que usará la versión 2.10 de TensorFlow (libreria para machine learning) y hará uso de la gpu (si el pc está configurado para ello) para procesar los datos más rapidamente.
+### 5.6. environment-hdf.yml & tf210_gpu.yml (IMPORTANTE)
+Entornos para que funcione el proyecto correctamente, tanto para heatmaps.py como para algunas funcionalidades de limpieza_datos.py es necesario tener activo el entorno *environment-hdf.yml*. Para el resto usaremos *tf210_gpu.yml* ya que usará la versión 2.10 de TensorFlow (libreria para machine learning) y hará uso de la gpu (si el pc está configurado para ello) para procesar los datos más rapidamente. 
 
-
-## 📊 Evaluación del Modelo
-
-El rendimiento del modelo se evalúa utilizando cuatro métricas clave en diferentes conjuntos de datos para proporcionar una visión completa de su capacidad:
-
-* **R2 (Coeficiente de Determinación):** Mide la proporción de la varianza en la variable dependiente que es predecible a partir de las variables independientes. Un valor cercano a 1.0 indica un buen ajuste.
-* **MAE (Error Absoluto Medio):** Calcula la media de las diferencias absolutas entre las predicciones y los valores reales. Se expresa en las mismas unidades que la variable objetivo, facilitando su interpretación.
-* **NSE (Eficiencia de Nash-Sutcliffe):** Una métrica hidrológica que evalúa qué tan bien las predicciones se ajustan a las observaciones. Un NSE de 1.0 indica un ajuste perfecto, mientras que valores negativos sugieren que el modelo es peor que usar la media de las observaciones.
-* **KGE (Eficiencia de Kling-Gupta):** Mejora el NSE al considerar la correlación, la varianza relativa y la sesgo relativo entre las predicciones y las observaciones. Un KGE de 1.0 es el valor óptimo.
-
-### Conjuntos de Evaluación
-
-1.  **Métricas de Entrenamiento:**
-    * **Dónde:** Calculadas sobre el `conjunto de entrenamiento`.
-    * **Propósito:** Indican qué tan bien el modelo ha aprendido los patrones de los datos utilizados para su optimización. Un buen rendimiento es esencial, pero un rendimiento excesivamente alto puede indicar sobreajuste.
-
-2.  **Métricas de Prueba:**
-    * **Dónde:** Calculadas sobre el `conjunto de prueba`.
-    * **Propósito:** Evalúan la capacidad de generalización del modelo en datos **nunca antes vistos** durante el entrenamiento. Son la medida más honesta del rendimiento del modelo fuera del proceso de aprendizaje.
-
-3.  **Métricas de Validación (Predicción Paso a Paso):**
-    * **Dónde:** Calculadas sobre el `conjunto de validación`.
-    * **Propósito:** Simulan un escenario de predicción futura real. El modelo utiliza los `n_lags_area` datos históricos iniciales y, a partir de ahí, usa sus **propias predicciones anteriores** como entrada para los pasos subsiguientes, junto con los valores reales futuros de las variables exógenas.
-    * **Importancia:** Revela la robustez del modelo y cómo se acumulan los errores de predicción a lo largo del tiempo. Las métricas aquí suelen ser las más bajas debido a la propagación de errores, lo cual es un comportamiento esperado.
-
-4.  **Métricas en Todo el Conjunto de Datos:**
-    * **Dónde:** Calculadas combinando las predicciones y valores reales de los `conjuntos de entrenamiento`, `prueba` y `validación`.
-    * **Propósito:** Proporciona una visión global del rendimiento del modelo a lo largo de todo el período de datos disponibles, ofreciendo un resumen consolidado en modo predicción.
+Para instalar el entorno simplemente habrá que ejecutar *conda env create -f tf210_gpu.yml*
+*conda env list* para comprobar que el entorno se ha creado correctamente y *conda activate tf210_gpu* para activar nuestro nuevo entorno

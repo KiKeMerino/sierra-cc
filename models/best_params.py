@@ -520,10 +520,9 @@ print(f"\n--- Iniciando Optimización Optuna para Cuenca: {cuenca_name} ---")
 
 # Definir el directorio de salida para el mejor modelo y métricas de esta cuenca específica
 basin_output_dir = os.path.join(models_dir, cuenca_name)
-os.makedirs(basin_output_dir, exist_ok=True) # Asegura que el directorio de la cuenca exista
+os.makedirs(basin_output_dir, exist_ok=True)
 
 # Crear una función objetivo parcial para la cuenca actual
-# Asegúrate de que 'objective_single_basin' esté definida antes en tu script.
 objective_for_this_basin = partial(objective_single_basin,
                                     basin_data=preprocessed_data['data'],
                                     basin_scalers=preprocessed_data['scalers'],
@@ -556,12 +555,17 @@ if study_basin.best_trial is not None:
 
     # Almacenar los mejores parámetros y entrenar el modelo final para esta cuenca
     best_params_basin = best_trial_basin.params
-    best_n_lags_area = best_params_basin['n_lags_area']
-    best_n_layers = best_params_basin['n_layers']
-    best_n_neuronas = best_params_basin['n_units_lstm']
-    best_learning_rate = best_params_basin['learning_rate']
-    best_dropout_rate = best_params_basin['dropout_rate']
-    epochs_final_train = 100 # Máximo de épocas para el entrenamiento final, EarlyStopping se encargará
+    json_output_path = os.path.join(basin_output_dir, 'best_params.json')
+    with open(json_output_path, 'w', encoding='utf-8') as f:
+        json.dump(convert_numpy_to_python(best_params_basin), f, indent=4)
+    print(f"Métricas guardadas para {cuenca_name} en {json_output_path}")
+
+#     best_n_lags_area = best_params_basin['n_lags_area']
+#     best_n_layers = best_params_basin['n_layers']
+#     best_n_neuronas = best_params_basin['n_units_lstm']
+#     best_learning_rate = best_params_basin['learning_rate']
+#     best_dropout_rate = best_params_basin['dropout_rate']
+#     epochs_final_train = 100 # Máximo de épocas para el entrenamiento final, EarlyStopping se encargará
 
     # print(f"\n--- Entrenando modelo final para {cuenca_name} con los mejores hiperparámetros ---")
     # basin_data_final = preprocessed_data['data']

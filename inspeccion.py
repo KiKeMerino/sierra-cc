@@ -3,48 +3,18 @@ import tensorflow as tf
 from tensorflow import keras
 import os
 import pandas as pd
+import matplotlib.pyplot as plt
+from sklearn.preprocessing import MinMaxScaler
+import seaborn as sns
 
-EXTERNAL_DISK = 'E:'
+EXTERNAL_DISK = 'D:'
+cuenca = 'mapocho-almendros'
+
+#%%
 models_directory = os.path.join(EXTERNAL_DISK, "models")
-future_exog = os.path.join(EXTERNAL_DISK, 'data/csv/series_futuras_clean')
-#%%
-exog_file = pd.read_csv(os.path.join(EXTERNAL_DISK, 'data', 'csv/v_exog_hist.csv'), index_col = 0)
-exog_file.fecha = pd.to_datetime(exog_file.fecha)
-exog_file = exog_file[exog_file['fecha'].dt.year >= 2000]
-
-adda_historic_imputed = pd.read_csv('./datasets_imputed/adda-bornio.csv')
-adda_predictions = pd.read_csv(os.path.join(future_exog, 'adda-bornio/Adda ssp 245 2051-2070','ACCESS-ESM1-5.csv'))
-adda_og = exog_file[exog_file['cuenca'] == 'adda-bornio']
-
-genil_historic =  pd.read_csv('./datasets/genil-dilar.csv')
-genil_predictions = pd.read_csv(os.path.join(future_exog, 'genil-dilar/Genil ssp 245 2051-2070','ACCESS-ESM1-5.csv'))
-genil_og = exog_file[exog_file['cuenca'] == 'genil-dilar']
-
-#%%
-print(f'Media de precipitacion de datos historicos adda-bornio: {adda_historic_imputed.precipitacion.mean()}')
-print(f'Media de precipitacion de predicciones adda-bornio: {adda_predictions.precipitacion.mean()}')
-
-#%%
-print(f'Media de temperatura de datos historicos  adda-bornio: {adda_historic_imputed.temperatura.mean()}')
-print(f'Media de temperatura de predicciones adda-bornio: {adda_predictions.temperatura.mean()}')
-print(f'Media de temperatura de historico adda-bornio original: {adda_og.temperatura.mean()}')
-
-#%%
-print(f'Media de precipitacion de datos historicos genil-dilar: {genil_historic.precipitacion.mean()}')
-print(f'Media de precipitacion de predicciones genil-dilar: {genil_predictions.precipitacion.mean()}')
-
-#%%
-print(f'Media de temperatura de datos historicos genil-dilar: {genil_historic.temperatura.mean()}')
-print(f'Media de temperatura de predicciones genil-dilar: {genil_predictions.temperatura.mean()}')
-print(f'Media de temperatura de historico genil-dilar original: {genil_og.temperatura.mean()}')
-
-#%%
-
-#%%
-df = pd.read_csv('D:\data\csv\series_futuras_og/adda-bornio\Adda ssp 245 2051-2070.csv', header=1)
-df
-#%%
-df['T'].mean()
+future_series = os.path.join(EXTERNAL_DISK, 'data/csv/series_futuras_clean', cuenca, 'Mapocho ssp 585 2081-2100')
+full = pd.read_csv(os.path.join(EXTERNAL_DISK, models_directory, 'mapocho-almendros/graphs_mapocho-almendros/full_dataset.csv'))
+h = pd.read_csv('datasets_imputed/mapocho-almendros.csv', index_col=0)
 #%%
 scenario4_path = os.path.join(models_directory, 'mapocho-almendros/future_predictions/Mapocho ssp 585 2081-2100/')
 model1 = pd.read_csv(os.path.join(scenario4_path, 'predictions_ACCESS-ESM1-5.csv'))
@@ -52,7 +22,130 @@ model2 = pd.read_csv(os.path.join(scenario4_path, 'predictions_CNRM-CM6-1.csv'))
 model3 = pd.read_csv(os.path.join(scenario4_path, 'predictions_HadGEM3-GC31-LL.csv'))
 model4 = pd.read_csv(os.path.join(scenario4_path, 'predictions_MPI-ESM1-2-LR.csv'))
 model5 = pd.read_csv(os.path.join(scenario4_path, 'predictions_MRI-ESM2-0.csv'))
+#%%
+df = pd.read_csv(os.path.join(future_series, 'HadGEM3-GC31-LL.csv'), index_col=0)
+df.index = pd.to_datetime(df.index)
+#%%
+h = pd.read_csv('datasets_imputed/mapocho-almendros.csv', index_col=0)
+h.set_index('fecha', inplace=True)
+h.index = pd.to_datetime(h.index)
 
+#%%
+full = pd.read_csv(os.path.join(EXTERNAL_DISK, models_directory, 'mapocho-almendros/graphs_mapocho-almendros/full_dataset.csv'))
+full.set_index('fecha', inplace=True)
+full.index = pd.to_datetime(full.index)
+
+prediction = pd.read_csv('merged_df-mapocho.csv', index_col=0)
+prediction.set_index('fecha', inplace=True)
+prediction.index = pd.to_datetime(prediction.index)
+
+prediction.drop(['dia_sen', 'precipitacion_bool', 'dias_sin_precip'], axis=1, inplace=True)
+#%%
+año = 2092
+
+plt.figure(figsize=(15,8))
+plt.style.use('default')
+sns.lineplot(prediction[prediction.index.year == año][['temperatura','precipitacion']],)
+plt.title("area de nieve predicha")
+plt.legend = True
+plt.ylim(bottom=0)
+plt.tight_layout()
+plt.show()
+#%%
+plt.close()
+#%%
+prediction_grouped = prediction.groupby(prediction.index.day_of_year).mean()
+full = full.groupby(full.index.day_of_year).mean()
+
+# pd.merge(left=prediction_grouped, right=full, how='left', on='fecha', suffixes=('_pred', '_real'))
+#%%
+columnas_a_escalar = ['precipitacion', 'temperatura', 'dia_sen', 'precipitacion_bool', 'dias_sin_precip', 'area_nieve_pred']
+df_plot = pd.DataFrame()
+scaler = MinMaxScaler()
+df_plot[columnas_a_escalar] = scaler.fit_transform(prediction[columnas_a_escalar])
+df_plot.index = prediction.index
+
+
+#%%
+(
+    df
+    .groupby(df.index.month)
+    ['precipitacion']
+    .mean()
+    .plot(kind='bar')
+)
+
+#%%
+(
+    df
+    .groupby(df.index.month)
+    ['temperatura']
+    .mean()
+    .plot(kind='bar')
+)
+
+#%%
+(
+    h
+    .groupby(h.index.month)
+    ['temperatura']
+    .mean()
+    .plot(kind='bar')
+)
+
+#%%
+(
+    h
+    .groupby(h.index.month)
+    ['temperatura']
+    .mean()
+    .plot(kind='bar')
+)
+#%%
+fig = plt.figure(figsize=(12,10))
+axs = fig.subplots(2,2)
+
+# Plotting on axs[0,0] for df temperature
+monthly_temp_df = df.groupby(df.index.month)['temperatura'].mean()
+axs[0,0].bar(monthly_temp_df.index, monthly_temp_df.values) # Use .bar()
+axs[0,0].set_title('Temperatura del GEM3')
+axs[0,0].set_xlabel('Month')
+axs[0,0].set_ylabel('Temperature (°C)')
+axs[0,0].set_xticks(monthly_temp_df.index) # Ensure all months are shown as ticks
+
+# Plotting on axs[0,1] for df precipitation
+monthly_prec_df = df.groupby(df.index.month)['precipitacion'].mean()
+axs[0,1].bar(monthly_prec_df.index, monthly_prec_df.values) # Use .bar()
+axs[0,1].set_title('Precipitacion del GEM3')
+axs[0,1].set_xlabel('Month')
+axs[0,1].set_ylabel('Precipitation (mm)')
+axs[0,1].set_xticks(monthly_prec_df.index)
+
+# Plotting on axs[1,0] for h temperature
+monthly_temp_h = h.groupby(h.index.month)['temperatura'].mean()
+axs[1,0].bar(monthly_temp_h.index, monthly_temp_h.values) # Use .bar()
+axs[1,0].set_title('Temperatura real')
+axs[1,0].set_xlabel('Month')
+axs[1,0].set_ylabel('Temperature (°C)')
+axs[1,0].set_xticks(monthly_temp_h.index)
+
+# Plotting on axs[1,1] for h precipitation
+monthly_prec_h = h.groupby(h.index.month)['precipitacion'].mean()
+axs[1,1].bar(monthly_prec_h.index, monthly_prec_h.values) # Use .bar()
+axs[1,1].set_title('Precipitacion real')
+axs[1,1].set_xlabel('Month')
+axs[1,1].set_ylabel('Precipitation (mm)')
+axs[1,1].set_xticks(monthly_prec_h.index)
+
+plt.tight_layout() # Adjust layout to prevent overlapping titles/labels
+plt.show()
+
+
+
+#%%
+full.groupby(full.index.month)['area_nieve_pred'].mean()
+
+#%%
 # model1 = model1.set_index(pd.to_datetime(model1['fecha'])).drop('fecha', axis=1)
 model2 = model2.set_index(pd.to_datetime(model2['fecha'])).drop('fecha', axis=1)
 model3 = model3.set_index(pd.to_datetime(model3['fecha'])).drop('fecha', axis=1)
@@ -65,17 +158,17 @@ print(f"Media enero y febrero de modelo 3: {model3[model3.index.month.isin([12,1
 print(f"Media enero y febrero de modelo 2: {model2[model2.index.month.isin([12,1])].mean().iloc[0]}")
 
 #%%
-access = pd.read_csv('E:\data\csv\series_futuras_clean\mapocho-almendros\Mapocho ssp 585 2081-2100\ACCESS-ESM1-5.csv', index_col=0)
-gem3 = pd.read_csv('E:\data\csv\series_futuras_clean\mapocho-almendros\Mapocho ssp 585 2081-2100\HadGEM3-GC31-LL.csv', index_col=0)
+access = pd.read_csv('D:\data\csv\series_futuras_clean\mapocho-almendros\Mapocho ssp 585 2081-2100\ACCESS-ESM1-5.csv', index_col=0)
+gem3 = pd.read_csv('D:\data\csv\series_futuras_clean\mapocho-almendros\Mapocho ssp 585 2081-2100\HadGEM3-GC31-LL.csv', index_col=0)
 access.index = pd.to_datetime(access.index)
 gem3.index = pd.to_datetime(gem3.index)
 
 #%% Temperatura
-print(f"Media enero y febrero de modelo 1: {access.loc[gem3.index.month.isin([12,1]),'temperatura'].mean()}")
+print(f"Media enero y febrero de modelo 1: {access.loc[access.index.month.isin([12,1]),'temperatura'].mean()}")
 print(f"Media enero y febrero de modelo 3: {gem3.loc[gem3.index.month.isin([12,1]),'temperatura'].mean()}")
 
 #%% precipitacion
-print(f"Media enero y febrero de modelo 1: {access.loc[gem3.index.month.isin([12,1]),'precipitacion'].mean()}")
+print(f"Media enero y febrero de modelo 1: {access.loc[access.index.month.isin([12,1]),'precipitacion'].mean()}")
 print(f"Media enero y febrero de modelo 3: {gem3.loc[gem3.index.month.isin([12,1]),'precipitacion'].mean()}")
 
 #%% dias_sin_precip
