@@ -17,7 +17,7 @@ import matplotlib.ticker as mticker # Necesario para FixedLocator
 import matplotlib.dates as mdates # Alias para fechas de matplotlib
 
 plt.rcParams.update({'font.size': 18})
-EXTERNAL_DISK = 'E:'
+EXTERNAL_DISK = 'D:'
 
 
 # clase custom_lstm para manejar el error 'time_major'
@@ -297,7 +297,7 @@ def evaluate_full_dataset(model, df_full_scaled_cuenca, scaler_area, exog_cols_s
     kge_full = kling_gupta_efficiency(y_full_true_original, y_full_pred_original)
 
     full_metrics = {'R2': r2_full, 'MAE': mae_full, 'NSE': nse_full, 'KGE': kge_full}
-    print(f"Métricas en todo el conjunto de datos (modo prediccion) para {cuenca_name}: R2={r2_full:.2f}, MAE={mae_full:.2f}km2, NSE={nse_full:.2f}, KGE={kge_full:.2f}")
+    print(f"Métricas en todo el conjunto de datos (modo prediccion) para {cuenca_name}: R2={r2_full:.2f}, MAE={mae_full:.2f}km², NSE={nse_full:.2f}, KGE={kge_full:.2f}")
 
     if graph == True:
         graph_types = ['per_day', 'all_days'] # tambien está el 'per_month'
@@ -343,7 +343,7 @@ def evaluate_full_dataset(model, df_full_scaled_cuenca, scaler_area, exog_cols_s
                 df_plot_grouped.reset_index(inplace=True) # El índice de fecha se convierte en columna 'fecha'
                 df_plot_grouped = df_plot_grouped.rename(columns={'area_nieve':'area_nieve_real'})
                 groupby_col = 'fecha' # Ahora la columna de fecha es 'fecha'
-                ylim_top = max(max(df_plot_grouped['area_nieve_pred']), max(df_plot_grouped['area_nieve_real'])) * 1.25
+                ylim_top = max(max(df_plot_grouped['area_nieve_pred']), max(df_plot_grouped['area_nieve_real'])) * 1.35
 
             plt.figure(figsize=(12,8))
             plt.title(cuenca_name.split('-')[0].upper(), loc='center', y=0.94)
@@ -362,7 +362,7 @@ def evaluate_full_dataset(model, df_full_scaled_cuenca, scaler_area, exog_cols_s
             if graph_type == 'all_days':
                 metrics_text = (
                     f"R²: {full_metrics['R2']:.2f}\n"
-                    f"MAE: {full_metrics['MAE']:.2f} km2\n"
+                    f"MAE: {full_metrics['MAE']:.2f} km²\n"
                     f"NSE: {full_metrics['NSE']:.2f}\n"
                     f"KGE: {full_metrics['KGE']:.2f}"
                 )
@@ -396,8 +396,8 @@ def evaluate_full_dataset(model, df_full_scaled_cuenca, scaler_area, exog_cols_s
                 plt.setp(plt.gca().xaxis.get_majorticklabels(), rotation=45, ha='right') 
             
 
-            plt.xlabel(xlabel_text)
-            plt.ylabel("Snow cover area (km2)")
+            plt.xlabel(xlabel_text, fontweight='bold')
+            plt.ylabel("Snow cover area (Km²)", fontweight='bold')
             plt.legend(loc='best', frameon=True)
             plt.tight_layout()
             

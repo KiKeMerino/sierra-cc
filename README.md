@@ -1,51 +1,12 @@
 # Predicción de la cobertura de nieve con un modelo NARX
 
-## Descripción
+## Primeros pasos
 
-Este proyecto tiene como objetivo crear conciencia sobre cómo va a ir cambiando el nivel de la capa de nieve en fechas futuras utilizando un modelo NARX (Non-linear Autoregressive with Exogenous Inputs).
+Lo primero será instalar los dos entornos necesarios para la ejecucion del proyecto con los siguientes ficheros: *'environment-hdf.yml'* y *'tf210_gpu.yml'*
+Entornos para que funcione el proyecto correctamente, tanto para heatmaps.py como para algunas funcionalidades de limpieza_datos.py es necesario tener activo el entorno *environment-hdf.yml*. Para el resto usaremos *tf210_gpu.yml* ya que usará la versión 2.10 de TensorFlow (libreria para machine learning) y hará uso de la gpu (si el pc está configurado para ello) para procesar los datos más rapidamente. 
 
-La funcionalidad de este código es tomar un modelo de red neuronal recurrente (RNN) que has entrenado para predecir 'area_nieve' basándose en valores pasados de sí misma y de otras variables (exógenas), y utilizar ese modelo para predecir valores futuros de 'area_nieve' más allá de los datos que se utilizaron para entrenar y evaluar el modelo
-
-## Estructura de los datos
-
-Los datos utilizados que usaré en este proyecto contienen los siguientes datasets de la nasa del satélite MOD10A1F:
-
-* CGF_NDSI_Snow_Cover: **Este será el que nos interesa**
-    - long_name: 'cloud-gap-filled NDSI snow cover',
-    - valid_range: [0, 100],
-    - FillValue: 255,
-    - Key:
-        - **40 - 100 = NIEVE (1)**
-
-        - 0-100 = NDSI snow,
-        - 200 = missing data,
-        - 201 = no decision,
-        - 211 = night,
-        - 237 = inland water,
-        - 239 = ocean,
-        - 250 = cloud,
-        - 254 = detector saturated,
-        - 255 = fill
-
-* Cloud_Persistence
-    - long_name:
-    - cloud persistence for preceding days,
-    - valid_range: [0, 254],
-    - FillValue: 255,
-    - Key:
-        - count of consecutive preceding days of cloud cover
-
-Cada dataset es un raster de datos diviendo la basin en píxeles con los valores arriba mencionados, en este proyecto se considerarán los valores entre 40 y 100 como nieve, y los demás como no nieve para simplificar el modelo
-
-# Estructura del Dataset CGF_NDSI_Snow_Cover _(snow_cover)_
-Este es el Dataset con el que trabajaremos, se trata de un xarray que contiene datos de cubierta de nieve derivados de imagenes MODIS, su estructura principal es la siguiente:
-* **Dimensiones:**
-    * `y`: Coordenadas de latitud
-    * `x`: Coordenadas de longitud
-    Se puede acceder a las coordenadas de latitud con `snow_cover.y.values` y a las de longitud con `snow_cover.x.values`.
-* **Variable principal:**
-    * `CGF_NDSI_Snow_Cover`: Representa el Índice de Nieve de Diferencia Normalizada (NDSI), indicando la fracción de cubierta de nieve en cada píxel.
-    Los valores de cubierta de nieve se acceden directamente a través de `snow_cover["CGF_NDSI_Snow_Cover"]`.
+Para instalar el entorno simplemente habrá que ejecutar *conda env create -f tf210_gpu.yml*
+*conda env list* para comprobar que el entorno se ha creado correctamente y *conda activate tf210_gpu* para activar nuestro nuevo entorno
 
 
 ## 1. Obtención de Datos <a name="id1"> </a>
@@ -67,48 +28,7 @@ Los datos MODIS se obtuvieron de [EarthData Search](https://search.earthdata.nas
 
 Nuestro modelo se basa en la arquitectura **NARX (Nonlinear AutoRegressive with eXogenous inputs)**, que se implementa mediante **Redes Neuronales Recurrentes (RNN)** con **capas LSTM (Long Short-Term Memory)**.
 
-## 2. Arquitectura del modelo
-
-### ¿Qué es NARX?
-
-**NARX** es una clase de modelos de series temporales que predice un valor futuro de una variable basándose en:
-* **Auto-Regresivo (AR):** Valores pasados de la misma variable (en este caso, el área de nieve).
-* **Variables Exógenas (X):** Valores pasados y/o presentes de otras variables externas que influyen en la variable objetivo. Para este proyecto, estas variables exógenas incluyen:
-    * `temperatura`
-    * `precipitacion`
-    * `dias_sin_precip`
-    * (`precipitacion_bool`, `year`, `month`) también presentes en los datos, en algunos modelos los incluiré y en otros no, para comprobar rendimiento y métricas
-* **No Lineal (N):** Las relaciones entre las entradas y la salida no son lineales, lo que permite al modelo capturar dinámicas complejas. Las redes neuronales son la elección ideal para modelar estas relaciones no lineales.
-
-### ¿Por qué LSTM?
-
-Las **LSTM** son un tipo avanzado de capa de red neuronal recurrente. Su principal ventaja es su capacidad para aprender y recordar dependencias a largo plazo en secuencias de datos. Esto es crucial para la predicción de series temporales, donde el estado actual del sistema (área de nieve) puede depender de eventos que ocurrieron hace mucho tiempo. A diferencia de las RNN tradicionales, las LSTM superan el problema del "gradiente desvanecido" mediante "puertas" internas que controlan el flujo de información, permitiéndoles retener información relevante y descartar la irrelevante a lo largo de extensas secuencias.
-
-### Arquitectura del Modelo Específico
-
-Se entrena un modelo NARX-LSTM independiente para cada cuenca, lo que permite una especialización y adaptación a las características únicas de cada una. La arquitectura de cada modelo es la siguiente:
-
-* **Capa de Entrada:** `input_shape = (n_lags_area, 1 + num_variables_exogenas)`
-    * Recibe secuencias de longitud `n_lags_area` (ej. 3) de datos. Cada elemento de la secuencia es un vector que contiene el área de nieve escalada y las variables exógenas escaladas para un momento dado.
-* **Capa LSTM:** `LSTM(n_units_lstm, activation='relu')` Una capa recurrente que procesa la secuencia de entrada. Aprende y extrae patrones temporales y relaciones no lineales. Se configura con 2 parámetros:
-    *  n_units_lstm: numero de neuronas, cuanto mayor sea este número mayor capacidad para aprender patrones y relaciones complejas pero mayor coste computacional y mayor riesgo de 'overfitting'
-    *  Funcion de activación, en este caso "relu" (Rectified Linear Unit): introduce no linealidad, permitiendo que la red aprenda y modele relaciones más complejas y no lineales en los datos.
-* **Capa Densa de Salida:** Una capa totalmente conectada con una única neurona, que produce la predicción del área de nieve para el siguiente paso de tiempo ($t+1$).
-    * `Dense(1)`
-
-## 3. Preprocesamiento de los datos
-
-En este apartado se juntarán todas las variables que nos intesan para nuestro modelo del apartado anterior y se analizará el dataset resultante, haremos lo siguiente:
-
-1. EDA: exploracion de los datos
-Lo primero será juntar los 2 csv creados anteriormente haciendo coincidir las fechas, el resultado será un dataframe de este estilo:
-![Ejemplo genil-dilar](images/genil-dilar(head).png)
-
-Este es el resultado de juntar los dos dataframes creados anteriormente, sin embargo añadiré una columna más para mejorar el modelo "dias_sin_precip" que contará los dias transcurridos desde la última precipitación
-![Días sin precipitación](images/dias_sin_precip.png)
-
-
-## 4. Distribución de ficheros
+## 2. Distribución de ficheros
 El proyecto se divide en 2 grandes partes: el disco externo y el directorio en el que se encuentra este mismo README
 
 Dentro del disco externo habrá dos directorios:
@@ -122,7 +42,7 @@ Dentro del disco externo habrá dos directorios:
 
 ![Ejemplo de la carpeta del modelo de adda-bornio](images/ejemplo-ficheros.png)
 
-## 5. Ficheros útiles
+## 3. Ficheros útiles
 
 ### 5.1. limpieza_datos.py
 Este fichero contiene un conjunto de funciones útiles para procesar los datos y crear diferentes csv, a continuación se detallarán brevemente las funciones contenidas
