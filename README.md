@@ -2,7 +2,7 @@
 
 ## Overview
 
-Sierra is a research-grade toolkit to predict basin-scale snow-covered area and pixel-level snow probability from MODIS HDF satellite data and exogenous meteorological covariates. It provides end-to-end reproducible workflows for HDF processing, data cleaning & imputation, Optuna hyperparameter tuning, LSTM-based NARX modeling, and rich visual outputs (heatmaps and line plots) so reviewers can quickly evaluate model behavior and results.
+Sierra is a project made to predict basin-scale snow-covered area and pixel-level snow probability from MODIS HDF satellite data and exogenous meteorological variables. It provides end-to-end reproducible workflows for HDF processing, data cleaning & imputation, Optuna hyperparameter tuning, LSTM-based NARX modeling, and rich visual outputs (heatmaps and line plots) so reviewers can quickly evaluate model behavior and results.
 
 > Predict snow-covered area and pixel-level snow probability using a NARX model built with LSTM layers and MODIS satellite inputs. Ideal for hydrology research and for showcasing interpretable ML models to recruiters.
 
@@ -17,12 +17,12 @@ Sierra is a research-grade toolkit to predict basin-scale snow-covered area and 
 
 ---
 
-## 🧭 Quick Start (short)
+## 🧭 Quick Start
 
 1. Clone the repo:
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/KiKeMerino/sierra-cc.git
 cd sierra-cc-master
 ```
 
@@ -77,8 +77,6 @@ Raw MODIS HDF files were obtained from NASA EarthData Search (https://search.ear
 
 ## Workflow
 
-A short, practical workflow that describes how raw HDFs become model-ready datasets, models and visual reports:
-
 1. **Data acquisition (HDFs)** — Download MODIS HDF files per basin from NASA EarthData; store raw files on the external disk (expected `data/` layout).
 2. **HDF processing & reprojection** — Run `heatmaps.py` to reproject HDFs to lat/lon and compute pixel-level snow probability maps (GeoTIFFs / PNGs).
 3. **Basin aggregation** — Use `limpieza_datos.py` → `process_basin()` to compute per-basin snow-area timeseries from processed pixel data; outputs saved to `datasets/`.
@@ -89,10 +87,8 @@ A short, practical workflow that describes how raw HDFs become model-ready datas
 8. **Predictions & visualization** — Generate model predictions with `models/predictions.py` and produce plots and CSVs; final visual outputs are in `images/` and `images/heatmaps/`.
 9. **Review & iterate** — Inspect `models/*/metrics.json`, plots and heatmaps, refine preprocessing or model configuration and repeat.
 
-> Tip: wrap interactive scripts with small wrappers or flags to enable repeatable, non-interactive runs for CI or demos.
 
-
-## Project layout (concise)
+## Project layout
 
 - `datasets/` — raw and aggregated CSVs
 - `datasets_imputed/` — cleaned & imputed datasets
@@ -103,7 +99,7 @@ A short, practical workflow that describes how raw HDFs become model-ready datas
 - `tf210_gpu.yml` / `environment-hdf.yml` — conda environments
 
 
-## Useful scripts (what each does)
+## Useful scripts
 
 - `limpieza_datos.py` — data cleaning helpers
   - `process_basin(basin)` — compute basin area and snow area timeseries from HDFs
@@ -125,19 +121,11 @@ A short, practical workflow that describes how raw HDFs become model-ready datas
 
 ## Contact
 
-- **Kiké Merino (Author)** — LinkedIn: https://www.linkedin.com/in/kikemerino/
-
-
-## Contributing
-
-- Open issues or PRs for improvements. Consider adding automated tests and a `LICENSE` file (MIT / Apache-2.0 recommended).
+- **Kike Merino (Author)** — LinkedIn: https://www.linkedin.com/in/kikemerino/
 
 
 ## Known limitations
 
-- Several scripts are interactive and assume local disk structure for raw HDF files; include README notes in the future to automate example runs.
-
+- Several scripts are interactive and assume local disk structure for raw HDF files.
 
 ---
-
-Thanks for looking — contact the repo owner for a short demo or walkthrough GIF if desired ✨
